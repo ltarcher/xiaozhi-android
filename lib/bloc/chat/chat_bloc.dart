@@ -16,8 +16,11 @@ import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/model/storage_message.dart';
 import 'package:xiaozhi/model/websocket_message.dart';
 import 'package:xiaozhi/util/common_utils.dart';
+import 'package:xiaozhi/util/live2d_manager.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' if (dart.library.io) 'dart:io' show Platform;
 
 part 'chat_event.dart';
 part 'chat_state.dart';
@@ -301,5 +304,82 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         add(ChatStopListenEvent());
       }
     });
+  }
+
+  /// 开始录音
+  Future<void> _startRecord(bool isRequestMicrophonePermission) async {
+    if (!await Permission.microphone.isGranted) {
+      if (!isRequestMicrophonePermission ||
+          !await Permission.microphone.request().isGranted) {
+        emit(ChatNoMicrophonePermissionState());
+      }
+      if (!_isOnCall) {
+        return;
+      }
+    }
+
+    if (null == _websocketStreamSubscription) {
+      _initWebsocketListener();
+    }
+
+    _websocketChannel!.sink.add(
+      jsonEncode(
+        WebsocketMessage(
+          type: WebsocketMessage.typeListen,
+          sessionId: _sessionId,
+          state: WebsocketMessage.stateStart,
+          mode: WebsocketMessage.modeAuto,
+        ).toJson(),
+      ),
+    );
+
+    _audioRecorderStream = (await _audioRecorder!.startStream(
+      RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        echoCancel: true,
+        noiseSuppress: true,
+        numChannels: _audioChannels,
+        sampleRate: _audioSampleRate,
+      ),
+    ));
+
+    if (null != _audioRecorderSubscription) {
+      _audioRecorderSubscription!.cancel();
+      _audioRecorderSubscription = null;
+    }
+
+    _audioRecorderSubscription = _audioRecorderStream!.listen((data) async {
+      if (_websocketChannel != null &&
+          data.isNotEmpty &&
+          data.length % 2 == 0) {
+        Uint8List? opusData = await CommonUtils.pcmToOpus(
+          pcmData: data,
+          sampleRate: _audioSampleRate,
+          frameDuration: _audioFrameDuration,
+        );
+        if (null != opusData) {
+          _websocketChannel!.sink.add(opusData);
+        }
+      }
+    });
+
+    if (_audioRecorder != null) {
+      // 开始说话动画
+      if (!kIsWeb && Platform.isAndroid) {
+        Live2DManager().playSpeakAnimation();
+      }
+    }
+  }
+
+  /// 停止录音
+  Future<void> _stopRecord() async {
+    if (null != _audioRecorder && (await _audioRecorder!.isRecording())) {
+      await _audioRecorder!.stop();
+    }
+
+    // 结束说话动画
+    if (!kIsWeb && Platform.isAndroid) {
+      Live2DManager().playIdleAnimation();
+    }
   }
 }

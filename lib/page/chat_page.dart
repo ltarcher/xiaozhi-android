@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
+import 'package:xiaozhi/util/live2d_manager.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/widgets.dart' if (dart.library.io) 'dart:io' show Platform;
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 
 import 'call_page.dart';
@@ -26,13 +30,30 @@ class _ChatPageState extends State<ChatPage> {
       GlobalKey<HoldToTalkWidgetState>();
 
   bool _isPressing = false;
+  bool _isSpeaking = false;
 
   late ChatBloc chatBloc;
 
   @override
   void initState() {
     _refreshController = RefreshController();
+    _initializeLive2D();
     super.initState();
+  }
+
+  /// 初始化Live2D模型
+  Future<void> _initializeLive2D() async {
+    try {
+      // 只在Android平台上初始化Live2D
+      if (!kIsWeb && Platform.isAndroid) {
+        await Live2DManager().initialize();
+        await Live2DManager().loadDefaultModel();
+        // 播放默认待机动画
+        await Live2DManager().playIdleAnimation();
+      }
+    } catch (e) {
+      debugPrint('Failed to initialize Live2D: $e');
+    }
   }
 
   @override
@@ -48,6 +69,14 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _isPressing = false;
       });
+    }
+    
+    // 停止说话动画
+    if (_isSpeaking) {
+      _isSpeaking = false;
+      if (!kIsWeb && Platform.isAndroid) {
+        Live2DManager().playIdleAnimation();
+      }
     }
   }
 
@@ -206,6 +235,32 @@ class _ChatPageState extends State<ChatPage> {
               clearUp();
             }
           }
+          
+          // 检测是否有新的机器人回复，如果有则播放说话动画
+          if (chatState is ChatInitialState && 
+              chatState.messageList.isNotEmpty &&
+              !chatState.messageList.first.sendByMe &&
+              !_isSpeaking) {
+            
+            setState(() {
+              _isSpeaking = true;
+            });
+            
+            // 播放说话动画
+            if (!kIsWeb && Platform.isAndroid) {
+              Live2DManager().playSpeakAnimation();
+              
+              // 3秒后恢复待机动画
+              Future.delayed(Duration(seconds: 3), () {
+                if (_isSpeaking && mounted) {
+                  setState(() {
+                    _isSpeaking = false;
+                  });
+                  Live2DManager().playIdleAnimation();
+                }
+              });
+            }
+          }
         },
         builder: (context, ChatState chatState) {
           return Scaffold(
@@ -239,6 +294,16 @@ class _ChatPageState extends State<ChatPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // 添加Live2D模型显示区域
+                    if (!kIsWeb && Platform.isAndroid)
+                      Container(
+                        height: 300,
+                        child: AndroidView(
+                          viewType: 'live2d_view',
+                          creationParams: <String, dynamic>{},
+                          creationParamsCodec: const StandardMessageCodec(),
+                        ),
+                      ),
                     Expanded(
                       child: SmartRefresher(
                         enablePullDown: false,
