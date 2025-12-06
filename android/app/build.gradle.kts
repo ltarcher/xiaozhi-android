@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.thinkerror.xiaozhi"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -32,6 +32,15 @@ android {
 
     buildTypes {
         release {
+            // 启用代码混淆
+            isMinifyEnabled = true
+            // 启用资源压缩
+            isShrinkResources = true
+            // 指定ProGuard规则文件
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")

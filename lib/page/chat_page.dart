@@ -8,6 +8,8 @@ import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
+import 'package:flutter_live2d/flutter_live2d.dart';
+import 'package:xiaozhi/util/live2d_manager.dart';
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -28,11 +30,58 @@ class _ChatPageState extends State<ChatPage> {
   bool _isPressing = false;
 
   late ChatBloc chatBloc;
+  
+  // 添加Live2D相关变量
+  bool _live2dReady = false;
+  bool _live2dInitializationAttempted = false;
 
   @override
   void initState() {
     _refreshController = RefreshController();
     super.initState();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 在didChangeDependencies中初始化Live2D，确保context可用
+    if (!_live2dInitializationAttempted) {
+      _live2dInitializationAttempted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _initializeLive2D();
+      });
+    }
+  }
+
+  /// 初始化Live2D
+  Future<void> _initializeLive2D() async {
+    try {
+      // 初始化Live2D引擎
+      bool initSuccess = await Live2DManager().initialize();
+      if (!initSuccess) {
+        debugPrint("Failed to initialize Live2D engine");
+        return;
+      }
+      
+      // 加载Haru模型
+      bool loadSuccess = await Live2DManager().loadModel("assets/live2d/Haru/Haru.model3.json");
+      if (!loadSuccess) {
+        debugPrint("Failed to load Live2D model");
+        return;
+      }
+      
+      // 设置初始位置和缩放
+      await Live2DManager().setPosition(0, 0);
+      await Live2DManager().setScale(1.0);
+      
+      if (mounted) {
+        setState(() {
+          _live2dReady = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Live2D initialization error: $e");
+    }
   }
 
   @override
@@ -48,6 +97,11 @@ class _ChatPageState extends State<ChatPage> {
       setState(() {
         _isPressing = false;
       });
+    }
+    
+    // 停止说话时恢复默认表情
+    if (_live2dReady) {
+      Live2DManager().setExpression("default");
     }
   }
 
@@ -205,6 +259,17 @@ class _ChatPageState extends State<ChatPage> {
                 chatState.messageList.first.sendByMe) {
               clearUp();
             }
+            
+            // 当收到回复时播放说话动作
+            if (chatState.messageList.isNotEmpty && 
+                !chatState.messageList.first.sendByMe) {
+              if (_live2dReady) {
+                // 播放说话动作
+                Live2DManager().startMotion("talk", 0);
+                // 设置说话表情
+                Live2DManager().setExpression("happy");
+              }
+            }
           }
         },
         builder: (context, ChatState chatState) {
@@ -239,6 +304,25 @@ class _ChatPageState extends State<ChatPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // 添加Live2D显示区域
+                    if (_live2dReady)
+                      Container(
+                        height: 300,
+                        child: AndroidView(
+                          viewType: 'live2d_view',
+                          creationParams: <String, dynamic>{},
+                          creationParamsCodec: const StandardMessageCodec(),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 300,
+                        child: Center(
+                          child: _live2dInitializationAttempted 
+                            ? Text("Live2D not available")
+                            : CircularProgressIndicator(),
+                        ),
+                      ),
                     Expanded(
                       child: SmartRefresher(
                         enablePullDown: false,
@@ -340,6 +424,11 @@ class _ChatPageState extends State<ChatPage> {
                               _isPressing = true;
                             });
                           }
+                          
+                          // 按下说话按钮时触发表情变化
+                          if (_live2dReady) {
+                            Live2DManager().setExpression("surprise");
+                          }
                         },
                         onTapUp: (_) {
                           holdToTalkKey.currentState!.setCancelTapUp(false);
@@ -357,6 +446,11 @@ class _ChatPageState extends State<ChatPage> {
                             });
                           }
                           chatBloc.add(ChatStartListenEvent());
+                          
+                          // 开始录音时触发动画
+                          if (_live2dReady) {
+                            Live2DManager().startMotion("tap_body", 0);
+                          }
                         },
                         onLongPressEnd: (detail) async {
                           clearUp();
