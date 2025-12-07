@@ -42,12 +42,20 @@ class _SettingPageState extends State<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
     return Scaffold(
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.setting),
         actions: [
           IconButton(
             onPressed: () async {
+              // 提前获取所有需要的本地化文本和主题，避免在异步操作后使用context
+              final saveSuccessText = AppLocalizations.of(context)!.saveSuccess;
+              final saveFailedText = AppLocalizations.of(context)!.saveFailed;
+              final snackBarStyle = SnackBarBehavior.floating;
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final chatBloc = BlocProvider.of<ChatBloc>(context);
+              
               try {
                 await SharedPreferencesUtil().setOtaUrl(_otaUrlController.text);
                 await SharedPreferencesUtil().setWebsocketUrl(
@@ -56,25 +64,30 @@ class _SettingPageState extends State<SettingPage> {
                 await SharedPreferencesUtil().setMacAddress(
                   _macAddressController.text,
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
+                
+                if (!mounted) return;
+                scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text(AppLocalizations.of(context)!.saveSuccess),
-                    behavior: SnackBarBehavior.floating,
+                    content: Text(saveSuccessText),
+                    behavior: snackBarStyle,
                   ),
                 );
-                BlocProvider.of<ChatBloc>(context).add(ChatInitialEvent());
+                
+                if (!mounted) return;
+                chatBloc.add(ChatInitialEvent());
               } catch (_) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                scaffoldMessenger.showSnackBar(
                   SnackBar(
-                    content: Text(AppLocalizations.of(context)!.saveFailed),
-                    behavior: SnackBarBehavior.floating,
+                    content: Text(saveFailedText),
+                    behavior: snackBarStyle,
                   ),
                 );
               }
             },
             icon: Icon(
               Icons.save_rounded,
-              color: Theme.of(context).colorScheme.primary,
+              color: primaryColor,
             ),
           ),
         ],

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:meta/meta.dart';
+import 'package:logger/logger.dart';
 import 'package:opus_dart/opus_dart.dart';
 import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:permission_handler/permission_handler.dart';
@@ -23,6 +24,8 @@ part 'chat_event.dart';
 part 'chat_state.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
+  late Logger _logger;
+
   WebSocketChannel? _websocketChannel;
 
   StreamSubscription? _websocketStreamSubscription;
@@ -140,14 +143,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             }
           }
         } catch (e, s) {
-          print('___ERROR Listen $s $e');
+          _logger.e('___ERROR Listen $s $e');
         }
       },
       onError: (e) {
-        print('___ERROR Websocket $e');
+        _logger.e('___ERROR Websocket $e');
       },
       onDone: () {
-        print('___INFO Websocket Closed');
+        _logger.i('___INFO Websocket Closed');
         if (null != _websocketStreamSubscription) {
           _websocketStreamSubscription!.cancel();
           _websocketStreamSubscription = null;
@@ -157,6 +160,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   ChatBloc() : super(ChatInitialState()) {
+    _logger = Logger();
     on<ChatEvent>((event, emit) async {
       if (event is ChatInitialEvent) {
         try {
@@ -202,7 +206,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
           emit(ChatInitialState(messageList: messageList));
         } catch (e, s) {
-          print('___ERROR ChatInitialEvent $e $s');
+          _logger.e('___ERROR ChatInitialEvent $e $s');
         }
       }
 
