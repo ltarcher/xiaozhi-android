@@ -69,10 +69,14 @@ class _ChatPageState extends State<ChatPage> {
           _live2dViewCreated = true;
         });
       }
-      
-      // 延迟加载模型，确保视图已创建
-      await Future.delayed(Duration(milliseconds: 500));
-      
+    } catch (e) {
+      debugPrint("Live2D initialization error: $e");
+    }
+  }
+  
+  /// 在视图创建完成后加载模型
+  Future<void> _loadModel() async {
+    try {
       // 加载Haru模型
       bool loadSuccess = await Live2DManager().loadModel("assets/live2d/Haru/Haru.model3.json");
       if (!loadSuccess) {
@@ -90,7 +94,7 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     } catch (e) {
-      debugPrint("Live2D initialization error: $e");
+      debugPrint("Live2D load model error: $e");
     }
   }
 
@@ -290,11 +294,9 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   IconButton(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => SettingPage()),
-                      );
+                      Navigator.of(context).pop();
                     },
-                    icon: Icon(Icons.settings_rounded),
+                    icon: Icon(Icons.arrow_back_rounded),
                   ),
                 ],
               ),
@@ -322,6 +324,22 @@ class _ChatPageState extends State<ChatPage> {
                           viewType: 'live2d_view',
                           creationParams: <String, dynamic>{},
                           creationParamsCodec: const StandardMessageCodec(),
+                          onPlatformViewCreated: (_) {
+                            // 当平台视图创建完成后再加载模型
+                          },
+                        ),
+                      )
+                    else if (_live2dViewCreated)
+                      SizedBox(
+                        height: 300,
+                        child: AndroidView(
+                          viewType: 'live2d_view',
+                          creationParams: <String, dynamic>{},
+                          creationParamsCodec: const StandardMessageCodec(),
+                          onPlatformViewCreated: (_) {
+                            // 当平台视图创建完成后再加载模型
+                            _loadModel();
+                          },
                         ),
                       )
                     else

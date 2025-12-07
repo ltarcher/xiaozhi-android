@@ -6,6 +6,7 @@ import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/page/chat_page.dart';
+import 'package:xiaozhi/page/idle_page.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
 
@@ -61,7 +62,7 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: [Locale('en'), Locale('zh')],
-      home: const ChatPage(),
+      home: const IdlePage(),
     );
   }
 }
