@@ -8,7 +8,6 @@ import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/page/chat_page.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
-import 'package:flutter_live2d/flutter_live2d.dart'; // 添加Live2D导入
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +45,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

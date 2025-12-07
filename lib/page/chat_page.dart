@@ -8,7 +8,6 @@ import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
-import 'package:flutter_live2d/flutter_live2d.dart';
 import 'package:xiaozhi/util/live2d_manager.dart';
 
 import 'call_page.dart';
@@ -317,7 +316,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     // 添加Live2D显示区域
                     if (_live2dReady)
-                      Container(
+                      SizedBox(
                         height: 300,
                         child: AndroidView(
                           viewType: 'live2d_view',
@@ -326,7 +325,7 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       )
                     else
-                      Container(
+                      SizedBox(
                         height: 300,
                         child: Center(
                           child: _live2dViewCreated 
