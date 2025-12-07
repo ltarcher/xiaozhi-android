@@ -6,8 +6,8 @@ class XConst {
   static final double holdToTalkResponseAreaHeight = 100;
 
   static final String defaultOtaUrl =
-      'https://qingling-ai.top/xiaozhi/ota/';
+      'https://api.tenclass.net/xiaozhi/ota/';
 
   static final String defaultWebsocketUrl =
-      'wss://qingling-ai.top/xiaozhi/v1/';
+      'wss://api.tenclass.net/xiaozhi/v1/';
 }
