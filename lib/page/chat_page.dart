@@ -34,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   // 添加Live2D相关变量
   bool _live2dReady = false;
   bool _live2dInitializationAttempted = false;
+  bool _live2dViewCreated = false;
 
   @override
   void initState() {
@@ -62,6 +63,16 @@ class _ChatPageState extends State<ChatPage> {
         debugPrint("Failed to initialize Live2D engine");
         return;
       }
+      
+      // 标记视图即将创建
+      if (mounted) {
+        setState(() {
+          _live2dViewCreated = true;
+        });
+      }
+      
+      // 延迟加载模型，确保视图已创建
+      await Future.delayed(Duration(milliseconds: 500));
       
       // 加载Haru模型
       bool loadSuccess = await Live2DManager().loadModel("assets/live2d/Haru/Haru.model3.json");
@@ -318,9 +329,16 @@ class _ChatPageState extends State<ChatPage> {
                       Container(
                         height: 300,
                         child: Center(
-                          child: _live2dInitializationAttempted 
-                            ? Text("Live2D not available")
-                            : CircularProgressIndicator(),
+                          child: _live2dViewCreated 
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 10),
+                                  Text("Loading Live2D model...")
+                                ],
+                              )
+                            : Text("Live2D not available"),
                         ),
                       ),
                     Expanded(
