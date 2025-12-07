@@ -1,12 +1,15 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:logger/logger.dart';
 import 'package:opus_dart/opus_dart.dart';
 
 class CommonUtils {
   static SimpleOpusEncoder? _simpleOpusEncoder;
 
   static SimpleOpusDecoder? _simpleOpusDecoder;
+
+  static final Logger _logger = Logger();
 
   static String generateUnicastMacAddress() {
     final rand = Random();
@@ -57,7 +60,7 @@ class CommonUtils {
 
       return encoded;
     } catch (e, s) {
-      print('___ERROR encoding PCM to Opus: $e $s');
+      _logger.e('___ERROR encoding PCM to Opus: $e $s');
       return null;
     }
   }
@@ -84,7 +87,7 @@ class CommonUtils {
 
       return pcmBytes;
     } catch (e, s) {
-      print('___ERROR encoding PCM to Opus: $e $s');
+      _logger.e('___ERROR encoding PCM to Opus: $e $s');
       return null;
     }
   }

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
+import 'package:logger/logger.dart';
 import 'package:meta/meta.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
@@ -9,8 +10,10 @@ part 'ota_state.dart';
 
 class OtaBloc extends Bloc<OtaEvent, OtaState> {
   final _dio = Dio();
+  late Logger _logger;
 
   OtaBloc() : super(OtaActivatedState()) {
+    _logger = Logger();
     on<OtaEvent>((event, emit) async {
       if (event is OtaInitialEvent) {
         try {
@@ -50,7 +53,7 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
             );
           }
         } catch (e, s) {
-          print('___ERROR OTA $e $s');
+          _logger.e('___ERROR OTA $e $s');
         }
       }
     });
