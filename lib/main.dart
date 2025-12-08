@@ -8,7 +8,6 @@ import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/page/chat_page.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
-import 'package:flutter_live2d/flutter_live2d.dart'; // 添加Live2D导入
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,27 +39,20 @@ void main() async {
         ),
         BlocProvider(create: (context) => ChatBloc()..add(ChatInitialEvent())),
       ],
-      child: MyApp(),
+      child: MaterialApp(
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF002FA7)),
+          useMaterial3: true,
+        ),
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: [Locale('en'), Locale('zh')],
+        home: const ChatPage(),
+      ),
     ),
   );
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF002FA7)),
-        useMaterial3: true,
-      ),
-      localizationsDelegates: [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: [Locale('en'), Locale('zh')],
-      home: const ChatPage(),
-    );
-  }
 }
