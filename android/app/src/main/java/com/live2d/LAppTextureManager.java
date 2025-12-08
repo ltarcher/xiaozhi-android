@@ -49,9 +49,20 @@ public class LAppTextureManager {
             stream = context.getAssets().open(filePath);
         } catch (IOException e) {
             e.printStackTrace();
+            // 如果无法打开文件，返回null或默认纹理
+            return null;
         }
+        
         // decodeStream似乎会将图像作为预乘alpha加载
         Bitmap bitmap = BitmapFactory.decodeStream(stream);
+        
+        // 添加空指针检查
+        if (bitmap == null) {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                CubismFramework.coreLogFunction("Failed to decode bitmap from file: " + filePath);
+            }
+            return null;
+        }
 
         // 激活Texture0
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);

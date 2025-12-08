@@ -86,55 +86,60 @@ public class LAppView {
         int windowHeight = LAppDelegate.getInstance().getWindowHeight();
 
         LAppTextureManager textureManager = LAppDelegate.getInstance().getTextureManager();
+        int programId = spriteShader.getShaderId();
 
         // 背景图像
         LAppTextureManager.TextureInfo backgroundTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.BACK_IMAGE.getPath());
+        
+        if (backgroundTexture != null) {
+            // x,y是图像的中心坐标
+            float x = windowWidth * 0.5f;
+            float y = windowHeight * 0.5f;
+            float fWidth = backgroundTexture.width * 2.0f;
+            float fHeight = windowHeight * 0.95f;
 
-        // x,y是图像的中心坐标
-        float x = windowWidth * 0.5f;
-        float y = windowHeight * 0.5f;
-        float fWidth = backgroundTexture.width * 2.0f;
-        float fHeight = windowHeight * 0.95f;
-
-        int programId = spriteShader.getShaderId();
-
-        if (backSprite == null) {
-            backSprite = new LAppSprite(x, y, fWidth, fHeight, backgroundTexture.id, programId);
-        } else {
-            backSprite.resize(x, y, fWidth, fHeight);
+            if (backSprite == null) {
+                backSprite = new LAppSprite(x, y, fWidth, fHeight, backgroundTexture.id, programId);
+            } else {
+                backSprite.resize(x, y, fWidth, fHeight);
+            }
         }
 
         // 齿轮图像
         LAppTextureManager.TextureInfo gearTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.GEAR_IMAGE.getPath());
+        
+        if (gearTexture != null) {
+            float x = windowWidth - gearTexture.width * 0.5f;
+            float y = windowHeight - gearTexture.height * 0.5f;
+            float fWidth = gearTexture.width;
+            float fHeight = gearTexture.height;
 
-        x = windowWidth - gearTexture.width * 0.5f;
-        y = windowHeight - gearTexture.height * 0.5f;
-        fWidth = gearTexture.width;
-        fHeight = gearTexture.height;
-
-        if (gearSprite == null) {
-            gearSprite = new LAppSprite(x, y, fWidth, fHeight, gearTexture.id, programId);
-        } else {
-            gearSprite.resize(x, y, fWidth, fHeight);
+            if (gearSprite == null) {
+                gearSprite = new LAppSprite(x, y, fWidth, fHeight, gearTexture.id, programId);
+            } else {
+                gearSprite.resize(x, y, fWidth, fHeight);
+            }
         }
 
         // 电源按钮图像
         LAppTextureManager.TextureInfo powerTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.POWER_IMAGE.getPath());
+        
+        if (powerTexture != null) {
+            float x = powerTexture.width * 0.5f;
+            float y = windowHeight - powerTexture.height * 0.5f;
+            float fWidth = powerTexture.width;
+            float fHeight = powerTexture.height;
 
-        x = powerTexture.width * 0.5f;
-        y = windowHeight - powerTexture.height * 0.5f;
-        fWidth = powerTexture.width;
-        fHeight = powerTexture.height;
-
-        if (powerSprite == null) {
-            powerSprite = new LAppSprite(x, y, fWidth, fHeight, powerTexture.id, programId);
-        } else {
-            powerSprite.resize(x, y, fWidth, fHeight);
+            if (powerSprite == null) {
+                powerSprite = new LAppSprite(x, y, fWidth, fHeight, powerTexture.id, programId);
+            } else {
+                powerSprite.resize(x, y, fWidth, fHeight);
+            }
         }
 
         // 渲染目标精灵
-        x = windowWidth * 0.5f;
-        y = windowHeight * 0.5f;
+        float x = windowWidth * 0.5f;
+        float y = windowHeight * 0.5f;
 
         if (renderingSprite == null) {
             renderingSprite = new LAppSprite(x, y, windowWidth, windowHeight, 0, programId);
