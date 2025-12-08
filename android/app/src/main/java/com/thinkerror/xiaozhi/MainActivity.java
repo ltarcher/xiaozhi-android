@@ -6,10 +6,12 @@ import android.opengl.GLSurfaceView;
 import androidx.annotation.NonNull;
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import com.live2d.LAppDelegate;
 import com.live2d.GLRenderer;
 import com.live2d.LAppLive2DManager;
+import com.live2d.LAppModel;
 
 public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "com.thinkerror.xiaozhi/live2d";
@@ -62,7 +64,7 @@ public class MainActivity extends FlutterActivity {
     }
     
     // 处理开始动作的调用
-    private void handleStartMotion(MethodChannel.MethodCall call, MethodChannel.Result result) {
+    private void handleStartMotion(MethodCall call, MethodChannel.Result result) {
         String group = call.argument("group");
         Integer number = call.argument("number");
         Integer priority = call.argument("priority");
@@ -82,7 +84,7 @@ public class MainActivity extends FlutterActivity {
     }
     
     // 处理设置表情的调用
-    private void handleSetExpression(MethodChannel.MethodCall call, MethodChannel.Result result) {
+    private void handleSetExpression(MethodCall call, MethodChannel.Result result) {
         String expressionId = call.argument("expressionId");
         
         if (expressionId == null) {
@@ -100,7 +102,7 @@ public class MainActivity extends FlutterActivity {
     }
     
     // 处理设置口型同步值的调用
-    private void handleSetLipSyncValue(MethodChannel.MethodCall call, MethodChannel.Result result) {
+    private void handleSetLipSyncValue(MethodCall call, MethodChannel.Result result) {
         Double value = call.argument("value");
         
         if (value == null) {
@@ -121,7 +123,7 @@ public class MainActivity extends FlutterActivity {
     }
     
     // 处理切换到下一个场景的调用
-    private void handleNextScene(MethodChannel.MethodCall call, MethodChannel.Result result) {
+    private void handleNextScene(MethodCall call, MethodChannel.Result result) {
         // 在OpenGL线程中执行
         glSurfaceView.queueEvent(() -> {
             LAppLive2DManager manager = LAppLive2DManager.getInstance();
@@ -132,7 +134,7 @@ public class MainActivity extends FlutterActivity {
     }
     
     // 处理切换到指定场景的调用
-    private void handleChangeScene(MethodChannel.MethodCall call, MethodChannel.Result result) {
+    private void handleChangeScene(MethodCall call, MethodChannel.Result result) {
         Integer index = call.argument("index");
         
         if (index == null) {

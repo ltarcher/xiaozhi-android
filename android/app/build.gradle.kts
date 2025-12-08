@@ -56,4 +56,7 @@ flutter {
 // 添加本地库引用和Live2D依赖
 dependencies {
     implementation(files("../libs/live2d/Live2DCubismCore.aar"))
+    
+    // 添加对Live2D Framework模块的引用
+    implementation(files("../libs/live2d/framework-release.aar"))
 }

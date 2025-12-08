@@ -48,6 +48,21 @@ public class LAppLive2DManager {
     }
 
     /**
+     * 加载指定名称的模型
+     *
+     * @param modelDirectoryName 模型目录名
+     */
+    public void loadModel(String modelDirectoryName) {
+        String dir = "live2d/" + modelDirectoryName + "/";
+        LAppModel model = new LAppModel();
+        model.loadAssets(dir, modelDirectoryName + ".model3.json", LAppDelegate.getInstance().getContext());
+        
+        // 清除现有模型并添加新模型
+        releaseAllModel();
+        models.add(model);
+    }
+
+    /**
      * 设置assets文件夹中的模型文件夹名
      */
     public void setUpModel() {

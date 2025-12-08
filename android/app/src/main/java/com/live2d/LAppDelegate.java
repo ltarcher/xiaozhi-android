@@ -38,6 +38,10 @@ public class LAppDelegate {
         LAppPal.updateTime();
     }
 
+    public void onPause() {
+        // 暂停应用
+    }
+
     public void onStop() {
         if (view != null) {
             view.close();

@@ -8,103 +8,69 @@
 package com.live2d;
 
 import android.opengl.GLES20;
+
 import com.live2d.sdk.cubism.framework.utils.CubismDebug;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 
-import static android.opengl.GLES20.*;
-import static com.live2d.LAppDefine.ResourcePath.*;
-
-public class LAppSpriteShader implements AutoCloseable {
+/**
+ * 精灵着色器类
+ */
+public class LAppSpriteShader {
+    /**
+     * 属性位置：位置
+     */
     public static final int ATTR_POSITION_LOCATION = 0;
+    /**
+     * 属性位置：UV
+     */
     public static final int ATTR_UV_LOCATION = 1;
 
     /**
-     * 创建Sprite用着色器程序的实例
-     */
-    public LAppSpriteShader() {
-        // 创建着色器程序
-        programId = createShader();
-    }
-
-    @Override
-    public void close() {
-        if (programId != 0) {
-            GLES20.glDeleteProgram(programId);
-            programId = 0;
-        }
-    }
-
-    public int getShaderId() {
-        return programId;
-    }
-
-    /**
-     * 创建着色器程序
+     * 生成着色器程序
      *
-     * @return 着色器程序ID
+     * @param vertShaderSrc 顶点着色器源码
+     * @param fragShaderSrc 片段着色器源码
+     * @return 程序ID
      */
-    private int createShader() {
+    public static int generateShaderProgram(String vertShaderSrc, String fragShaderSrc) {
         // 编译顶点着色器
-        int vertexShaderId = compileShaderProgram(GLES20.GL_VERTEX_SHADER, SHADER_ROOT.getPath() + "/" + VERT_SHADER.getPath());
-
-        // 编译片段着色器
-        int fragmentShaderId = compileShaderProgram(GLES20.GL_FRAGMENT_SHADER, SHADER_ROOT.getPath() + "/" + FRAG_SHADER.getPath());
-
-        // 创建着色器程序
-        int programId = GLES20.glCreateProgram();
-        if (programId == 0) {
-            CubismDebug.cubismLogError("Failed to create shader program.");
+        int vertShaderId = compileShader(GLES20.GL_VERTEX_SHADER, vertShaderSrc);
+        if (vertShaderId == 0) {
+            CubismDebug.cubismLogError("Vertex shader compile error!");
             return 0;
         }
 
-        // 附加顶点着色器
-        GLES20.glAttachShader(programId, vertexShaderId);
-
-        // 附加片段着色器
-        GLES20.glAttachShader(programId, fragmentShaderId);
-
-        // 绑定属性位置
-        GLES20.glBindAttribLocation(programId, ATTR_POSITION_LOCATION, "position");
-        GLES20.glBindAttribLocation(programId, ATTR_UV_LOCATION, "uv");
-
-        // 链接着色器程序
-        GLES20.glLinkProgram(programId);
-
-        // 检查链接结果
-        int[] linked = new int[1];
-        GLES20.glGetProgramiv(programId, GLES20.GL_LINK_STATUS, linked, 0);
-        if (linked[0] == 0) {
-            CubismDebug.cubismLogError("Failed to link program: " + GLES20.glGetProgramInfoLog(programId));
-            GLES20.glDeleteProgram(programId);
-            programId = 0;
+        // 编译片段着色器
+        int fragShaderId = compileShader(GLES20.GL_FRAGMENT_SHADER, fragShaderSrc);
+        if (fragShaderId == 0) {
+            CubismDebug.cubismLogError("Fragment shader compile error!");
+            return 0;
         }
 
-        // 释放着色器
-        GLES20.glDeleteShader(vertexShaderId);
-        GLES20.glDeleteShader(fragmentShaderId);
+        // 链接着色器程序
+        int programId = linkProgram(vertShaderId, fragShaderId);
+        if (programId == 0) {
+            CubismDebug.cubismLogError("Shader program link error!");
+            return 0;
+        }
 
         return programId;
     }
 
     /**
-     * 编译着色器程序
+     * 编译着色器
      *
-     * @param shaderType 着色器类型
-     * @param fileName   着色器文件名
+     * @param shaderType 着色器类型 (GL_VERTEX_SHADER 或 GL_FRAGMENT_SHADER)
+     * @param shaderSource 着色器源码
      * @return 着色器ID
      */
-    private int compileShaderProgram(int shaderType, String fileName) {
-        // 读取着色器文件
-        String shaderSource = loadShaderFile(fileName);
-
+    private static int compileShader(int shaderType, String shaderSource) {
         // 创建着色器
         int shaderId = GLES20.glCreateShader(shaderType);
         if (shaderId == 0) {
-            CubismDebug.cubismLogError("Failed to create shader.");
             return 0;
         }
 
@@ -118,7 +84,8 @@ public class LAppSpriteShader implements AutoCloseable {
         int[] compiled = new int[1];
         GLES20.glGetShaderiv(shaderId, GLES20.GL_COMPILE_STATUS, compiled, 0);
         if (compiled[0] == 0) {
-            CubismDebug.cubismLogError("Failed to compile shader: " + GLES20.glGetShaderInfoLog(shaderId));
+            // 编译失败
+            String infoLog = GLES20.glGetShaderInfoLog(shaderId);
             GLES20.glDeleteShader(shaderId);
             return 0;
         }
@@ -127,49 +94,90 @@ public class LAppSpriteShader implements AutoCloseable {
     }
 
     /**
-     * 加载着色器文件
+     * 链接着色器程序
      *
-     * @param fileName 着色器文件名
-     * @return 着色器源码
+     * @param vertexShaderId 顶点着色器ID
+     * @param fragmentShaderId 片段着色器ID
+     * @return 程序ID
      */
-    private String loadShaderFile(String fileName) {
-        StringBuilder stringBuilder = new StringBuilder();
-        InputStream inputStream = null;
-        BufferedReader bufferedReader = null;
-
-        try {
-            inputStream = LAppDelegate.getInstance().getContext().getAssets().open(fileName);
-            bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                stringBuilder.append(line).append("\n");
-            }
-        } catch (IOException e) {
-            CubismDebug.cubismLogError("Failed to load shader file: " + fileName);
-            e.printStackTrace();
-        } finally {
-            if (bufferedReader != null) {
-                try {
-                    bufferedReader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+    private static int linkProgram(int vertexShaderId, int fragmentShaderId) {
+        // 创建程序
+        int programId = GLES20.glCreateProgram();
+        if (programId == 0) {
+            return 0;
         }
 
-        return stringBuilder.toString();
+        // 绑定着色器
+        GLES20.glAttachShader(programId, vertexShaderId);
+        GLES20.glAttachShader(programId, fragmentShaderId);
+
+        // 链接程序
+        GLES20.glLinkProgram(programId);
+
+        // 检查链接结果
+        int[] linked = new int[1];
+        GLES20.glGetProgramiv(programId, GLES20.GL_LINK_STATUS, linked, 0);
+        if (linked[0] == 0) {
+            // 链接失败
+            String infoLog = GLES20.glGetProgramInfoLog(programId);
+            GLES20.glDeleteProgram(programId);
+            return 0;
+        }
+
+        return programId;
+    }
+
+    /**
+     * 构造函数
+     */
+    public LAppSpriteShader() {
+        String vertShaderSrc =
+                "#version 100\n"
+                        + "attribute vec3 position;"
+                        + "attribute vec2 uv;"
+                        + "varying vec2 vuv;"
+                        + "void main(void)"
+                        + "{"
+                        + "   gl_Position = vec4(position, 1.0);"
+                        + "   vuv = uv;"
+                        + "}";
+        String fragShaderSrc =
+                "#version 100\n"
+                        + "precision mediump float;"
+                        + "varying vec2 vuv;"
+                        + "uniform sampler2D texture;"
+                        + "uniform vec4 baseColor;"
+                        + "void main(void)"
+                        + "{"
+                        + "   gl_FragColor = texture2D(texture, vuv) * baseColor;"
+                        + "}";
+
+        shaderId = generateShaderProgram(vertShaderSrc, fragShaderSrc);
+    }
+
+    /**
+     * 绑定着色器程序
+     */
+    public void bindShaderProgram() {
+        if (shaderId == 0) {
+            CubismDebug.cubismLogError("Shader program is not set.");
+            return;
+        }
+
+        GLES20.glUseProgram(shaderId);
+    }
+
+    /**
+     * 获取着色器程序ID
+     *
+     * @return 程序ID
+     */
+    public int getShaderId() {
+        return shaderId;
     }
 
     /**
      * 着色器程序ID
      */
-    private int programId;
+    private int shaderId;
 }
