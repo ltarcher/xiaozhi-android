@@ -116,29 +116,29 @@ public class LAppDefine {
         /**
          * 素材目录的相对路径
          */
-        ROOT(""),
+        ROOT("live2d/"),
         /**
          * 着色器目录的相对路径
          */
-        SHADER_ROOT("Shaders/"),
+        SHADER_ROOT("live2d/Shaders/"),
         /**
          * 背景图像文件
          */
-        BACK_IMAGE("assets/live2d/back_class_normal.png"),
+        BACK_IMAGE("back_class_normal.png"),
         /**
-         * 齿轮图像文件
+         * 齿轮图像ファイル
          */
-        GEAR_IMAGE("assets/live2d/icon_gear.png"),
+        GEAR_IMAGE("icon_gear.png"),
         /**
-         * Power button image file
+         * 电源按钮图像文件
          */
-        POWER_IMAGE("assets/live2d/close.png"),
+        POWER_IMAGE("close.png"),
         /**
-         * Vertex shader file
+         * 顶点着色器ファイル
          */
         VERT_SHADER("VertSprite.vert"),
         /**
-         * Fragment shader file
+         * 片段着色器ファイル
          */
         FRAG_SHADER("FragSprite.frag");
 
@@ -230,8 +230,9 @@ public class LAppDefine {
      * Enable/Disable debug logging.
      */
     public static final boolean DEBUG_LOG_ENABLE = true;
+
     /**
-     * Enable/Disable debug logging for processing tapping information.
+     * 是否在日志中显示处理结果
      */
     public static final boolean DEBUG_TOUCH_LOG_ENABLE = true;
     /**
@@ -239,7 +240,7 @@ public class LAppDefine {
      */
     public static final LogLevel cubismLoggingLevel = LogLevel.VERBOSE;
     /**
-     * Enable/Disable premultiplied alpha.
+     * 是否在日志中显示更新信息
      */
     public static final boolean PREMULTIPLIED_ALPHA_ENABLE = true;
 

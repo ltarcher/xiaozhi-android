@@ -53,7 +53,7 @@ public class LAppLive2DManager {
      * @param modelDirectoryName 模型目录名
      */
     public void loadModel(String modelDirectoryName) {
-        String dir = "assets/live2d/" + modelDirectoryName + "/";
+        String dir = "live2d/" + modelDirectoryName + "/";
         LAppModel model = new LAppModel();
         model.loadAssets(dir, modelDirectoryName + ".model3.json", LAppDelegate.getInstance().getContext());
         
@@ -72,7 +72,7 @@ public class LAppLive2DManager {
 
         final AssetManager assets = LAppDelegate.getInstance().getContext().getAssets();
         try {
-            String[] live2dDirs = assets.list("assets/live2d");
+            String[] live2dDirs = assets.list("live2d");
             if (live2dDirs != null) {
                 for (String modelDirName : live2dDirs) {
                     // 跳过非目录文件
@@ -80,7 +80,7 @@ public class LAppLive2DManager {
                         continue;
                     }
                     
-                    String[] files = assets.list("assets/live2d/" + modelDirName);
+                    String[] files = assets.list("live2d/" + modelDirName);
                     String target = modelDirName + ".model3.json";
                     // 查找与文件夹同名的.model3.json文件
                     if (files != null) {
@@ -214,7 +214,7 @@ public class LAppLive2DManager {
 
         String modelDirName = modelDir.get(index);
 
-        String modelPath = "assets/live2d/" + modelDirName + "/";
+        String modelPath = "live2d/" + modelDirName + "/";
         String modelJsonName = modelDirName + ".model3.json";
 
         releaseAllModel();
