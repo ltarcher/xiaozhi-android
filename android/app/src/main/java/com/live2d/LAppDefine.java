@@ -112,11 +112,11 @@ public class LAppDefine {
         /**
          * Relative path of the material directory
          */
-        ROOT(""),
+        ROOT("live2d/"),
         /**
          * Relative path of shader directory
          */
-        SHADER_ROOT("Shaders"),
+        SHADER_ROOT("live2d/Shaders/"),
         /**
          * Background image file
          */
@@ -213,12 +213,12 @@ public class LAppDefine {
     }
 
     /**
-     * MOC3的整合性を検証するかどうか。有効ならtrue。
+     * MOC3の整合性を検証するかどうか。有効ならtrue。
      */
     public static final boolean MOC_CONSISTENCY_VALIDATION_ENABLE = true;
 
     /**
-     * motion3.json的整合性を検証するかどうか。有効ならtrue。
+     * motion3.jsonの整合性を検証するかどうか。有効ならtrue。
      */
     public static final boolean MOTION_CONSISTENCY_VALIDATION_ENABLE = true;
 
