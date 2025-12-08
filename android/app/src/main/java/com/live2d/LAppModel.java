@@ -57,6 +57,9 @@ public class LAppModel extends CubismUserModel {
         idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
         idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
         idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
+        
+        // 口型同步参数ID
+        idParamMouthOpenY = idManager.getId(ParameterId.MOUTH_OPEN_Y.getId());
     }
 
     public void loadAssets(final String dir, final String fileName, Context context) {
@@ -166,7 +169,7 @@ public class LAppModel extends CubismUserModel {
         // Lip Sync Setting
         if (lipSync) {
             // 实时进行唇形同步时，从系统获取音量并在0~1范围内输入值
-            float value = 0.0f;
+            float value = lipSyncValue;
 
             for (int i = 0; i < lipSyncIds.size(); i++) {
                 CubismId lipSyncId = lipSyncIds.get(i);
@@ -390,6 +393,15 @@ public class LAppModel extends CubismUserModel {
 
     public CubismOffscreenSurfaceAndroid getRenderingBuffer() {
         return renderingBuffer;
+    }
+
+    /**
+     * 设置口型同步值
+     *
+     * @param value 口型同步值 (0.0 - 1.0)
+     */
+    public void setLipSyncValue(float value) {
+        lipSyncValue = value;
     }
 
     /**
@@ -651,6 +663,10 @@ public class LAppModel extends CubismUserModel {
      */
     private final List<CubismId> lipSyncIds = new ArrayList<CubismId>();
     /**
+     * 口型同步值
+     */
+    private float lipSyncValue = 0.0f;
+    /**
      * 已加载的动作映射
      */
     private final Map<String, ACubismMotion> motions = new HashMap<String, ACubismMotion>();
@@ -683,7 +699,11 @@ public class LAppModel extends CubismUserModel {
      * 参数ID: ParamEyeBallY
      */
     private final CubismId idParamEyeBallY;
-
+    /**
+     * 参数ID: ParamMouthOpenY (口型同步参数)
+     */
+    private final CubismId idParamMouthOpenY;
+    
     /**
      * 绘制目标（除帧缓冲外）
      */
