@@ -37,20 +37,13 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
-    
-    // 添加本地库引用
-    repositories {
-        flatDir {
-            dirs 'libs'
-        }
-    }
 }
 
 flutter {
     source = "../.."
 }
 
-// 添加Live2D依赖
+// 添加本地库引用和Live2D依赖
 dependencies {
-    implementation(name: 'Live2DCubismCore', ext: 'aar')
+    implementation(files("../libs/live2d/Live2DCubismCore.aar"))
 }
