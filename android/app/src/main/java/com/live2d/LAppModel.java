@@ -62,17 +62,26 @@ public class LAppModel extends CubismUserModel {
         idParamMouthOpenY = idManager.getId(ParameterId.MOUTH_OPEN_Y.getId());
     }
 
-    public void loadAssets(final String dir, final String fileName, Context context) {
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("load model setting: " + fileName);
-        }
-
-        modelHomeDirectory = dir;
+    public void loadAssets(
+        final String modelHomeDirectory,
+        final String fileName,
+        Context context
+    ) {
+        this.modelHomeDirectory = modelHomeDirectory;
         this.context = context;
         String filePath = modelHomeDirectory + fileName;
 
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("Loading model from: " + filePath);
+        }
+
         // 读取json
         byte[] buffer = createBuffer(filePath);
+        
+        if (buffer.length == 0) {
+            LAppPal.printLog("ERROR: Buffer is empty for file: " + filePath);
+            return;
+        }
 
         ICubismModelSetting setting = new CubismModelSettingJson(buffer);
 
@@ -99,7 +108,7 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 模型的更新处理。从模型参数决定绘制状态
+     * 模型の更新処理。モデルパラメータから描画状態を決定する
      */
     public void update() {
         final float deltaTimeSeconds = LAppPal.getDeltaTime();
@@ -109,28 +118,28 @@ public class LAppModel extends CubismUserModel {
         dragX = dragManager.getX();
         dragY = dragManager.getY();
 
-        // 是否有通过动作更新参数
+        // 是否有モーションでパラメータが更新されたか
         boolean isMotionUpdated = false;
 
-        // 加载上次保存的状态
+        // 前回の状態をロード
         model.loadParameters();
 
-        // 如果没有播放动作，则从待机动作中随机播放
+        // モーションが再生されていない場合は待機モーションからランダムに再生する
         if (motionManager.isFinished()) {
             startRandomMotion(LAppDefine.MotionGroup.IDLE.getId(), LAppDefine.Priority.IDLE.getPriority());
         } else {
-            // 更新动作
+            // モーションの更新
             isMotionUpdated = motionManager.updateMotion(model, deltaTimeSeconds);
         }
 
-        // 保存模型状态
+        // 状態を保存
         model.saveParameters();
 
         // 不透明度
         opacity = model.getModelOpacity();
 
         // eye blink
-        // 只有在没有更新主动作时才眨眼
+        // モーションでパラメータが更新されていないときだけまばたき
         if (!isMotionUpdated) {
             if (eyeBlink != null) {
                 eyeBlink.updateParameters(model, deltaTimeSeconds);
@@ -139,21 +148,21 @@ public class LAppModel extends CubismUserModel {
 
         // expression
         if (expressionManager != null) {
-            // 通过表情更新参数（相对变化）
+            // 表情でパラメータが更新される（相対変化）
             expressionManager.updateMotion(model, deltaTimeSeconds);
         }
 
-        // 拖拽跟随功能
-        // 通过拖拽调整脸部朝向
-        model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
+        // ドラッグによる操作
+        // ドラッグによる顔の向きの調整
+        model.addParameterValue(idParamAngleX, dragX * 30); // -30から30の値を加算
         model.addParameterValue(idParamAngleY, dragY * 30);
         model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
 
-        // 通过拖拽调整身体朝向
-        model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
+        // ドラッグによる体の向きの調整
+        model.addParameterValue(idParamBodyAngleX, dragX * 10); // -10から10の値を加算
 
-        // 通过拖拽调整眼部朝向
-        model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
+        // ドラッグによる目の向きの調整
+        model.addParameterValue(idParamEyeBallX, dragX);  // -1から1の値を加算
         model.addParameterValue(idParamEyeBallY, dragY);
 
         // Breath Function
@@ -168,7 +177,7 @@ public class LAppModel extends CubismUserModel {
 
         // Lip Sync Setting
         if (lipSync) {
-            // 实时进行唇形同步时，从系统获取音量并在0~1范围内输入值
+            // リアルタイムでリップシンクを行う場合は、システムから音量を取得し0〜1の値を入力する
             float value = lipSyncValue;
 
             for (int i = 0; i < lipSyncIds.size(); i++) {
@@ -186,26 +195,26 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 开始播放指定的动作。
-     * 当未传递回调函数时，将其作为null调用该方法。
+     * 指定したモーションの再生を開始する。
+     * コールバック関数を渡さない場合はnullを渡して呼び出す。
      *
-     * @param group 动作组名
-     * @param number 组内编号
-     * @param priority 优先级
-     * @return 返回开始的动作的标识号。用于判断个别动作是否结束的isFinished()参数。开始失败时返回"-1"
+     * @param group モーショングループ名
+     * @param number グループ内の番号
+     * @param priority 優先度
+     * @return 開始したモーションの識別番号。個別のモーションが終了したかをisFinished()で確認するためのパラメータ。開始に失敗した場合は"-1"
      */
     public int startMotion(final String group, int number, int priority) {
         return startMotion(group, number, priority, null, null);
     }
 
     /**
-     * 开始播放指定的动作。
+     * 指定したモーションの再生を開始する。
      *
-     * @param group 动作组名
-     * @param number 组内编号
-     * @param priority 优先级
-     * @param onFinishedMotionHandler 动作播放结束时调用的回调函数。为null时不调用。
-     * @return 返回开始的动作的标识号。用于判断个别动作是否结束的isFinished()参数。开始失败时返回"-1"
+     * @param group モーショングループ名
+     * @param number グループ内の番号
+     * @param priority 優先度
+     * @param onFinishedMotionHandler モーション再生終了時に呼び出されるコールバック関数。nullの場合は呼び出されない。
+     * @return 開始したモーションの識別番号。個別のモーションが終了したかをisFinished()で確認するためのパラメータ。開始に失敗した場合は"-1"
      */
     public int startMotion(final String group,
                            int number,
@@ -252,7 +261,7 @@ public class LAppModel extends CubismUserModel {
                 } else {
                     CubismDebug.cubismLogError("Can't start motion %s", path);
 
-                    // 重置未能加载的动作的ReservePriority。
+                    // 未能読み込むモーションのReservePriorityをリセットする。
                     motionManager.setReservationPriority(LAppDefine.Priority.NONE.getPriority());
                     return -1;
                 }
@@ -266,7 +275,7 @@ public class LAppModel extends CubismUserModel {
         String voice = modelSetting.getMotionSoundFileName(group, number);
         if (voice != null && !voice.equals("")) {
             String path = modelHomeDirectory + voice;
-            // TODO: 播放声音文件
+            // TODO: 音声ファイルの再生
         }
 
         if (debugMode) {
@@ -276,24 +285,24 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 开始播放随机选择的动作。
-     * 当未传递回调函数时，将其作为null调用该方法。
+     * ランダムに選ばれたモーションの再生を開始する。
+     * コールバック関数を渡さない場合はnullを渡して呼び出す。
      *
-     * @param group 动作组名
-     * @param priority 优先级
-     * @return 返回开始的动作的标识号。用于判断个别动作是否结束的isFinished()参数。开始失败时返回"-1"
+     * @param group モーショングループ名
+     * @param priority 優先度
+     * @return 開始したモーションの識別番号。個別のモーションが終了したかをisFinished()で確認するためのパラメータ。開始に失敗した場合は"-1"
      */
     public int startRandomMotion(final String group, int priority) {
         return startRandomMotion(group, priority, null, null);
     }
 
     /**
-     * 开始播放随机选择的动作。
+     * ランダムに選ばれたモーションの再生を開始する。
      *
-     * @param group 动作组名
-     * @param priority 优先级
-     * @param onFinishedMotionHandler 动作播放结束时调用的回调函数。为null时不调用。
-     * @return 返回开始的动作的标识号。用于判断个别动作是否结束的isFinished()参数。开始失败时返回-1
+     * @param group モーショングループ名
+     * @param priority 優先度
+     * @param onFinishedMotionHandler モーション再生終了時に呼び出されるコールバック関数。nullの場合は呼び出されない。
+     * @return 開始したモーションの識別番号。個別のモーションが終了したかをisFinished()で確認するためのパラメータ。開始に失敗した場合は-1
      */
     public int startRandomMotion(final String group, int priority, IFinishedMotionCallback onFinishedMotionHandler, IBeganMotionCallback onBeganMotionHandler) {
         if (modelSetting.getMotionCount(group) == 0) {
@@ -311,7 +320,7 @@ public class LAppModel extends CubismUserModel {
             return;
         }
 
-        // 为了避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
+        // 定義済みの変数を避け、multiply()ではなくmultiplyByMatrix()を使用する。
         CubismMatrix44.multiply(
             modelMatrix.getArray(),
             matrix.getArray(),
@@ -323,16 +332,16 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 碰撞检测测试
-     * 从指定ID的顶点列表计算矩形，并判断坐标是否在矩形范围内
+     * 衝突検出テスト
+     * 指定したIDの頂点リストから矩形を計算し、座標が矩形内にあるかを判定する
      *
-     * @param hitAreaName 碰撞检测测试的目标ID
-     * @param x 判断的x坐标
-     * @param y 判断的y坐标
-     * @return 碰撞则返回true
+     * @param hitAreaName 衝突検出テストの対象ID
+     * @param x 判定するx座標
+     * @param y 判定するy座標
+     * @return 衝突した場合はtrue
      */
     public boolean hitTest(final String hitAreaName, float x, float y) {
-        // 透明时无碰撞检测
+        // 透明時は衝突検出しない
         if (opacity < 1) {
             return false;
         }
@@ -345,14 +354,14 @@ public class LAppModel extends CubismUserModel {
                 return isHit(drawID, x, y);
             }
         }
-        // 不存在则返回false
+        // 存在しない場合はfalseを返す
         return false;
     }
 
     /**
-     * 设置指定的表情动作
+     * 指定した表情モーションを設定する
      *
-     * @param expressionID 表情动作的ID
+     * @param expressionID 表情モーションのID
      */
     public void setExpression(final String expressionID) {
         ACubismMotion motion = expressions.get(expressionID);
@@ -371,7 +380,7 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 设置随机选择的表情动作
+     * ランダムに選ばれた表情モーションを設定する
      */
     public void setRandomExpression() {
         if (expressions.size() == 0) {
@@ -396,19 +405,19 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 设置口型同步值
+     * リップシンク値を設定する
      *
-     * @param value 口型同步值 (0.0 - 1.0)
+     * @param value リップシンク値 (0.0 - 1.0)
      */
     public void setLipSyncValue(float value) {
         lipSyncValue = value;
     }
 
     /**
-     * 检查.moc3文件的一致性。
+     * .moc3ファイルの一貫性をチェックする。
      *
-     * @param mocFileName MOC3文件名
-     * @return MOC3是否具有一致性。一致则返回true。
+     * @param mocFileName MOC3ファイル名
+     * @return MOC3が一貫性を持っているかどうか。一貫性がある場合はtrue。
      */
     public boolean hasMocConsistencyFromFile(String mocFileName) {
         assert mocFileName != null && !mocFileName.isEmpty();
@@ -545,7 +554,7 @@ public class LAppModel extends CubismUserModel {
         // Set layout
         Map<String, Float> layout = new HashMap<String, Float>();
 
-        // 如果存在布局信息，则根据该信息设置模型矩阵
+        // レイアウト情報が存在する場合は、レイアウト情報に基づいてモデル行列を設定する
         if (modelSetting.getLayoutMap(layout)) {
             modelMatrix.setupFromLayout(layout);
         }
@@ -565,10 +574,10 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 按组名批量加载动作数据。
-     * 动作数据的名称从ModelSetting获取。
+     * グループ名からモーションデータを一括で読み込む。
+     * モーションデータの名称はModelSettingから取得する。
      *
-     * @param group 动作数据的组名
+     * @param group モーションデータのグループ名
      **/
     private void preLoadMotionGroup(final String group) {
         final int count = modelSetting.getMotionCount(group);
@@ -588,7 +597,7 @@ public class LAppModel extends CubismUserModel {
                 byte[] buffer;
                 buffer = createBuffer(modelPath);
 
-                // 如果无法加载动作，则跳过该过程。
+                // モーションを読み込めない場合は、その処理をスキップする。
                 CubismMotion tmp = loadMotion(buffer, motionConsistency);
                 if (tmp == null) {
                     continue;
@@ -613,17 +622,17 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * 将纹理加载到OpenGL纹理单元
+     * テクスチャをOpenGLテクスチャユニットにロードする
      */
     private void setupTextures() {
         for (int modelTextureNumber = 0; modelTextureNumber < modelSetting.getTextureCount(); modelTextureNumber++) {
-            // 如果纹理名称为空字符串，则跳过加载和绑定处理
+            // テクスチャ名が空文字列の場合は、ロードとバインド処理をスキップする
             String textureFileName = modelSetting.getTextureFileName(modelTextureNumber);
             if (textureFileName == null || textureFileName.equals("")) {
                 continue;
             }
 
-            // 将纹理加载到OpenGL ES纹理单元
+            // テクスチャをOpenGL ESテクスチャユニットにロードする
             String texturePath = modelSetting.getTextureFileName(modelTextureNumber);
             texturePath = modelHomeDirectory + texturePath;
 
@@ -646,66 +655,66 @@ public class LAppModel extends CubismUserModel {
     private Context context;
     private ICubismModelSetting modelSetting;
     /**
-     * 模型的主目录
+     * モデルのホームディレクトリ
      */
     private String modelHomeDirectory;
     /**
-     * 时间累积值[秒]
+     * 時間累積値[秒]
      */
     private float userTimeSeconds;
 
     /**
-     * 模型设置的眨眼功能参数ID
+     * モデル設定のまばたき機能パラメータID
      */
     private final List<CubismId> eyeBlinkIds = new ArrayList<CubismId>();
     /**
-     * 模型设置的唇形同步功能参数ID
+     * モデル設定のリップシンク機能パラメータID
      */
     private final List<CubismId> lipSyncIds = new ArrayList<CubismId>();
     /**
-     * 口型同步值
+     * リップシンク値
      */
     private float lipSyncValue = 0.0f;
     /**
-     * 已加载的动作映射
+     * 読み込まれたモーションのマップ
      */
     private final Map<String, ACubismMotion> motions = new HashMap<String, ACubismMotion>();
     /**
-     * 已加载的表情映射
+     * 読み込まれた表情のマップ
      */
     private final Map<String, ACubismMotion> expressions = new HashMap<String, ACubismMotion>();
 
     /**
-     * 参数ID: ParamAngleX
+     * パラメータID: ParamAngleX
      */
     private final CubismId idParamAngleX;
     /**
-     * 参数ID: ParamAngleY
+     * パラメータID: ParamAngleY
      */
     private final CubismId idParamAngleY;
     /**
-     * 参数ID: ParamAngleZ
+     * パラメータID: ParamAngleZ
      */
     private final CubismId idParamAngleZ;
     /**
-     * 参数ID: ParamBodyAngleX
+     * パラメータID: ParamBodyAngleX
      */
     private final CubismId idParamBodyAngleX;
     /**
-     * 参数ID: ParamEyeBallX
+     * パラメータID: ParamEyeBallX
      */
     private final CubismId idParamEyeBallX;
     /**
-     * 参数ID: ParamEyeBallY
+     * パラメータID: ParamEyeBallY
      */
     private final CubismId idParamEyeBallY;
     /**
-     * 参数ID: ParamMouthOpenY (口型同步参数)
+     * パラメータID: ParamMouthOpenY (リップシンクパラメータ)
      */
     private final CubismId idParamMouthOpenY;
     
     /**
-     * 绘制目标（除帧缓冲外）
+     * 描画先（フレームバッファ以外）
      */
     private final CubismOffscreenSurfaceAndroid renderingBuffer = new CubismOffscreenSurfaceAndroid();
 }

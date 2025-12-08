@@ -36,9 +36,17 @@ public class LAppPal {
     public static byte[] loadFileAsBytes(final String path, Context context) {
         InputStream fileData = null;
         try {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                printLog("Trying to load file: " + path);
+            }
+            
             fileData = context.getAssets().open(path);
 
             int fileSize = fileData.available();
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                printLog("File size: " + fileSize + " bytes");
+            }
+            
             byte[] fileBuffer = new byte[fileSize];
             fileData.read(fileBuffer, 0, fileSize);
 
@@ -47,7 +55,7 @@ public class LAppPal {
             e.printStackTrace();
 
             if (LAppDefine.DEBUG_LOG_ENABLE) {
-                printLog("File open error.");
+                printLog("File open error: " + path);
             }
 
             return new byte[0];
@@ -60,7 +68,7 @@ public class LAppPal {
                 e.printStackTrace();
 
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    printLog("File open error.");
+                    printLog("File close error.");
                 }
             }
         }

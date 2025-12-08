@@ -106,29 +106,33 @@ public class LAppDefine {
     }
 
     /**
-     * Path of image materials.
+     * 图像素材路径
      */
     public enum ResourcePath {
         /**
-         * Relative path of the material directory
+         * 文件分隔符
          */
-        ROOT("live2d/"),
+        SEPARATOR("/"),
         /**
-         * Relative path of shader directory
+         * 素材目录的相对路径
          */
-        SHADER_ROOT("live2d/Shaders/"),
+        ROOT(""),
         /**
-         * Background image file
+         * 着色器目录的相对路径
          */
-        BACK_IMAGE("back_class_normal.png"),
+        SHADER_ROOT("Shaders/"),
         /**
-         * Gear image file
+         * 背景图像文件
          */
-        GEAR_IMAGE("icon_gear.png"),
+        BACK_IMAGE("assets/live2d/back_class_normal.png"),
+        /**
+         * 齿轮图像文件
+         */
+        GEAR_IMAGE("assets/live2d/icon_gear.png"),
         /**
          * Power button image file
          */
-        POWER_IMAGE("close.png"),
+        POWER_IMAGE("assets/live2d/close.png"),
         /**
          * Vertex shader file
          */

@@ -79,7 +79,7 @@ public class LAppView {
     }
 
     /**
-     * Initialize sprites.
+     * 初始化精灵
      */
     public void initializeSprite() {
         int windowWidth = LAppDelegate.getInstance().getWindowWidth();
