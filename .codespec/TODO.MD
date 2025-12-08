@@ -6,7 +6,7 @@
 - [x] 将所有Live2D模型资源文件（包括Haru、Hiyori等）复制到Flutter项目的assets/live2d目录下
 
 ## 2. 修改Android项目结构
-- [ ] 修改android/app/build.gradle.kts文件，添加对Live2D AAR库的引用
+- [x] 修改android/app/build.gradle.kts文件，添加对Live2D AAR库的引用
 - [ ] 在Flutter Android项目中创建Live2D相关的Java类（参考Sample中的实现）
 - [ ] 创建Live2D管理器类（类似Sample中的LAppLive2DManager）
 - [ ] 创建视图类（类似Sample中的LAppView）
