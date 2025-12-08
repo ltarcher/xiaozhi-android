@@ -46,6 +46,19 @@ flutter_launcher_icons:
 flutter:
   generate: true
   uses-material-design: true
+  assets:
+    - assets/live2d/
+    - assets/live2d/Haru/
+    - assets/live2d/Haru/expressions/
+    - assets/live2d/Haru/motions/
+    - assets/live2d/Haru/sounds/
+    - assets/live2d/Haru/Haru.2048/
+    - assets/live2d/Hiyori/
+    - assets/live2d/Mao/
+    - assets/live2d/Mark/
+    - assets/live2d/Natori/
+    - assets/live2d/Rice/
+    - assets/live2d/Wanko/
 
 flutter_intl:
   enabled: true
