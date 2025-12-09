@@ -47,6 +47,7 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
+    - assets/icon.png
     - assets/live2d/
     - assets/live2d/Haru/
     - assets/live2d/Haru/expressions/

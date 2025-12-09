@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -11,11 +12,20 @@ import android.widget.FrameLayout;
 import com.live2d.LAppDelegate;
 import com.live2d.GLRenderer;
 import com.live2d.LAppLive2DManager;
+import com.live2d.LAppPal;
+
+import java.io.IOException;
 
 public class WelcomeActivity extends Activity {
+    private static final String TAG = "WelcomeActivity";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate() called");
+
+        // 打印资源目录列表
+        printAssetsDirectoryList();
 
         // 初始化OpenGL ES环境
         initOpenGL();
@@ -53,6 +63,7 @@ public class WelcomeActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        Log.d(TAG, "onStart() called");
 
         // 初始化Live2D
         LAppDelegate.getInstance().onStart(this);
@@ -64,6 +75,7 @@ public class WelcomeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume() called");
 
         glSurfaceView.onResume();
 
@@ -74,6 +86,7 @@ public class WelcomeActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(TAG, "onPause() called");
 
         glSurfaceView.onPause();
         LAppDelegate.getInstance().onPause();
@@ -82,12 +95,14 @@ public class WelcomeActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop() called");
         LAppDelegate.getInstance().onStop();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "onDestroy() called");
 
         LAppDelegate.getInstance().onDestroy();
     }
@@ -118,6 +133,7 @@ public class WelcomeActivity extends Activity {
     }
 
     private void initOpenGL() {
+        Log.d(TAG, "initOpenGL() called");
         glSurfaceView = new GLSurfaceView(this);
         glSurfaceView.setEGLContextClientVersion(2); // 使用OpenGL ES 2.0
 
@@ -141,9 +157,55 @@ public class WelcomeActivity extends Activity {
     }
 
     private void startMainActivity() {
+        Log.d(TAG, "startMainActivity() called");
         Intent intent = new Intent(this, MainActivity.class);
         startActivity(intent);
         finish(); // 关闭当前Activity
+    }
+
+    /**
+     * 打印assets目录下的所有文件和文件夹列表
+     */
+    private void printAssetsDirectoryList() {
+        Log.d(TAG, "=== Assets Directory List ===");
+        try {
+            String[] topLevelFiles = getAssets().list("");
+            Log.d(TAG, "Top level assets:");
+            if (topLevelFiles != null) {
+                for (String file : topLevelFiles) {
+                    Log.d(TAG, "  /" + file);
+                    
+                    // 如果是目录，进一步列出其内容
+                    try {
+                        String[] subFiles = getAssets().list(file);
+                        if (subFiles != null && subFiles.length > 0) {
+                            Log.d(TAG, "    Contents of " + file + ":");
+                            for (String subFile : subFiles) {
+                                Log.d(TAG, "      /" + file + "/" + subFile);
+                                
+                                // 进一步深入一层
+                                try {
+                                    String[] subSubFiles = getAssets().list(file + "/" + subFile);
+                                    if (subSubFiles != null && subSubFiles.length > 0) {
+                                        Log.d(TAG, "        Contents of " + file + "/" + subFile + ":");
+                                        for (String subSubFile : subSubFiles) {
+                                            Log.d(TAG, "          /" + file + "/" + subFile + "/" + subSubFile);
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    // 忽略深层遍历的错误
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // 忽略子目录遍历时的错误
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to list assets", e);
+        }
+        Log.d(TAG, "=== End of Assets Directory List ===");
     }
 
     private GLSurfaceView glSurfaceView;
