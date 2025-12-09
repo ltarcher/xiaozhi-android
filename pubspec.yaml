@@ -60,6 +60,7 @@ flutter:
     - assets/live2d/Natori/
     - assets/live2d/Rice/
     - assets/live2d/Wanko/
+    - assets/live2d/Shaders/
 
 flutter_intl:
   enabled: true
