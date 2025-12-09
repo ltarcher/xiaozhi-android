@@ -116,13 +116,13 @@ public class LAppDefine {
         /**
          * 素材目录的相对路径
          */
-        ROOT("live2d/"),
+        ROOT("/flutter_assets/assets/live2d/"),
         /**
-         * 着色器目录的相对路径
+         * 着色器目录的相对パス
          */
-        SHADER_ROOT("live2d/Shaders/"),
+        SHADER_ROOT("/flutter_assets/assets/live2d/Shaders/"),
         /**
-         * 背景图像文件
+         * 背景图像ファイル
          */
         BACK_IMAGE("back_class_normal.png"),
         /**
@@ -130,7 +130,7 @@ public class LAppDefine {
          */
         GEAR_IMAGE("icon_gear.png"),
         /**
-         * 电源按钮图像文件
+         * 电源按钮图像ファイル
          */
         POWER_IMAGE("close.png"),
         /**
@@ -240,7 +240,7 @@ public class LAppDefine {
      */
     public static final LogLevel cubismLoggingLevel = LogLevel.VERBOSE;
     /**
-     * 是否在日志中显示更新信息
+     * 是否在日志中显示更新情報
      */
     public static final boolean PREMULTIPLIED_ALPHA_ENABLE = true;
 
