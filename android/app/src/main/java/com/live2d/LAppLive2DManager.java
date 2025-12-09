@@ -54,7 +54,7 @@ public class LAppLive2DManager {
      */
     public void loadModel(String modelDirectoryName) {
         LAppPal.printLog("LAppLive2DManager 开始加载模型: " + modelDirectoryName);
-        String dir = "live2d/" + modelDirectoryName + "/";
+        String dir = ResourcePath.ROOT.getPath() + modelDirectoryName + "/";
         LAppPal.printLog("模型目录路径: " + dir);
         LAppModel model = new LAppModel();
         model.loadAssets(dir, modelDirectoryName + ".model3.json", LAppDelegate.getInstance().getContext());
@@ -85,7 +85,7 @@ public class LAppLive2DManager {
                         continue;
                     }
                     
-                    String[] files = assets.list("live2d/" + modelDirName);
+                    String[] files = assets.list(ResourcePath.ROOT.getPath() + modelDirName);
                     String target = modelDirName + ".model3.json";
                     LAppPal.printLog("检查模型目录: " + modelDirName + ", 目标文件: " + target);
                     // 查找与文件夹同名的.model3.json文件
@@ -222,7 +222,7 @@ public class LAppLive2DManager {
 
         String modelDirName = modelDir.get(index);
 
-        String modelPath = "live2d/" + modelDirName + "/";
+        String modelPath = ResourcePath.ROOT.getPath() + modelDirName + "/";
         String modelJsonName = modelDirName + ".model3.json";
 
         releaseAllModel();
