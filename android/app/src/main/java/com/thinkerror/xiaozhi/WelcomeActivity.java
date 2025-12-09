@@ -144,7 +144,7 @@ public class WelcomeActivity extends Activity {
         glSurfaceView = new GLSurfaceView(this);
         glSurfaceView.setEGLContextClientVersion(2); // 使用OpenGL ES 2.0
 
-        glRenderer = new GLRenderer();
+        glRenderer = GLRenderer.getInstance();
 
         glSurfaceView.setRenderer(glRenderer);
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);

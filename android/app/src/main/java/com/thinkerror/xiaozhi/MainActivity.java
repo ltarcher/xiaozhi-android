@@ -166,7 +166,7 @@ public class MainActivity extends FlutterActivity {
         glSurfaceView = new GLSurfaceView(this);
         glSurfaceView.setEGLContextClientVersion(2); // 使用OpenGL ES 2.0
         
-        glRenderer = new GLRenderer();
+        glRenderer = GLRenderer.getInstance();
         glSurfaceView.setRenderer(glRenderer);
         
         // 设置渲染模式为持续渲染

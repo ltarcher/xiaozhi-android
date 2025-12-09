@@ -17,7 +17,9 @@ import com.live2d.sdk.cubism.framework.CubismFramework;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // 纹理管理类
 public class LAppTextureManager {
@@ -26,7 +28,7 @@ public class LAppTextureManager {
         public int id;  // 纹理ID
         public int width;   // 宽度
         public int height;  // 高度
-        public String filePath; // 文件名
+        public String filePath; // 文件路径
     }
 
     public LAppTextureManager(Context context) {
@@ -62,7 +64,7 @@ public class LAppTextureManager {
         LAppPal.printLog("位图加载成功: " + fileName + ", 宽度: " + bitmap.getWidth() + ", 高度: " + bitmap.getHeight());
 
         texInfo = new TextureInfo();
-        texInfo.fileName = fileName;
+        texInfo.filePath = fileName;
         texInfo.width = bitmap.getWidth();
         texInfo.height = bitmap.getHeight();
         texInfo.id = generateTexture(bitmap);
@@ -82,6 +84,41 @@ public class LAppTextureManager {
         return texInfo;
     }
 
+    /**
+     * 从PNG数据创建Bitmap
+     * @param data PNG数据
+     * @return Bitmap对象
+     */
+    private Bitmap loadPngAsBitmap(byte[] data) {
+        // 从PNG数据创建Bitmap
+        Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+        return bitmap;
+    }
+
+    /**
+     * 从Bitmap生成OpenGL纹理
+     * @param bitmap Bitmap对象
+     * @return 纹理ID
+     */
+    private int generateTexture(Bitmap bitmap) {
+        // 创建纹理对象
+        int[] textureId = new int[1];
+        GLES20.glGenTextures(1, textureId, 0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId[0]);
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, bitmap.getWidth(), bitmap.getHeight(), 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+        
+        // 设置纹理参数
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+        
+        return textureId[0];
+    }
+
     private final Context context;
-    private final List<TextureInfo> textures = new ArrayList<TextureInfo>();        // 图像信息列表
+    private final Map<String, TextureInfo> textures = new HashMap<String, TextureInfo>();        // 图像信息列表
 }
