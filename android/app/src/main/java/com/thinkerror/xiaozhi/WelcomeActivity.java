@@ -169,38 +169,58 @@ public class WelcomeActivity extends Activity {
     private void printAssetsDirectoryList() {
         Log.d(TAG, "=== Assets Directory List ===");
         try {
-            String[] topLevelFiles = getAssets().list("");
-            Log.d(TAG, "Top level assets:");
-            if (topLevelFiles != null) {
-                for (String file : topLevelFiles) {
-                    Log.d(TAG, "  /" + file);
-                    
-                    // 如果是目录，进一步列出其内容
-                    try {
-                        String[] subFiles = getAssets().list(file);
-                        if (subFiles != null && subFiles.length > 0) {
-                            Log.d(TAG, "    Contents of " + file + ":");
-                            for (String subFile : subFiles) {
-                                Log.d(TAG, "      /" + file + "/" + subFile);
-                                
-                                // 进一步深入一层
-                                try {
-                                    String[] subSubFiles = getAssets().list(file + "/" + subFile);
-                                    if (subSubFiles != null && subSubFiles.length > 0) {
-                                        Log.d(TAG, "        Contents of " + file + "/" + subFile + ":");
-                                        for (String subSubFile : subSubFiles) {
-                                            Log.d(TAG, "          /" + file + "/" + subFile + "/" + subSubFile);
-                                        }
-                                    }
-                                } catch (Exception e) {
-                                    // 忽略深层遍历的错误
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        // 忽略子目录遍历时的错误
+            Log.d(TAG, "Root assets:");
+            String[] rootAssets = getAssets().list("");
+            if (rootAssets != null) {
+                for (String asset : rootAssets) {
+                    Log.d(TAG, "  /" + asset);
+                }
+            }
+            
+            Log.d(TAG, "Flutter assets:");
+            try {
+                String[] flutterAssets = getAssets().list("/flutter_assets");
+                if (flutterAssets != null) {
+                    for (String asset : flutterAssets) {
+                        Log.d(TAG, "  /flutter_assets/" + asset);
                     }
                 }
+            } catch (Exception e) {
+                Log.e(TAG, "Error listing /flutter_assets", e);
+            }
+            
+            Log.d(TAG, "Live2D assets:");
+            try {
+                String[] live2dAssets = getAssets().list("live2d");
+                if (live2dAssets != null) {
+                    Log.d(TAG, "Found live2d directory with " + live2dAssets.length + " items");
+                    for (String asset : live2dAssets) {
+                        Log.d(TAG, "  live2d/" + asset);
+                        
+                        // Check if it's a directory by trying to list its contents
+                        try {
+                            String[] subAssets = getAssets().list("live2d/" + asset);
+                            if (subAssets != null && subAssets.length > 0) {
+                                Log.d(TAG, "    (directory with " + subAssets.length + " items)");
+                                // Print first few items for verification
+                                for (int i = 0; i < Math.min(3, subAssets.length); i++) {
+                                    Log.d(TAG, "      live2d/" + asset + "/" + subAssets[i]);
+                                }
+                                if (subAssets.length > 3) {
+                                    Log.d(TAG, "      ... and " + (subAssets.length - 3) + " more items");
+                                }
+                            } else {
+                                Log.d(TAG, "    (file or empty directory)");
+                            }
+                        } catch (Exception e) {
+                            Log.d(TAG, "    (likely a file)");
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "live2d directory not found");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error listing live2d assets", e);
             }
         } catch (IOException e) {
             Log.e(TAG, "Failed to list assets", e);
