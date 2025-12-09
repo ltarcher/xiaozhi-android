@@ -31,11 +31,15 @@ public class LAppDelegate {
     }
 
     public void onStart(Context context) {
+        LAppPal.printLog("LAppDelegate onStart 开始执行");
         this.context = context;
         textureManager = new LAppTextureManager(context);
+        LAppPal.printLog("纹理管理器初始化完成");
         view = new LAppView(context);
+        LAppPal.printLog("视图初始化完成");
 
         LAppPal.updateTime();
+        LAppPal.printLog("LAppDelegate onStart 执行完成");
     }
 
     public void onPause() {
@@ -57,6 +61,7 @@ public class LAppDelegate {
     }
 
     public void onSurfaceCreated() {
+        LAppPal.printLog("LAppDelegate onSurfaceCreated 开始执行");
         // 纹理采样设置
         GLES20.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GLES20.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -67,9 +72,12 @@ public class LAppDelegate {
 
         // Initialize Cubism SDK framework
         CubismFramework.initialize();
+        LAppPal.printLog("Cubism SDK框架初始化完成");
+        LAppPal.printLog("LAppDelegate onSurfaceCreated 执行完成");
     }
 
     public void onSurfaceChanged(int width, int height) {
+        LAppPal.printLog("LAppDelegate onSurfaceChanged 开始执行, 宽度: " + width + ", 高度: " + height);
         // 指定绘制范围
         GLES20.glViewport(0, 0, width, height);
         windowWidth = width;
@@ -77,14 +85,22 @@ public class LAppDelegate {
 
         // 初始化AppView
         view.initialize();
+        LAppPal.printLog("视图初始化完成");
         view.initializeSprite();
+        LAppPal.printLog("精灵初始化完成");
 
         // 加载模型
+        LAppPal.printLog("准备加载模型");
         if (LAppLive2DManager.getInstance().getModel() == null) {
+            LAppPal.printLog("当前没有模型，开始加载Haru模型");
             LAppLive2DManager.getInstance().loadModel("Haru");
+            LAppPal.printLog("Haru模型加载完成");
+        } else {
+            LAppPal.printLog("已有模型，无需重复加载");
         }
 
         isActive = true;
+        LAppPal.printLog("LAppDelegate onSurfaceChanged 执行完成");
     }
 
     public void run() {

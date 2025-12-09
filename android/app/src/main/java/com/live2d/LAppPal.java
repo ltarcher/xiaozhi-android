@@ -47,15 +47,20 @@ public class LAppPal {
                 printLog("File size: " + fileSize + " bytes");
             }
             
+            if (fileSize == 0) {
+                printLog("WARNING: File is empty: " + path);
+            }
+            
             byte[] fileBuffer = new byte[fileSize];
             fileData.read(fileBuffer, 0, fileSize);
-
+            
+            printLog("Successfully loaded file: " + path + ", size: " + fileSize + " bytes");
             return fileBuffer;
         } catch (IOException e) {
             e.printStackTrace();
 
             if (LAppDefine.DEBUG_LOG_ENABLE) {
-                printLog("File open error: " + path);
+                printLog("File open error: " + path + ", Error: " + e.getMessage());
             }
 
             return new byte[0];

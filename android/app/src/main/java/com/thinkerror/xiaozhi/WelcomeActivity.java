@@ -28,7 +28,9 @@ public class WelcomeActivity extends Activity {
         printAssetsDirectoryList();
 
         // 初始化OpenGL ES环境
+        Log.d(TAG, "开始初始化OpenGL环境");
         initOpenGL();
+        Log.d(TAG, "OpenGL环境初始化完成");
 
         // 创建一个容器布局
         FrameLayout frameLayout = new FrameLayout(this);
@@ -58,6 +60,7 @@ public class WelcomeActivity extends Activity {
 
         // 隐藏系统UI以获得更好的视觉效果
         hideSystemUI();
+        Log.d(TAG, "onCreate() 执行完成");
     }
 
     @Override
@@ -66,10 +69,14 @@ public class WelcomeActivity extends Activity {
         Log.d(TAG, "onStart() called");
 
         // 初始化Live2D
+        Log.d(TAG, "开始初始化Live2D");
         LAppDelegate.getInstance().onStart(this);
+        Log.d(TAG, "Live2D初始化完成");
         
         // 设置模型
+        Log.d(TAG, "开始设置模型");
         LAppLive2DManager.getInstance().setUpModel();
+        Log.d(TAG, "模型设置完成");
     }
 
     @Override
@@ -208,6 +215,21 @@ public class WelcomeActivity extends Activity {
                                 }
                                 if (subAssets.length > 3) {
                                     Log.d(TAG, "      ... and " + (subAssets.length - 3) + " more items");
+                                }
+                                
+                                // Check if model file exists
+                                String modelFile = asset + ".model3.json";
+                                boolean foundModel = false;
+                                for (String file : subAssets) {
+                                    if (file.equals(modelFile)) {
+                                        foundModel = true;
+                                        break;
+                                    }
+                                }
+                                if (foundModel) {
+                                    Log.d(TAG, "      ✓ 包含模型文件: " + modelFile);
+                                } else {
+                                    Log.d(TAG, "      ✗ 缺少模型文件: " + modelFile);
                                 }
                             } else {
                                 Log.d(TAG, "    (file or empty directory)");

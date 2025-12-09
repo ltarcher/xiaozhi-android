@@ -53,19 +53,23 @@ public class LAppLive2DManager {
      * @param modelDirectoryName 模型目录名
      */
     public void loadModel(String modelDirectoryName) {
+        LAppPal.printLog("LAppLive2DManager 开始加载模型: " + modelDirectoryName);
         String dir = "live2d/" + modelDirectoryName + "/";
+        LAppPal.printLog("模型目录路径: " + dir);
         LAppModel model = new LAppModel();
         model.loadAssets(dir, modelDirectoryName + ".model3.json", LAppDelegate.getInstance().getContext());
         
         // 清除现有模型并添加新模型
         releaseAllModel();
         models.add(model);
+        LAppPal.printLog("模型添加完成: " + modelDirectoryName);
     }
 
     /**
      * 设置assets文件夹中的模型文件夹名
      */
     public void setUpModel() {
+        LAppPal.printLog("LAppLive2DManager 开始扫描模型目录");
         // 扫描assets文件夹中的所有文件夹，找出包含.model3.json文件的文件夹
         // 如果只有文件夹但没有对应的.model3.json文件，则不包含在列表中
         modelDir.clear();
@@ -74,6 +78,7 @@ public class LAppLive2DManager {
         try {
             String[] live2dDirs = assets.list("live2d");
             if (live2dDirs != null) {
+                LAppPal.printLog("找到 " + live2dDirs.length + " 个live2d子目录");
                 for (String modelDirName : live2dDirs) {
                     // 跳过非目录文件
                     if (modelDirName.contains(".")) {
@@ -82,11 +87,13 @@ public class LAppLive2DManager {
                     
                     String[] files = assets.list("live2d/" + modelDirName);
                     String target = modelDirName + ".model3.json";
+                    LAppPal.printLog("检查模型目录: " + modelDirName + ", 目标文件: " + target);
                     // 查找与文件夹同名的.model3.json文件
                     if (files != null) {
                         for (String file : files) {
                             if (file.equals(target)) {
                                 modelDir.add(modelDirName);
+                                LAppPal.printLog("发现有效模型: " + modelDirName);
                                 break;
                             }
                         }
@@ -94,6 +101,7 @@ public class LAppLive2DManager {
                 }
             }
             Collections.sort(modelDir);
+            LAppPal.printLog("模型扫描完成，共找到 " + modelDir.size() + " 个有效模型");
         } catch (IOException ex) {
             ex.printStackTrace();
             if (LAppDefine.DEBUG_LOG_ENABLE) {

@@ -35,71 +35,51 @@ public class LAppTextureManager {
 
     // 加载图像
     // imageFileOffset: glGenTextures创建的纹理保存位置
-    public TextureInfo createTextureFromPngFile(String filePath) {
-        // 搜索已加载的纹理
-        for (TextureInfo textureInfo : textures) {
-            if (textureInfo.filePath.equals(filePath)) {
-                return textureInfo;
-            }
+    public TextureInfo createTextureFromPngFile(final String fileName) {
+        LAppPal.printLog("开始创建纹理: " + fileName);
+        // 查找已加载的纹理
+        TextureInfo texInfo = textures.get(fileName);
+        if (texInfo != null) {
+            LAppPal.printLog("纹理已在缓存中找到: " + fileName);
+            return texInfo;
         }
 
-        // 从assets文件夹的图像创建位图
-        InputStream stream = null;
-        try {
-            stream = context.getAssets().open(filePath);
-        } catch (IOException e) {
-            e.printStackTrace();
-            // 如果无法打开文件，返回null或默认纹理
+        // png文件的读取
+        byte[] pngData = LAppPal.loadFileAsBytes(fileName, context);
+        if (pngData.length == 0) {
+            LAppPal.printLog("ERROR: 纹理文件读取失败或为空: " + fileName);
             return null;
         }
         
-        // decodeStream似乎会将图像作为预乘alpha加载
-        Bitmap bitmap = BitmapFactory.decodeStream(stream);
-        
-        // 添加空指针检查
+        LAppPal.printLog("纹理文件读取成功: " + fileName + ", 大小: " + pngData.length + " 字节");
+
+        Bitmap bitmap = loadPngAsBitmap(pngData);
         if (bitmap == null) {
-            if (LAppDefine.DEBUG_LOG_ENABLE) {
-                CubismFramework.coreLogFunction("Failed to decode bitmap from file: " + filePath);
-            }
+            LAppPal.printLog("ERROR: 位图加载失败: " + fileName);
             return null;
         }
+        
+        LAppPal.printLog("位图加载成功: " + fileName + ", 宽度: " + bitmap.getWidth() + ", 高度: " + bitmap.getHeight());
 
-        // 激活Texture0
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        texInfo = new TextureInfo();
+        texInfo.fileName = fileName;
+        texInfo.width = bitmap.getWidth();
+        texInfo.height = bitmap.getHeight();
+        texInfo.id = generateTexture(bitmap);
 
-        // 在OpenGL中生成纹理
-        int[] textureId = new int[1];
-        GLES20.glGenTextures(1, textureId, 0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId[0]);
-
-        // 将内存中的2D图像分配给纹理
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-
-        // 生成mipmap
-        GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
-
-        // 缩小时的插值设置
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR);
-        // 放大时的插值设置
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-
-        TextureInfo textureInfo = new TextureInfo();
-        textureInfo.filePath = filePath;
-        textureInfo.width = bitmap.getWidth();
-        textureInfo.height = bitmap.getHeight();
-        textureInfo.id = textureId[0];
-
-        textures.add(textureInfo);
-
-        // 释放bitmap
-        bitmap.recycle();
-        bitmap = null;
-
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            CubismFramework.coreLogFunction("Create texture: " + filePath);
+        if (texInfo.id == 0) {
+            LAppPal.printLog("ERROR: 纹理生成失败: " + fileName);
+            return null;
         }
+        
+        LAppPal.printLog("纹理生成成功: " + fileName + ", OpenGL ID: " + texInfo.id);
 
-        return textureInfo;
+        textures.put(fileName, texInfo);
+
+        // 释放不再需要的bitmap
+        bitmap.recycle();
+
+        return texInfo;
     }
 
     private final Context context;

@@ -58,7 +58,7 @@ public class LAppModel extends CubismUserModel {
         idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
         idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
         
-        // 口型同步参数ID
+        // 口型同期パラメータID
         idParamMouthOpenY = idManager.getId(ParameterId.MOUTH_OPEN_Y.getId());
     }
 
@@ -67,6 +67,9 @@ public class LAppModel extends CubismUserModel {
         final String fileName,
         Context context
     ) {
+        LAppPal.printLog("LAppModel 开始加载资源");
+        LAppPal.printLog("模型主目录: " + modelHomeDirectory);
+        LAppPal.printLog("文件名: " + fileName);
         this.modelHomeDirectory = modelHomeDirectory;
         this.context = context;
         String filePath = modelHomeDirectory + fileName;
@@ -84,6 +87,7 @@ public class LAppModel extends CubismUserModel {
         }
 
         ICubismModelSetting setting = new CubismModelSettingJson(buffer);
+        LAppPal.printLog("模型设置JSON解析完成");
 
         // Setup model
         setupModel(setting);
@@ -94,14 +98,16 @@ public class LAppModel extends CubismUserModel {
         }
 
         // Setup renderer.
+        LAppPal.printLog("开始设置渲染器");
         CubismRenderer renderer = CubismRendererAndroid.create();
         setupRenderer(renderer);
 
         setupTextures();
+        LAppPal.printLog("LAppModel 资源加载完成");
     }
 
     /**
-     * 删除LAppModel拥有的模型。
+     * 删除LAppModel拥有的モデル。
      */
     public void deleteModel() {
         delete();
@@ -625,22 +631,33 @@ public class LAppModel extends CubismUserModel {
      * テクスチャをOpenGLテクスチャユニットにロードする
      */
     private void setupTextures() {
+        LAppPal.printLog("开始设置纹理，纹理数量: " + modelSetting.getTextureCount());
         for (int modelTextureNumber = 0; modelTextureNumber < modelSetting.getTextureCount(); modelTextureNumber++) {
             // テクスチャ名が空文字列の場合は、ロードとバインド処理をスキップする
             String textureFileName = modelSetting.getTextureFileName(modelTextureNumber);
+            LAppPal.printLog("处理纹理 " + modelTextureNumber + ": " + textureFileName);
             if (textureFileName == null || textureFileName.equals("")) {
+                LAppPal.printLog("纹理文件名为空，跳过");
                 continue;
             }
 
             // テクスチャをOpenGL ESテクスチャユニットにロードする
             String texturePath = modelSetting.getTextureFileName(modelTextureNumber);
             texturePath = modelHomeDirectory + texturePath;
+            LAppPal.printLog("纹理完整路径: " + texturePath);
 
             LAppTextureManager.TextureInfo texture =
                 LAppDelegate.getInstance()
                     .getTextureManager()
                     .createTextureFromPngFile(texturePath);
+            
+            if (texture == null) {
+                LAppPal.printLog("纹理加载失败: " + texturePath);
+                continue;
+            }
+            
             final int glTextureNumber = texture.id;
+            LAppPal.printLog("纹理加载成功，OpenGL纹理ID: " + glTextureNumber);
 
             this.<CubismRendererAndroid>getRenderer().bindTexture(modelTextureNumber, glTextureNumber);
 
@@ -650,6 +667,7 @@ public class LAppModel extends CubismUserModel {
                 this.<CubismRendererAndroid>getRenderer().isPremultipliedAlpha(false);
             }
         }
+        LAppPal.printLog("纹理设置完成");
     }
 
     private Context context;
