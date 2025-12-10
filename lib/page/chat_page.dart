@@ -250,26 +250,17 @@ class _ChatPageState extends State<ChatPage> {
             ),
             body: Stack(
               children: [
+                // 将Live2D模型作为背景铺满整个屏幕
+                Positioned.fill(
+                  child: Live2DWidget(
+                    modelPath: "assets/live2d/Haru/Haru.model3.json",
+                    width: mediaQuery.size.width * 0.75,
+                    height: mediaQuery.size.height * 0.75,
+                  ),
+                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 添加Live2D模型预览
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => CallPage()),
-                        );
-                      },
-                      child: Container(
-                        height: 100,
-                        width: 100,
-                        child: Live2DWidget(
-                          modelPath: "assets/live2d/Haru/Haru.model3.json",
-                          width: 100,
-                          height: 100,
-                        ),
-                      ),
-                    ),
                     Expanded(
                       child: SmartRefresher(
                         enablePullDown: false,

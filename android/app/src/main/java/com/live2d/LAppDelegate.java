@@ -24,7 +24,7 @@ public class LAppDelegate {
             Log.d(TAG, "getInstance: Creating new LAppDelegate instance");
             s_instance = new LAppDelegate();
         } else {
-            Log.d(TAG, "getInstance: Returning existing LAppDelegate instance");
+            //Log.d(TAG, "getInstance: Returning existing LAppDelegate instance");
         }
         return s_instance;
     }

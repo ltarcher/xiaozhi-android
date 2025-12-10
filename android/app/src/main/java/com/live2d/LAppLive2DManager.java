@@ -34,7 +34,7 @@ public class LAppLive2DManager {
             Log.d(TAG, "getInstance: 创建新的LAppLive2DManager实例");
             s_instance = new LAppLive2DManager();
         } else {
-            Log.d(TAG, "getInstance: 返回现有的LAppLive2DManager实例");
+            //Log.d(TAG, "getInstance: 返回现有的LAppLive2DManager实例");
         }
         return s_instance;
     }
