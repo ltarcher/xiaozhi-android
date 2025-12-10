@@ -12,7 +12,7 @@
 
 ## 3. 资源路径适配
 - [ ] 确认Flutter assets中的模型资源可被Android访问
-- [ ] 调整代码中的资源访问路径
+- [ ] 调整代码中的资源访问路径（特别注意flutter资源路径为flutter_assets/assets/live2d/）
 - [ ] 验证资源加载逻辑
 
 ## 4. 依赖配置
