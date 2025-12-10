@@ -48,7 +48,7 @@ flutter:
   uses-material-design: true
   
   assets:
-    - assets/icon.png
+    - assets/
     - assets/live2d/
     - assets/live2d/Haru/
     - assets/live2d/Haru/expressions/
@@ -56,11 +56,25 @@ flutter:
     - assets/live2d/Haru/sounds/
     - assets/live2d/Haru/Haru.2048/
     - assets/live2d/Hiyori/
+    - assets/live2d/Hiyori/motions/
+    - assets/live2d/Hiyori/Hiyori.2048/
     - assets/live2d/Mao/
+    - assets/live2d/Mao/expressions/
+    - assets/live2d/Mao/motions/
+    - assets/live2d/Mao/Mao.2048/
     - assets/live2d/Mark/
+    - assets/live2d/Mark/motions/
+    - assets/live2d/Mark/Mark.2048/
     - assets/live2d/Natori/
+    - assets/live2d/Natori/exp/
+    - assets/live2d/Natori/motions/
+    - assets/live2d/Natori/Natori.2048/
     - assets/live2d/Rice/
+    - assets/live2d/Rice/motions/
+    - assets/live2d/Rice/Rice.2048/
     - assets/live2d/Wanko/
+    - assets/live2d/Wanko/motions/
+    - assets/live2d/Wanko/Wanko.1024/
     - assets/live2d/Shaders/
 
 flutter_intl:
