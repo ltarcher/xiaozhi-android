@@ -23,12 +23,12 @@ public class LAppView implements AutoCloseable {
     private static final String TAG = "LAppView";
     
     /**
-     * LAppModelのレンダリングターゲット
+     * LAppModel的渲染目标
      */
     public enum RenderingTarget {
-        NONE,   // デフォルトフレームバッファレンダリング
-        MODEL_FRAME_BUFFER,     // LAppModelForSmallDemoがそれぞれ持つフレームバッファレンダリング
-        VIEW_FRAME_BUFFER  // LAppViewForSmallDemoが持つフレームバッファレンダリング
+        NONE,   // 默认帧缓冲区渲染
+        MODEL_FRAME_BUFFER,     // LAppModelForSmallDemo各自持有的帧缓冲区渲染
+        VIEW_FRAME_BUFFER  // LAppViewForSmallDemo持有的帧缓冲区渲染
     }
 
     public LAppView() {
@@ -45,7 +45,7 @@ public class LAppView implements AutoCloseable {
         spriteShader.close();
     }
 
-    // 初期化
+    // 初始化
     public void initialize() {
         Log.d(TAG, "initialize: Initializing LAppView");
         int width = LAppDelegate.getInstance().getWindowWidth();
@@ -58,11 +58,11 @@ public class LAppView implements AutoCloseable {
         float bottom = LogicalView.LEFT.getValue();
         float top = LogicalView.RIGHT.getValue();
 
-        // 対応デバイスのスクリーン範囲。Xの左端、Xの右端、Yの下端、Yの上端
+        // 对应设备的屏幕范围。X的左端、X的右端、Y的下端、Y的上端
         viewMatrix.setScreenRect(left, right, bottom, top);
         viewMatrix.scale(Scale.DEFAULT.getValue(), Scale.DEFAULT.getValue());
 
-        // 初期化は単位行列
+        // 初始化为单位矩阵
         deviceToScreen.loadIdentity();
 
         if (width > height) {
@@ -74,11 +74,11 @@ public class LAppView implements AutoCloseable {
         }
         deviceToScreen.translateRelative(-width * 0.5f, -height * 0.5f);
 
-        // 表示範囲の設定
-        viewMatrix.setMaxScale(Scale.MAX.getValue());   // 極限拡大率
-        viewMatrix.setMinScale(Scale.MIN.getValue());   // 極限縮小率
+        // 显示范围设置
+        viewMatrix.setMaxScale(Scale.MAX.getValue());   // 极限放大率
+        viewMatrix.setMinScale(Scale.MIN.getValue());   // 极限缩小率
 
-        // 表示可能な最大範囲
+        // 可显示的最大范围
         viewMatrix.setMaxScreenRect(
             MaxLogicalView.LEFT.getValue(),
             MaxLogicalView.RIGHT.getValue(),
@@ -89,7 +89,7 @@ public class LAppView implements AutoCloseable {
         spriteShader = new LAppSpriteShader();
     }
 
-    // スプライトの初期化
+    // 精灵初始化
     public void initializeSprite() {
         Log.d(TAG, "initializeSprite: Initializing sprites");
         int windowWidth = LAppDelegate.getInstance().getWindowWidth();
@@ -104,7 +104,7 @@ public class LAppView implements AutoCloseable {
             return;
         }
 
-        // シェーダープログラムIDの取得
+        // 获取着色器程序ID
         int programId = spriteShader.getShaderId();
         Log.d(TAG, "initializeSprite: Program ID = " + programId);
         
@@ -113,7 +113,7 @@ public class LAppView implements AutoCloseable {
             return;
         }
 
-        // 背景画像読み込み
+        // 背景图片读取
         String backPath = ResourcePath.ROOT.getPath() + ResourcePath.BACK_IMAGE.getPath();
         Log.d(TAG, "initializeSprite: Loading back texture from " + backPath);
         LAppTextureManager.TextureInfo backTexture = textureManager.createTextureFromPngFile(backPath);
@@ -138,7 +138,7 @@ public class LAppView implements AutoCloseable {
             }
         }
 
-        // ギア画像読み込み
+        // 齿轮图片读取
         String gearPath = ResourcePath.ROOT.getPath() + ResourcePath.GEAR_IMAGE.getPath();
         Log.d(TAG, "initializeSprite: Loading gear texture from " + gearPath);
         LAppTextureManager.TextureInfo gearTexture = textureManager.createTextureFromPngFile(gearPath);
@@ -163,7 +163,7 @@ public class LAppView implements AutoCloseable {
             }
         }
 
-        // 電源ボタン画像読み込み
+        // 电源按钮图片读取
         String powerPath = ResourcePath.ROOT.getPath() + ResourcePath.POWER_IMAGE.getPath();
         Log.d(TAG, "initializeSprite: Loading power texture from " + powerPath);
         LAppTextureManager.TextureInfo powerTexture = textureManager.createTextureFromPngFile(powerPath);
@@ -188,7 +188,7 @@ public class LAppView implements AutoCloseable {
             }
         }
         
-        // 画面全体を覆うサイズ
+        // 覆盖整个屏幕的尺寸
         float x = windowWidth * 0.5f;
         float y = windowHeight * 0.5f;
 
@@ -200,13 +200,13 @@ public class LAppView implements AutoCloseable {
         Log.d(TAG, "initializeSprite: Sprites initialization completed");
     }
 
-    // 描画
+    // 绘制
     public void render() {
-        // 画面サイズの取得
+        // 获取屏幕尺寸
         int maxWidth = LAppDelegate.getInstance().getWindowWidth();
         int maxHeight = LAppDelegate.getInstance().getWindowHeight();
 
-        // nullチェックを追加し、NullPointerExceptionを防ぐ
+        // 添加空值检查，防止NullPointerException
         if (backSprite != null) {
             backSprite.setWindowSize(maxWidth, maxHeight);
         } else {
@@ -225,10 +225,11 @@ public class LAppView implements AutoCloseable {
             Log.w(TAG, "render: powerSprite is null");
         }
 
-        // UIと背景の描画
-        if (backSprite != null) {
-            backSprite.render();
-        }
+        // UI与背景的绘制
+        // 注释掉下面这段代码来移除背景图片，使背景变为透明
+        //if (backSprite != null) {
+        //    backSprite.render();
+        //}
         if (gearSprite != null) {
             gearSprite.render();
         }
@@ -242,11 +243,11 @@ public class LAppView implements AutoCloseable {
             LAppLive2DManager.getInstance().nextScene();
         }
 
-        // モデルの描画
+        // 模型绘制
         LAppLive2DManager live2dManager = LAppLive2DManager.getInstance();
         live2dManager.onUpdate();
 
-        // 各モデルが描画先としてテクスチャを持っているとき
+        // 当各模型持有纹理作为绘制目标时
         if (renderingTarget == RenderingTarget.MODEL_FRAME_BUFFER && renderingSprite != null) {
             final float[] uvVertex = {
                 1.0f, 1.0f,
@@ -257,7 +258,7 @@ public class LAppView implements AutoCloseable {
 
             for (int i = 0; i < live2dManager.getModelNum(); i++) {
                 LAppModel model = live2dManager.getModel(i);
-                float alpha = i < 1 ? 1.0f : model.getOpacity();    // 1つだけの不透明度を取得
+                float alpha = i < 1 ? 1.0f : model.getOpacity();    // 获取第一个的不透明度
 
                 renderingSprite.setColor(1.0f * alpha, 1.0f * alpha, 1.0f * alpha, alpha);
 
@@ -270,43 +271,43 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * 各モデル描画前に呼び出される
+     * 在每个模型绘制前调用
      *
-     * @param refModel モデルデータ
+     * @param refModel 模型数据
      */
     public void preModelDraw(LAppModel refModel) {
-        // 他のレンダリングターゲットに描画するためのオフスクリーンサーフェイス
+        // 用于在其他渲染目标上绘制的离屏表面
         CubismOffscreenSurfaceAndroid useTarget;
 
-        // 透明度の設定
+        // 透明度设置
         GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        // 他のレンダリングターゲットに描画するとき
+        // 当在其他渲染目标上绘制时
         if (renderingTarget != RenderingTarget.NONE) {
 
-            // 使用するターゲット
+            // 使用的目标
             useTarget = (renderingTarget == RenderingTarget.VIEW_FRAME_BUFFER)
                         ? renderingBuffer
                         : refModel.getRenderingBuffer();
 
-            // 描画先内部で作られていなければここで作成
+            // 如果绘制目标内部尚未创建，则在此处创建
             if (!useTarget.isValid()) {
                 int width = LAppDelegate.getInstance().getWindowWidth();
                 int height = LAppDelegate.getInstance().getWindowHeight();
 
-                // モデル描画キャンバス
+                // 模型绘制画布
                 useTarget.createOffscreenSurface((int) width, (int) height, null);
             }
-            // 描画開始
+            // 开始绘制
             useTarget.beginDraw(null);
-            useTarget.clear(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);   // 背景クリアカラー
+            useTarget.clear(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);   // 背景清除颜色
         }
     }
 
     /**
-     * 各モデル描画後に呼び出される
+     * 在每个模型绘制后调用
      *
-     * @param refModel モデルデータ
+     * @param refModel 模型数据
      */
     public void postModelDraw(LAppModel refModel) {
         CubismOffscreenSurfaceAndroid useTarget = null;
@@ -342,29 +343,29 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * レンダリングターゲットの切り替え
+     * 切换渲染目标
      *
-     * @param targetType レンダリングターゲット
+     * @param targetType 渲染目标
      */
     public void switchRenderingTarget(RenderingTarget targetType) {
         renderingTarget = targetType;
     }
 
     /**
-     * タッチ時呼び出される
+     * 触摸时调用
      *
-     * @param pointX 画面X座標
-     * @param pointY 画面Y座標
+     * @param pointX 屏幕X坐标
+     * @param pointY 屏幕Y坐标
      */
     public void onTouchesBegan(float pointX, float pointY) {
         touchManager.touchesBegan(pointX, pointY);
     }
 
     /**
-     * タッチ時指が動いたときに呼び出される
+     * 触摸时手指移动时调用
      *
-     * @param pointX 画面X座標
-     * @param pointY 画面Y座標
+     * @param pointX 屏幕X坐标
+     * @param pointY 屏幕Y坐标
      */
     public void onTouchesMoved(float pointX, float pointY) {
         float viewX = transformViewX(touchManager.getLastX());
@@ -376,20 +377,20 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * タッチ終了時に呼び出される
+     * 触摸结束时调用
      *
-     * @param pointX 画面X座標
-     * @param pointY 画面Y座標
+     * @param pointX 屏幕X坐标
+     * @param pointY 屏幕Y坐标
      */
     public void onTouchesEnded(float pointX, float pointY) {
-        // タッチ終了
+        // 触摸结束
         LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
         live2DManager.onDrag(0.0f, 0.0f);
 
-        // タップ
-        // 論理座標変換後の座標を取得
+        // 点击
+        // 获取逻辑坐标转换后的坐标
         float x = deviceToScreen.transformX(touchManager.getLastX());
-        // 論理座標変換後の座標を取得
+        // 获取逻辑坐标转换后的坐标
         float y = deviceToScreen.transformY(touchManager.getLastY());
 
         if (DEBUG_TOUCH_LOG_ENABLE) {
@@ -398,12 +399,12 @@ public class LAppView implements AutoCloseable {
 
         live2DManager.onTap(x, y);
 
-        // ギアボタンが押されたか
+        // 齿轮按钮是否被按下
         if (gearSprite.isHit(pointX, pointY)) {
             isChangedModel = true;
         }
 
-        // 電源ボタンが押されたか
+        // 电源按钮是否被按下
         if (powerSprite.isHit(pointX, pointY)) {
             // 应用程序结束
             LAppDelegate.getInstance().deactivateApp();
@@ -412,57 +413,57 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * X座標をビュー座標に変換する
+     * 将X坐标转换为视图坐标
      *
-     * @param deviceX デバイスX座標
-     * @return ビューX座標
+     * @param deviceX 设备X坐标
+     * @return 视图X坐标
      */
     public float transformViewX(float deviceX) {
-        // 論理座標変換後の座標を取得
+        // 获取逻辑坐标转换后的坐标
         float screenX = deviceToScreen.transformX(deviceX);
-        // 拡大、縮小、移動後の値
+        // 放大、缩小、移动后的值
         return viewMatrix.invertTransformX(screenX);
     }
 
     /**
-     * Y座標をビュー座標に変換する
+     * 将Y坐标转换为视图坐标
      *
-     * @param deviceY デバイスY座標
-     * @return ビューY座標
+     * @param deviceY 设备Y坐标
+     * @return 视图Y坐标
      */
     public float transformViewY(float deviceY) {
-        // 論理座標変換後の座標を取得
+        // 获取逻辑坐标转换后的坐标
         float screenY = deviceToScreen.transformY(deviceY);
-        // 拡大、縮小、移動後の値
+        // 放大、缩小、移动后的值
         return viewMatrix.invertTransformX(screenY);
     }
 
     /**
-     * X座標をスクリーン座標に変換する
+     * 将X坐标转换为屏幕坐标
      *
-     * @param deviceX デバイスX座標
-     * @return スクリーンX座標
+     * @param deviceX 设备X坐标
+     * @return 屏幕X坐标
      */
     public float transformScreenX(float deviceX) {
         return deviceToScreen.transformX(deviceX);
     }
 
     /**
-     * Y座標をスクリーン座標に変換する
+     * 将Y坐标转换为屏幕坐标
      *
-     * @param deviceY デバイスY座標
-     * @return スクリーンY座標
+     * @param deviceY 设备Y坐标
+     * @return 屏幕Y坐标
      */
     public float transformScreenY(float deviceY) {
         return deviceToScreen.transformX(deviceY);
     }
 
     /**
-     * デフォルト以外のレンダリングターゲットに切り替えたときに背景クリアカラーを設定する
+     * 切换到默认以外的渲染目标时设置背景清除颜色
      *
-     * @param r 赤(0.0~1.0)
-     * @param g 緑(0.0~1.0)
-     * @param b 青(0.0~1.0)
+     * @param r 红(0.0~1.0)
+     * @param g 绿(0.0~1.0)
+     * @param b 蓝(0.0~1.0)
      */
     public void setRenderingTargetClearColor(float r, float g, float b) {
         clearColor[0] = r;
@@ -471,16 +472,16 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * 他のレンダリングターゲットにモデルを描画するときに描画時のαを決定する
+     * 在其他渲染目标上绘制模型时决定绘制时的alpha值
      *
      * @param assign
      * @return
      */
     public float getSpriteAlpha(int assign) {
-        // assignの値に応じて適宜加減
+        // 根据assign的值适当增减
         float alpha = 0.4f + (float) assign * 0.5f;
 
-        // 例えば適宜加減α
+        // 例如适当增减alpha
         if (alpha > 1.0f) {
             alpha = 1.0f;
         }
@@ -499,17 +500,17 @@ public class LAppView implements AutoCloseable {
         return renderingTarget;
     }
 
-    private final CubismMatrix44 deviceToScreen = CubismMatrix44.create(); // デバイス座標からスクリーン座標への変換行列
+    private final CubismMatrix44 deviceToScreen = CubismMatrix44.create(); // 设备坐标到屏幕坐标转换矩阵
     private final CubismViewMatrix viewMatrix = new CubismViewMatrix();   // 显示的放大・移动用矩阵
     private int windowWidth;
     private int windowHeight;
 
     /**
-     * レンダリングターゲットの選択
+     * 渲染目标的选择
      */
     private RenderingTarget renderingTarget = RenderingTarget.NONE;
     /**
-     * レンダリングターゲットのクリアカラー
+     * 渲染目标的清除颜色
      */
     private final float[] clearColor = new float[4];
 
@@ -521,14 +522,14 @@ public class LAppView implements AutoCloseable {
     private LAppSprite renderingSprite;
 
     /**
-     * モデル切り替えフラグ
+     * 模型切换标志
      */
     private boolean isChangedModel;
 
     private final TouchManager touchManager = new TouchManager();
 
     /**
-     * シェーダー作成委任クラス
+     * 着色器创建委托类
      */
     private LAppSpriteShader spriteShader;
 }
