@@ -20,12 +20,12 @@
 ## 2. Live2D集成计划
 
 ### 第一阶段：创建基础组件和集成
-- [ ] 创建Live2D显示组件
-  - [ ] 创建一个专门的Flutter Widget来承载Android端的Live2D视图
-  - [ ] 实现MethodChannel通信机制
-- [ ] 在通话页面集成Live2D模型
-  - [ ] 替换现有的AnimatedMeshGradient组件为Live2D显示组件
-  - [ ] 添加触摸交互功能
+- [x] 创建Live2D显示组件
+  - [x] 创建一个专门的Flutter Widget来承载Android端的Live2D视图
+  - [x] 实现MethodChannel通信机制
+- [x] 在通话页面集成Live2D模型
+  - [x] 替换现有的AnimatedMeshGradient组件为Live2D显示组件
+  - [x] 添加触摸交互功能
 
 ### 第二阶段：扩展集成范围
 - [ ] 在聊天页面添加模型预览
