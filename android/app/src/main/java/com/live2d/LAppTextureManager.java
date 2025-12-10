@@ -12,6 +12,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
+import android.util.Log;
 import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.CubismFramework;
 
@@ -22,6 +23,8 @@ import java.util.List;
 
 // テクスチャの管理を行うクラス
 public class LAppTextureManager {
+    private static final String TAG = "LAppTextureManager";
+    
     // 画像情報データクラス
     public static class TextureInfo {
         public int id;  // テクスチャID
@@ -33,9 +36,12 @@ public class LAppTextureManager {
     // 画像読み込み
     // imageFileOffset: glGenTexturesで作成したテクスチャの保存場所
     public TextureInfo createTextureFromPngFile(String filePath) {
+        Log.d(TAG, "createTextureFromPngFile: Loading texture from " + filePath);
+        
         // search loaded texture already
         for (TextureInfo textureInfo : textures) {
             if (textureInfo.filePath.equals(filePath)) {
+                Log.d(TAG, "createTextureFromPngFile: Texture already loaded, returning cached version");
                 return textureInfo;
             }
         }
@@ -44,12 +50,31 @@ public class LAppTextureManager {
         AssetManager assetManager = LAppDelegate.getInstance().getActivity().getAssets();
         InputStream stream = null;
         try {
+            Log.d(TAG, "createTextureFromPngFile: Opening asset file");
             stream = assetManager.open(filePath);
         } catch (IOException e) {
+            Log.e(TAG, "createTextureFromPngFile: Failed to open asset file: " + filePath, e);
             e.printStackTrace();
         }
+        
+        if (stream == null) {
+            Log.e(TAG, "createTextureFromPngFile: InputStream is null for file: " + filePath);
+            return null;
+        }
+        
         // decodeStreamは乗算済みアルファとして画像を読み込むようである
         Bitmap bitmap = BitmapFactory.decodeStream(stream);
+        Log.d(TAG, "createTextureFromPngFile: Bitmap decoded, null=" + (bitmap == null));
+        
+        if (bitmap == null) {
+            Log.e(TAG, "createTextureFromPngFile: Failed to decode bitmap from stream for file: " + filePath);
+            try {
+                stream.close();
+            } catch (IOException e) {
+                Log.e(TAG, "createTextureFromPngFile: Failed to close stream", e);
+            }
+            return null;
+        }
 
         // Texture0をアクティブにする
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -75,6 +100,9 @@ public class LAppTextureManager {
         textureInfo.width = bitmap.getWidth();
         textureInfo.height = bitmap.getHeight();
         textureInfo.id = textureId[0];
+        
+        Log.d(TAG, "createTextureFromPngFile: Texture info - width=" + textureInfo.width + 
+              ", height=" + textureInfo.height + ", id=" + textureInfo.id);
 
         textures.add(textureInfo);
 
@@ -85,7 +113,14 @@ public class LAppTextureManager {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             CubismFramework.coreLogFunction("Create texture: " + filePath);
         }
-
+        
+        try {
+            stream.close();
+        } catch (IOException e) {
+            Log.e(TAG, "createTextureFromPngFile: Failed to close stream", e);
+        }
+        
+        Log.d(TAG, "createTextureFromPngFile: Texture created successfully");
         return textureInfo;
     }
 

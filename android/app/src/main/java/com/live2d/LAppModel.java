@@ -7,6 +7,8 @@
 
 package com.live2d;
 
+import android.util.Log;
+
 import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.CubismDefaultParameterId.ParameterId;
 import com.live2d.sdk.cubism.framework.CubismFramework;
@@ -36,7 +38,10 @@ import java.util.Map;
 import java.util.Random;
 
 public class LAppModel extends CubismUserModel {
+    private static final String TAG = "LAppModel";
+    
     public LAppModel() {
+        Log.d(TAG, "LAppModel constructor called");
         if (LAppDefine.MOC_CONSISTENCY_VALIDATION_ENABLE) {
             mocConsistency = true;
         }
@@ -48,7 +53,7 @@ public class LAppModel extends CubismUserModel {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             debugMode = true;
         }
-
+        
         CubismIdManager idManager = CubismFramework.getIdManager();
 
         idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
@@ -57,6 +62,8 @@ public class LAppModel extends CubismUserModel {
         idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
         idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
         idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
+
+        Log.d(TAG, "LAppModel constructor completed");
     }
 
     public void loadAssets(final String dir, final String fileName) {
@@ -427,41 +434,59 @@ public class LAppModel extends CubismUserModel {
 
     // model3.jsonからモデルを生成する
     private void setupModel(ICubismModelSetting setting) {
+        Log.d(TAG, "setupModel: Starting model setup");
         modelSetting = setting;
 
         isUpdated = true;
         isInitialized = false;
+        Log.d(TAG, "setupModel: Initial flags set - isUpdated=" + isUpdated + ", isInitialized=" + isInitialized);
 
         // Load Cubism Model
         {
             String fileName = modelSetting.getModelFileName();
+            Log.d(TAG, "setupModel: Model file name: " + fileName);
             if (!fileName.equals("")) {
                 String path = modelHomeDirectory + fileName;
+                Log.d(TAG, "setupModel: Loading model from path: " + path);
 
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
                     LAppPal.printLog("create model: " + modelSetting.getModelFileName());
                 }
 
                 byte[] buffer = createBuffer(path);
+                Log.d(TAG, "setupModel: Buffer created, null=" + (buffer == null));
+                if (buffer != null) {
+                    Log.d(TAG, "setupModel: Buffer size: " + buffer.length);
+                }
+                
                 loadModel(buffer, mocConsistency);
+                Log.d(TAG, "setupModel: Model loaded");
+            } else {
+                Log.e(TAG, "setupModel: Model file name is empty");
             }
         }
 
         // load expression files(.exp3.json)
         {
-            if (modelSetting.getExpressionCount() > 0) {
-                final int count = modelSetting.getExpressionCount();
+            int expressionCount = modelSetting.getExpressionCount();
+            Log.d(TAG, "setupModel: Expression count: " + expressionCount);
+            if (expressionCount > 0) {
+                final int count = expressionCount;
 
                 for (int i = 0; i < count; i++) {
                     String name = modelSetting.getExpressionName(i);
                     String path = modelSetting.getExpressionFileName(i);
+                    Log.d(TAG, "setupModel: Loading expression - name=" + name + ", path=" + path);
                     path = modelHomeDirectory + path;
 
                     byte[] buffer = createBuffer(path);
+                    Log.d(TAG, "setupModel: Expression buffer created, null=" + (buffer == null));
                     CubismExpressionMotion motion = loadExpression(buffer);
+                    Log.d(TAG, "setupModel: Expression motion loaded, null=" + (motion == null));
 
                     if (motion != null) {
                         expressions.put(name, motion);
+                        Log.d(TAG, "setupModel: Added expression to map: " + name);
                     }
                 }
             }
@@ -470,21 +495,30 @@ public class LAppModel extends CubismUserModel {
         // Physics
         {
             String path = modelSetting.getPhysicsFileName();
+            Log.d(TAG, "setupModel: Physics file path: " + path);
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
+                Log.d(TAG, "setupModel: Loading physics from: " + modelPath);
                 byte[] buffer = createBuffer(modelPath);
+                Log.d(TAG, "setupModel: Physics buffer created, null=" + (buffer == null));
 
                 loadPhysics(buffer);
+                Log.d(TAG, "setupModel: Physics loaded");
             }
         }
 
         // Pose
         {
             String path = modelSetting.getPoseFileName();
+            Log.d(TAG, "setupModel: Pose file path: " + path);
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
+                Log.d(TAG, "setupModel: Loading pose from: " + modelPath);
                 byte[] buffer = createBuffer(modelPath);
+                Log.d(TAG, "setupModel: Pose buffer created, null=" + (buffer == null));
+
                 loadPose(buffer);
+                Log.d(TAG, "setupModel: Pose loaded");
             }
         }
 

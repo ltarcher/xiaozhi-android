@@ -8,6 +8,7 @@
 package com.live2d;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import com.live2d.TouchManager;
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
@@ -19,6 +20,8 @@ import static com.live2d.LAppDefine.*;
 import static android.opengl.GLES20.*;
 
 public class LAppView implements AutoCloseable {
+    private static final String TAG = "LAppView";
+    
     /**
      * LAppModelのレンダリング先
      */
@@ -29,6 +32,7 @@ public class LAppView implements AutoCloseable {
     }
 
     public LAppView() {
+        Log.d(TAG, "LAppView constructor called");
         clearColor[0] = 1.0f;
         clearColor[1] = 1.0f;
         clearColor[2] = 1.0f;
@@ -37,13 +41,16 @@ public class LAppView implements AutoCloseable {
 
     @Override
     public void close() {
+        Log.d(TAG, "close: Closing LAppView");
         spriteShader.close();
     }
 
     // ビューを初期化する
     public void initialize() {
+        Log.d(TAG, "initialize: Initializing LAppView");
         int width = LAppDelegate.getInstance().getWindowWidth();
         int height = LAppDelegate.getInstance().getWindowHeight();
+        Log.d(TAG, "initialize: Window size - width=" + width + ", height=" + height);
 
         float ratio = (float) width / (float) height;
         float left = -ratio;
@@ -84,59 +91,95 @@ public class LAppView implements AutoCloseable {
 
     // 画像を初期化する
     public void initializeSprite() {
+        Log.d(TAG, "initializeSprite: Initializing sprites");
         int windowWidth = LAppDelegate.getInstance().getWindowWidth();
         int windowHeight = LAppDelegate.getInstance().getWindowHeight();
+        Log.d(TAG, "initializeSprite: Window size - width=" + windowWidth + ", height=" + windowHeight);
 
         LAppTextureManager textureManager = LAppDelegate.getInstance().getTextureManager();
+        Log.d(TAG, "initializeSprite: Got texture manager");
 
         // 背景画像の読み込み
-        LAppTextureManager.TextureInfo backgroundTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.BACK_IMAGE.getPath());
-
+        String backgroundPath = ResourcePath.ROOT.getPath() + ResourcePath.BACK_IMAGE.getPath();
+        Log.d(TAG, "initializeSprite: Loading background texture from " + backgroundPath);
+        LAppTextureManager.TextureInfo backgroundTexture = textureManager.createTextureFromPngFile(backgroundPath);
+        Log.d(TAG, "initializeSprite: Background texture loaded, null=" + (backgroundTexture == null));
+        
+        if (backgroundTexture == null) {
+            Log.e(TAG, "initializeSprite: Failed to load background texture");
+            return;
+        }
 
         // x,yは画像の中心座標
         float x = windowWidth * 0.5f;
         float y = windowHeight * 0.5f;
         float fWidth = backgroundTexture.width * 2.0f;
         float fHeight = windowHeight * 0.95f;
+        Log.d(TAG, "initializeSprite: Background sprite params - x=" + x + ", y=" + y + 
+              ", width=" + fWidth + ", height=" + fHeight);
 
         int programId = spriteShader.getShaderId();
+        Log.d(TAG, "initializeSprite: Got shader program ID: " + programId);
 
         if (backSprite == null) {
             backSprite = new LAppSprite(x, y, fWidth, fHeight, backgroundTexture.id, programId);
+            Log.d(TAG, "initializeSprite: Created new background sprite");
         } else {
             backSprite.resize(x, y, fWidth, fHeight);
+            Log.d(TAG, "initializeSprite: Resized existing background sprite");
         }
 
         // 歯車画像の読み込み
-        LAppTextureManager.TextureInfo gearTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.GEAR_IMAGE.getPath());
-
+        String gearPath = ResourcePath.ROOT.getPath() + ResourcePath.GEAR_IMAGE.getPath();
+        Log.d(TAG, "initializeSprite: Loading gear texture from " + gearPath);
+        LAppTextureManager.TextureInfo gearTexture = textureManager.createTextureFromPngFile(gearPath);
+        Log.d(TAG, "initializeSprite: Gear texture loaded, null=" + (gearTexture == null));
+        
+        if (gearTexture == null) {
+            Log.e(TAG, "initializeSprite: Failed to load gear texture");
+            return;
+        }
 
         x = windowWidth - gearTexture.width * 0.5f - 96.f;
         y = windowHeight - gearTexture.height * 0.5f;
         fWidth = (float) gearTexture.width;
         fHeight = (float) gearTexture.height;
+        Log.d(TAG, "initializeSprite: Gear sprite params - x=" + x + ", y=" + y + 
+              ", width=" + fWidth + ", height=" + fHeight);
 
         if (gearSprite == null) {
             gearSprite = new LAppSprite(x, y, fWidth, fHeight, gearTexture.id, programId);
+            Log.d(TAG, "initializeSprite: Created new gear sprite");
         } else {
             gearSprite.resize(x, y, fWidth, fHeight);
+            Log.d(TAG, "initializeSprite: Resized existing gear sprite");
         }
 
-        // 電源画像の読み込み
-        LAppTextureManager.TextureInfo powerTexture = textureManager.createTextureFromPngFile(ResourcePath.ROOT.getPath() + ResourcePath.POWER_IMAGE.getPath());
+        // 電源ボタン画像の読み込み
+        String powerPath = ResourcePath.ROOT.getPath() + ResourcePath.POWER_IMAGE.getPath();
+        Log.d(TAG, "initializeSprite: Loading power texture from " + powerPath);
+        LAppTextureManager.TextureInfo powerTexture = textureManager.createTextureFromPngFile(powerPath);
+        Log.d(TAG, "initializeSprite: Power texture loaded, null=" + (powerTexture == null));
+        
+        if (powerTexture == null) {
+            Log.e(TAG, "initializeSprite: Failed to load power texture");
+            return;
+        }
 
-
-        x = windowWidth - powerTexture.width * 0.5f - 96.0f;
-        y = powerTexture.height * 0.5f;
+        x = powerTexture.width * 0.5f;
+        y = windowHeight - powerTexture.height * 0.5f;
         fWidth = (float) powerTexture.width;
         fHeight = (float) powerTexture.height;
+        Log.d(TAG, "initializeSprite: Power sprite params - x=" + x + ", y=" + y + 
+              ", width=" + fWidth + ", height=" + fHeight);
 
         if (powerSprite == null) {
             powerSprite = new LAppSprite(x, y, fWidth, fHeight, powerTexture.id, programId);
+            Log.d(TAG, "initializeSprite: Created new power sprite");
         } else {
             powerSprite.resize(x, y, fWidth, fHeight);
+            Log.d(TAG, "initializeSprite: Resized existing power sprite");
         }
-
         // 画面全体を覆うサイズ
         x = windowWidth * 0.5f;
         y = windowHeight * 0.5f;
@@ -146,6 +189,7 @@ public class LAppView implements AutoCloseable {
         } else {
             renderingSprite.resize(x, y, windowWidth, windowHeight);
         }
+        Log.d(TAG, "initializeSprite: Sprites initialization completed");
     }
 
     // 描画する

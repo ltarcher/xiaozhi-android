@@ -7,6 +7,9 @@
 
 package com.live2d;
 
+import android.content.res.AssetManager;
+import android.util.Log;
+
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
 import com.live2d.sdk.cubism.framework.motion.ACubismMotion;
 import com.live2d.sdk.cubism.framework.motion.IBeganMotionCallback;
@@ -17,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import android.content.res.AssetManager;
-
 import static com.live2d.LAppDefine.*;
 
 /**
@@ -26,14 +27,20 @@ import static com.live2d.LAppDefine.*;
  * モデル生成と破棄、タップイベントの処理、モデル切り替えを行う。
  */
 public class LAppLive2DManager {
+    private static final String TAG = "LAppLive2DManager";
+    
     public static LAppLive2DManager getInstance() {
         if (s_instance == null) {
+            Log.d(TAG, "getInstance: Creating new LAppLive2DManager instance");
             s_instance = new LAppLive2DManager();
+        } else {
+            Log.d(TAG, "getInstance: Returning existing LAppLive2DManager instance");
         }
         return s_instance;
     }
 
     public static void releaseInstance() {
+        Log.d(TAG, "releaseInstance: Releasing LAppLive2DManager instance");
         s_instance = null;
     }
 
@@ -41,6 +48,7 @@ public class LAppLive2DManager {
      * 現在のシーンで保持している全てのモデルを解放する
      */
     public void releaseAllModel() {
+        Log.d(TAG, "releaseAllModel: Releasing all models, count=" + models.size());
         for (LAppModel model : models) {
             model.deleteModel();
         }
