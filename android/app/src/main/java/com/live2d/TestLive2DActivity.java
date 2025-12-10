@@ -1,6 +1,7 @@
 package com.live2d;
 
 import android.app.Activity;
+import android.content.res.AssetManager;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
@@ -10,6 +11,8 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.widget.Toast;
+
+import java.io.IOException;
 
 /**
  * 测试Live2D模型加载的Activity
@@ -39,6 +42,54 @@ public class TestLive2DActivity extends Activity {
         // 显示提示信息
         Toast.makeText(this, "正在加载Live2D模型...", Toast.LENGTH_SHORT).show();
         Log.d(TAG, "onCreate: GLSurfaceView initialized");
+        
+        // 打印资源目录结构
+        printAssetsStructure();
+    }
+
+    /**
+     * 递归打印assets目录结构
+     */
+    private void printAssetsStructure() {
+        Log.d(TAG, "=== 开始递归打印Assets目录结构 ===");
+        try {
+            AssetManager assetManager = getAssets();
+            printAssetsRecursively(assetManager, "", "");
+        } catch (Exception e) {
+            Log.e(TAG, "打印Assets目录结构时出错: " + e.getMessage(), e);
+        }
+        Log.d(TAG, "=== 结束递归打印Assets目录结构 ===");
+    }
+
+    /**
+     * 递归遍历并打印assets目录内容
+     * @param assetManager AssetManager实例
+     * @param path 当前路径
+     * @param indent 缩进字符串
+     */
+    private void printAssetsRecursively(AssetManager assetManager, String path, String indent) {
+        try {
+            String[] list = assetManager.list(path);
+            if (list != null) {
+                for (String file : list) {
+                    Log.d(TAG, indent + "|-- " + file);
+                    // 尝试列出子目录内容以判断是文件还是目录
+                    String subPath = path.isEmpty() ? file : path + "/" + file;
+                    try {
+                        String[] subList = assetManager.list(subPath);
+                        if (subList != null && subList.length > 0) {
+                            // 是目录，递归遍历
+                            printAssetsRecursively(assetManager, subPath, indent + "    ");
+                        }
+                    } catch (Exception e) {
+                        // 无法列出内容，可能是文件
+                        Log.d(TAG, indent + "    |-- (file)");
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "无法列出路径内容: " + path, e);
+        }
     }
 
     private void setupFullScreenMode() {
