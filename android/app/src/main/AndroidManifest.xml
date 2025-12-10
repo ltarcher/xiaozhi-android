@@ -9,7 +9,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
-            android:name=".TestLive2DActivity"
+            android:name="com.live2d.TestLive2DActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
