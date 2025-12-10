@@ -30,7 +30,7 @@ public class LAppDelegate {
     }
 
     /**
-     * クラスのインスタンス（シングルトン）を解放する。
+     * 释放类的实例（单例）。
      */
     public static void releaseInstance() {
         Log.d(TAG, "releaseInstance: Releasing LAppDelegate instance");
@@ -40,7 +40,7 @@ public class LAppDelegate {
     }
 
     /**
-     * アプリケーションを非アクティブにする
+     * 将应用程序设为非活动状态
      */
     public void deactivateApp() {
         Log.d(TAG, "deactivateApp: Deactivating application");
@@ -225,20 +225,20 @@ public class LAppDelegate {
     private boolean isActive = true;
 
     /**
-     * モデルシーンインデックス
+     * 模型シーン索引
      */
     private int currentModel;
 
     /**
-     * クリックしているか
+     * 是否正在点击
      */
     private boolean isCaptured;
     /**
-     * マウスのX座標
+     * 鼠标的X坐标
      */
     private float mouseX;
     /**
-     * マウスのY座標
+     * 鼠标的Y坐标
      */
     private float mouseY;
 }

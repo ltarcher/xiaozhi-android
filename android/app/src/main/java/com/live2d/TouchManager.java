@@ -8,14 +8,14 @@
 package com.live2d;
 
 /**
- * タッチマネージャー
+ * 触摸管理器
  */
 public class TouchManager {
     /**
-     * タッチ開始時のイベント
+     * 触摸开始时的事件
      *
-     * @param deviceX タッチした画面のxの値
-     * @param deviceY タッチした画面のyの値
+     * @param deviceX 触摸屏幕的x值
+     * @param deviceY 触摸屏幕的y值
      */
     public void touchesBegan(float deviceX, float deviceY) {
         lastX = deviceX;
@@ -31,10 +31,10 @@ public class TouchManager {
     }
 
     /**
-     * ドラッグ時のイベント
+     * 拖动时的事件
      *
-     * @param deviceX タッチした画面のxの値
-     * @param deviceY タッチした画面のyの値
+     * @param deviceX 触摸屏幕的x值
+     * @param deviceY 触摸屏幕的y值
      */
     public void touchesMoved(float deviceX, float deviceY) {
         lastX = deviceX;
@@ -44,12 +44,12 @@ public class TouchManager {
     }
 
     /**
-     * ドラッグ時のイベント
+     * 拖动时的事件
      *
-     * @param deviceX1 1つ目のタッチした画面のxの値
-     * @param deviceY1 1つ目のタッチした画面のyの値
-     * @param deviceX2 2つ目のタッチした画面のxの値
-     * @param deviceY2 2つ目のタッチした画面のyの値
+     * @param deviceX1 1个触摸屏幕的x值
+     * @param deviceY1 1个触摸屏幕的y値
+     * @param deviceX2 2个触摸屏幕的x値
+     * @param deviceY2 2个触摸屏幕的y値
      */
     public void touchesMoved(float deviceX1, float deviceY1, float deviceX2, float deviceY2) {
         float distance = calculateDistance(deviceX1, deviceY1, deviceX2, deviceY2);
@@ -77,9 +77,9 @@ public class TouchManager {
     }
 
     /**
-     * フリックの距離を測定する
+     * 测定的滑动距离
      *
-     * @return フリック距離
+     * @return 滑动距离
      */
     public float calculateGetFlickDistance() {
         return calculateDistance(startX, startY, lastX, lastY);
@@ -143,12 +143,12 @@ public class TouchManager {
     }
 
     /**
-     * 点1から点2への距離を求める
+     * 从点1到点2的距离
      *
-     * @param x1 1つ目のタッチした画面のxの値
-     * @param y1 1つ目のタッチした画面のyの値
-     * @param x2 1つ目のタッチした画面のxの値
-     * @param y2 1つ目のタッチした画面のyの値
+     * @param x1 1个触摸屏幕的x值
+     * @param y1 1个触摸屏幕的y値
+     * @param x2 1个触摸屏幕的x値
+     * @param y2 1个触摸屏幕のy値
      * @return 2点の距離
      */
     private float calculateDistance(float x1, float y1, float x2, float y2) {
@@ -156,12 +156,12 @@ public class TouchManager {
     }
 
     /**
-     * 2つの値から、移動量を求める
-     * 違う方向の場合は移動量0。同じ方向の場合は、絶対値が小さい方の値を参照する
+     * 从2个值中，计算移动量
+     * 如果方向不同，则移动量为0。如果方向相同，则参考绝对值较小的值
      *
-     * @param v1 1つ目の移動量
-     * @param v2 2つ目の移動量
-     * @return 小さい方の移動量
+     * @param v1 1个移动量
+     * @param v2 2个移动量
+     * @return 较小的移动量
      */
     private float calculateMovingAmount(float v1, float v2) {
         if ((v1 > 0.0f) != (v2 > 0.0f)) {
@@ -176,35 +176,35 @@ public class TouchManager {
     }
 
     /**
-     * タッチ開始時のxの値
+     * 触摸开始时的x值
      */
     private float startX;
     /**
-     * タッチ開始時のyの値
+     * 触摸开始时的y値
      */
     private float startY;
     /**
-     * シングルタッチ時のxの値
+     * 单点触摸时的x値
      */
     private float lastX;
     /**
-     * シングルタッチ時のyの値
+     * 単点触摸時のy値
      */
     private float lastY;
     /**
-     * ダブルタッチ時の1つ目のxの値
+     * 双点触摸时的1个x値
      */
     private float lastX1;
     /**
-     * ダブルタッチ時の1つ目のyの値
+     * 双点触摸时的1个y値
      */
     private float lastY1;
     /**
-     * ダブルタッチ時の2つ目のxの値
+     * 双点触摸时的2个x値
      */
     private float lastX2;
     /**
-     * ダブルタッチ時の2つ目のyの値
+     * 双点触摸时的2个y値
      */
     private float lastY2;
     /**
@@ -224,7 +224,7 @@ public class TouchManager {
      */
     private float scale;
     /**
-     * シングルタッチ時はtrue
+     * 単点触摸時はtrue
      */
     private boolean isTouchSingle;
     /**

@@ -95,14 +95,14 @@ public class LAppModel extends CubismUserModel {
     }
 
     /**
-     * Delete the model which LAppModel has.
+     * 删除LAppModel拥有的模型。
      */
     public void deleteModel() {
         delete();
     }
 
     /**
-     * モデルの更新処理。モデルのパラメーターから描画状態を決定する
+     * 模型的更新处理。根据模型的参数决定绘制状态
      */
     public void update() {
         final float deltaTimeSeconds = LAppPal.getDeltaTime();

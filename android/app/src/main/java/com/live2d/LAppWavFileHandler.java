@@ -30,7 +30,7 @@ public class LAppWavFileHandler extends Thread {
     }
 
     public void loadWavFile() {
-        // 対応していないAPI(API24未満)の場合は音声再生を行わない。
+        // 如果不支持API(API24以下)则不进行音频播放。
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             return;
         }
@@ -40,7 +40,7 @@ public class LAppWavFileHandler extends Thread {
             AssetFileDescriptor afd = LAppDelegate.getInstance().getActivity().getAssets().openFd(filePath);
             mediaExtractor.setDataSource(afd);
         } catch (IOException e) {
-            // 例外が発生したらエラーだけだして再生せずreturnする。
+            // 发生异常时只输出错误并不进行播放直接return。
             e.printStackTrace();
             return;
         }
@@ -69,7 +69,7 @@ public class LAppWavFileHandler extends Thread {
             .build();
         audioTrack.play();
 
-        // ぶつぶつ音を回避
+        // 避免断断续续的声音
         int offset = 100;
         byte[] voiceBuffer = LAppPal.loadFileAsBytes(filePath);
         audioTrack.write(voiceBuffer, offset, voiceBuffer.length - offset);

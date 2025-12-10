@@ -25,19 +25,19 @@ public class LAppPal {
         }
     }
 
-    // アプリケーションを中断状態にする。実行されるとonPause()イベントが発生する
+    // 将应用程序置于中断状态。执行后会发生onPause()事件
     public static void moveTaskToBack() {
         LAppDelegate.getInstance().getActivity().moveTaskToBack(true);
     }
 
-    // デルタタイムの更新
+    // 更新增量时间
     public static void updateTime() {
         s_currentFrame = getSystemNanoTime();
         _deltaNanoTime = s_currentFrame - _lastNanoTime;
         _lastNanoTime = s_currentFrame;
     }
 
-    // ファイルをバイト列として読み込む
+    // 将文件作为字节序列读取
     public static byte[] loadFileAsBytes(final String path) {
         InputStream fileData = null;
         try {
@@ -71,9 +71,9 @@ public class LAppPal {
         }
     }
 
-    // デルタタイム(前回フレームとの差分)を取得する
+    // 获取增量时间（与前一帧的差值）
     public static float getDeltaTime() {
-        // ナノ秒を秒に変換
+        // 将纳秒转换为秒
         return (float) (_deltaNanoTime / 1000000000.0f);
     }
 

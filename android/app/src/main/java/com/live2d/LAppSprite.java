@@ -101,20 +101,20 @@ public class LAppSprite {
     private FloatBuffer uvVertexFloatBuffer;
 
     /**
-     * テクスチャIDを指定して描画する
+     * 指定纹理ID进行绘制
      *
-     * @param textureId テクスチャID
-     * @param uvVertex uv頂点座標
+     * @param textureId 纹理ID
+     * @param uvVertex uv顶点坐标
      */
     public void renderImmediate(int textureId, final float[] uvVertex) {
-        // attribute属性を有効にする
+        // 启用attribute属性
         GLES20.glEnableVertexAttribArray(positionLocation);
         GLES20.glEnableVertexAttribArray(uvLocation);
 
-        // uniform属性の登録
+        // 注册uniform属性
         GLES20.glUniform1i(textureLocation, 0);
 
-        // 頂点データ
+        // 顶点数据
         float[] positionVertex = {
             (rect.right - maxWidth * 0.5f) / (maxWidth * 0.5f), (rect.up - maxHeight * 0.5f) / (maxHeight * 0.5f),
             (rect.left - maxWidth * 0.5f) / (maxWidth * 0.5f), (rect.up - maxHeight * 0.5f) / (maxHeight * 0.5f),
@@ -122,7 +122,7 @@ public class LAppSprite {
             (rect.right - maxWidth * 0.5f) / (maxWidth * 0.5f), (rect.down - maxHeight * 0.5f) / (maxHeight * 0.5f)
         };
 
-        // attribute属性を登録
+        // 注册attribute属性
         {
             ByteBuffer bb = ByteBuffer.allocateDirect(positionVertex.length * 4);
             bb.order(ByteOrder.nativeOrder());
@@ -144,12 +144,12 @@ public class LAppSprite {
 
         GLES20.glUniform4f(colorLocation, spriteColor[0], spriteColor[1], spriteColor[2], spriteColor[3]);
 
-        // モデルの描画
+        // 模型绘制
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
     }
 
-    // リサイズする
+    // 调整大小
     public void resize(float x, float y, float width, float height) {
         rect.left = x - width * 0.5f;
         rect.right = x + width * 0.5f;

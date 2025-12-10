@@ -23,11 +23,11 @@ public class LAppView implements AutoCloseable {
     private static final String TAG = "LAppView";
     
     /**
-     * LAppModelのレンダリング目標
+     * LAppModelのレンダリングターゲット
      */
     public enum RenderingTarget {
         NONE,   // デフォルトフレームバッファレンダリング
-        MODEL_FRAME_BUFFER,     // LAppModelForSmallDemo各自が持つフレームバッファレンダリング
+        MODEL_FRAME_BUFFER,     // LAppModelForSmallDemoがそれぞれ持つフレームバッファレンダリング
         VIEW_FRAME_BUFFER  // LAppViewForSmallDemoが持つフレームバッファレンダリング
     }
 
@@ -58,11 +58,11 @@ public class LAppView implements AutoCloseable {
         float bottom = LogicalView.LEFT.getValue();
         float top = LogicalView.RIGHT.getValue();
 
-        // デバイスに対応したスクリーン範囲。Xの左端、Xの右端、Yの下端、Yの上端
+        // 対応デバイスのスクリーン範囲。Xの左端、Xの右端、Yの下端、Yの上端
         viewMatrix.setScreenRect(left, right, bottom, top);
         viewMatrix.scale(Scale.DEFAULT.getValue(), Scale.DEFAULT.getValue());
 
-        // 単位行列に初期化
+        // 初期化は単位行列
         deviceToScreen.loadIdentity();
 
         if (width > height) {
@@ -89,7 +89,7 @@ public class LAppView implements AutoCloseable {
         spriteShader = new LAppSpriteShader();
     }
 
-    // 初期化画像
+    // スプライトの初期化
     public void initializeSprite() {
         Log.d(TAG, "initializeSprite: Initializing sprites");
         int windowWidth = LAppDelegate.getInstance().getWindowWidth();
@@ -245,7 +245,7 @@ public class LAppView implements AutoCloseable {
         LAppLive2DManager live2dManager = LAppLive2DManager.getInstance();
         live2dManager.onUpdate();
 
-        // 各モデルが描画先として持つテクスチャを持っているとき
+        // 各モデルが描画先としてテクスチャを持っているとき
         if (renderingTarget == RenderingTarget.MODEL_FRAME_BUFFER && renderingSprite != null) {
             final float[] uvVertex = {
                 1.0f, 1.0f,
@@ -256,7 +256,7 @@ public class LAppView implements AutoCloseable {
 
             for (int i = 0; i < live2dManager.getModelNum(); i++) {
                 LAppModel model = live2dManager.getModel(i);
-                float alpha = i < 1 ? 1.0f : model.getOpacity();    // 一つだけ不透明度を取得できるようにする
+                float alpha = i < 1 ? 1.0f : model.getOpacity();    // 1つだけの不透明度を取得
 
                 renderingSprite.setColor(1.0f * alpha, 1.0f * alpha, 1.0f * alpha, alpha);
 
@@ -269,18 +269,18 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * 各モデルの描画前に呼び出される
+     * 各モデル描画前に呼び出される
      *
      * @param refModel モデルデータ
      */
     public void preModelDraw(LAppModel refModel) {
-        // 他のレンダリングターゲットに対して描画する際に使用するオフスクリーンサーフェイス
+        // 他のレンダリングターゲットに描画するためのオフスクリーンサーフェイス
         CubismOffscreenSurfaceAndroid useTarget;
 
-        // 透明度設定
+        // 透明度の設定
         GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        // 他のレンダリングターゲットに対して描画するとき
+        // 他のレンダリングターゲットに描画するとき
         if (renderingTarget != RenderingTarget.NONE) {
 
             // 使用するターゲット
@@ -303,24 +303,24 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * 各モデルの描画後に呼び出される
+     * 各モデル描画後に呼び出される
      *
      * @param refModel モデルデータ
      */
     public void postModelDraw(LAppModel refModel) {
         CubismOffscreenSurfaceAndroid useTarget = null;
 
-        // 他のレンダリングターゲットに対して描画するとき
+        // 当对其他渲染目标进行绘制时
         if (renderingTarget != RenderingTarget.NONE) {
-            // 使用するターゲット
+            // 使用的目标
             useTarget = (renderingTarget == RenderingTarget.VIEW_FRAME_BUFFER)
                         ? renderingBuffer
                         : refModel.getRenderingBuffer();
 
-            // 描画終了
+            // 绘制结束
             useTarget.endDraw();
 
-            // LAppViewが持つフレームバッファを使用している場合はここでスプライトへの描画を行う
+            // 当使用LAppView拥有的帧缓冲区时在这里进行精灵绘制
             if (renderingTarget == RenderingTarget.VIEW_FRAME_BUFFER && renderingSprite != null) {
                 final float[] uvVertex = {
                     1.0f, 1.0f,
@@ -330,7 +330,7 @@ public class LAppView implements AutoCloseable {
                 };
                 renderingSprite.setColor(1.0f * getSpriteAlpha(0), 1.0f * getSpriteAlpha(0), 1.0f * getSpriteAlpha(0), getSpriteAlpha(0));
 
-                // 画面サイズの取得
+                // 获取屏幕尺寸
                 int maxWidth = LAppDelegate.getInstance().getWindowWidth();
                 int maxHeight = LAppDelegate.getInstance().getWindowHeight();
 
@@ -350,7 +350,7 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * タッチしたときに呼ばれる
+     * タッチ時呼び出される
      *
      * @param pointX 画面X座標
      * @param pointY 画面Y座標
@@ -360,7 +360,7 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * タッチしたときに指が動いたときに呼ばれる
+     * タッチ時指が動いたときに呼び出される
      *
      * @param pointX 画面X座標
      * @param pointY 画面Y座標
@@ -375,7 +375,7 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * タッチが終わったときに呼ばれる
+     * タッチ終了時に呼び出される
      *
      * @param pointX 画面X座標
      * @param pointY 画面Y座標
@@ -404,7 +404,7 @@ public class LAppView implements AutoCloseable {
 
         // 電源ボタンが押されたか
         if (powerSprite.isHit(pointX, pointY)) {
-            // アプリケーション終了
+            // 应用程序结束
             LAppDelegate.getInstance().deactivateApp();
         }
 
@@ -457,7 +457,7 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * デフォルト以外のレンダリングターゲットに切り替えたときの背景クリアカラー設定
+     * デフォルト以外のレンダリングターゲットに切り替えたときに背景クリアカラーを設定する
      *
      * @param r 赤(0.0~1.0)
      * @param g 緑(0.0~1.0)
@@ -470,7 +470,7 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
-     * 他のレンダリングターゲットにモデルを描画するとき描画時のαを決定する
+     * 他のレンダリングターゲットにモデルを描画するときに描画時のαを決定する
      *
      * @param assign
      * @return
@@ -479,7 +479,7 @@ public class LAppView implements AutoCloseable {
         // assignの値に応じて適宜加減
         float alpha = 0.4f + (float) assign * 0.5f;
 
-        // 例として適宜αを加減する
+        // 例えば適宜加減α
         if (alpha > 1.0f) {
             alpha = 1.0f;
         }
@@ -499,7 +499,7 @@ public class LAppView implements AutoCloseable {
     }
 
     private final CubismMatrix44 deviceToScreen = CubismMatrix44.create(); // デバイス座標からスクリーン座標への変換行列
-    private final CubismViewMatrix viewMatrix = new CubismViewMatrix();   // 表示の拡大・移動を行う行列
+    private final CubismViewMatrix viewMatrix = new CubismViewMatrix();   // 显示的放大・移动用矩阵
     private int windowWidth;
     private int windowHeight;
 
