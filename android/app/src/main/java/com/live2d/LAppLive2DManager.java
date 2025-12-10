@@ -73,6 +73,48 @@ public class LAppLive2DManager {
     }
     
     /**
+     * 递归打印AssetManager中的所有文件路径（用于调试）
+     * @param assetManager AssetManager实例
+     * @param path 当前路径
+     * @param indent 缩进字符（用于显示层级结构）
+     */
+    private void printAssetsRecursively(AssetManager assetManager, String path, String indent) {
+        if (!LAppDefine.DEBUG_LOG_ENABLE) {
+            return;
+        }
+        
+        try {
+            String[] files = assetManager.list(path);
+            if (files != null) {
+                LAppPal.printLog(indent + "目录 [" + path + "] 包含 " + files.length + " 个项目:");
+                for (String file : files) {
+                    String fullPath = path.isEmpty() ? file : path + "/" + file;
+                    // 检查是否为目录
+                    try {
+                        String[] subFiles = assetManager.list(fullPath);
+                        if (subFiles != null && subFiles.length > 0) {
+                            // 是目录
+                            LAppPal.printLog(indent + "  [DIR] " + file);
+                            // 递归打印子目录
+                            printAssetsRecursively(assetManager, fullPath, indent + "    ");
+                        } else {
+                            // 是文件
+                            LAppPal.printLog(indent + "  [FILE] " + file);
+                        }
+                    } catch (Exception e) {
+                        // 可能是文件或者无法访问
+                        LAppPal.printLog(indent + "  [FILE?] " + file + " (无法访问: " + e.getMessage() + ")");
+                    }
+                }
+            } else {
+                LAppPal.printLog(indent + "目录 [" + path + "] 无法列出内容");
+            }
+        } catch (Exception e) {
+            LAppPal.printErrorLog("遍历Assets时出错，路径: " + path + ", 错误: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 设置模型
      * 查找assets目录中的模型文件夹并设置模型目录列表
      */
@@ -90,16 +132,33 @@ public class LAppLive2DManager {
             return;
         }
         
+        // 调试：打印所有assets内容
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("=== 开始递归打印所有Assets内容 ===");
+            printAssetsRecursively(assetManager, "", "");
+            LAppPal.printLog("=== 结束递归打印所有Assets内容 ===");
+        }
+        
         try {
             if (LAppDefine.DEBUG_LOG_ENABLE) {
                 LAppPal.printLog("LAppLive2DManager: 尝试列出目录 " + ResourcePath.LIVE2D_ROOT);
+                LAppPal.printLog("LAppLive2DManager: 完整路径为 " + ResourcePath.FULL_LIVE2D_PATH);
             }
             
-            // 列出live2d目录下的所有文件和文件夹
+            // 首先尝试使用Flutter资源路径
             String[] files = assetManager.list(ResourcePath.LIVE2D_ROOT);
+            
+            // 如果Flutter路径失败，尝试原生路径
+            if (files == null || files.length == 0) {
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppLive2DManager: Flutter路径无效，尝试原生路径: " + ResourcePath.NATIVE_LIVE2D_PATH);
+                }
+                files = assetManager.list(ResourcePath.NATIVE_LIVE2D_PATH);
+            }
+            
             if (files != null) {
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("LAppLive2DManager: 发现 " + files.length + " 个项目在 " + ResourcePath.LIVE2D_ROOT);
+                    LAppPal.printLog("LAppLive2DManager: 发现 " + files.length + " 个项目在目录中");
                 }
                 
                 // 遍历所有文件夹，查找模型目录
@@ -112,6 +171,13 @@ public class LAppLive2DManager {
                         // 尝试列出子目录的内容，判断是否为文件夹
                         String fullPath = ResourcePath.LIVE2D_ROOT + file;
                         String[] subFiles = assetManager.list(fullPath);
+                        
+                        // 如果Flutter路径失败，尝试原生路径
+                        if ((subFiles == null || subFiles.length == 0) && !ResourcePath.NATIVE_LIVE2D_PATH.isEmpty()) {
+                            fullPath = ResourcePath.NATIVE_LIVE2D_PATH + file;
+                            subFiles = assetManager.list(fullPath);
+                        }
+                        
                         if (subFiles != null && subFiles.length > 0) {
                             if (LAppDefine.DEBUG_LOG_ENABLE) {
                                 LAppPal.printLog("LAppLive2DManager: " + file + " 是目录，包含 " + subFiles.length + " 个项目");
@@ -130,6 +196,10 @@ public class LAppLive2DManager {
                             } else {
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
                                     LAppPal.printLog("LAppLive2DManager: " + file + " 目录不包含 " + modelSettingFile);
+                                    LAppPal.printLog("LAppLive2DManager: " + file + " 目录中的文件列表:");
+                                    for (String subFile : subFiles) {
+                                        LAppPal.printLog("LAppLive2DManager:   - " + subFile);
+                                    }
                                 }
                             }
                         } else {
@@ -144,6 +214,21 @@ public class LAppLive2DManager {
                 }
             } else {
                 LAppPal.printErrorLog("无法列出目录: " + ResourcePath.LIVE2D_ROOT);
+                
+                // 调试：尝试列出根目录内容
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    try {
+                        String[] rootFiles = assetManager.list("");
+                        if (rootFiles != null) {
+                            LAppPal.printLog("根目录包含以下项目:");
+                            for (String rootFile : rootFiles) {
+                                LAppPal.printLog("  - " + rootFile);
+                            }
+                        }
+                    } catch (IOException e) {
+                        LAppPal.printErrorLog("无法列出根目录: " + e.getMessage());
+                    }
+                }
             }
         } catch (IOException e) {
             LAppPal.printErrorLog("扫描模型目录失败: " + e.getMessage());

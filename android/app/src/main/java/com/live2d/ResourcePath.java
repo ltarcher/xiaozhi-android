@@ -13,6 +13,12 @@ public class ResourcePath {
     // 完整的Live2D资源路径（用于AssetManager访问）
     public static final String FULL_LIVE2D_PATH = FLUTTER_ASSETS_ROOT + LIVE2D_ROOT;
     
+    // Android原生资源根路径
+    public static final String NATIVE_ASSETS_ROOT = "";
+    
+    // Android原生Live2D资源路径
+    public static final String NATIVE_LIVE2D_PATH = "live2d/";
+    
     // 背景图片路径
     public static final String BACK_IMAGE = "back_class_normal.png";
     
@@ -23,16 +29,22 @@ public class ResourcePath {
     public static final String CLOSE_IMAGE = "close.png";
     
     /**
-     * 获取根路径
+     * 获取根路径（Flutter）
      * @return 根路径
      */
     public static ResourcePath ROOT = new ResourcePath(LIVE2D_ROOT);
     
     /**
-     * 获取完整路径
+     * 获取完整路径（Flutter）
      * @return 完整路径
      */
     public static ResourcePath FULL_PATH = new ResourcePath(FULL_LIVE2D_PATH);
+    
+    /**
+     * 获取原生资源根路径
+     * @return 原生资源根路径
+     */
+    public static ResourcePath NATIVE_ROOT = new ResourcePath(NATIVE_LIVE2D_PATH);
     
     private final String path;
     

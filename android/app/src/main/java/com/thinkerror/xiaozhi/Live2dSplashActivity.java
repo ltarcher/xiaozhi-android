@@ -13,6 +13,8 @@ import androidx.annotation.NonNull;
 import com.live2d.LAppDelegate;
 import com.live2d.GLRenderer;
 
+import java.io.IOException;
+
 /**
  * Live2D待机页面Activity
  * 用于显示Live2D模型的启动页面
@@ -59,7 +61,48 @@ public class Live2dSplashActivity extends Activity {
         // 在Activity启动时初始化
         live2DDelegate.onStart(this);
         
+        // 打印资源目录所有文件全路径
+        printAssetFiles();
+        
         Log.d(TAG, "初始化Live2D系统 完成");
+    }
+    
+    /**
+     * 打印资源目录所有文件全路径
+     */
+    private void printAssetFiles() {
+        try {
+            Log.d(TAG, "=== 开始打印资源目录所有文件 ===");
+            printAssetFilesRecursive("", 0);
+            Log.d(TAG, "=== 结束打印资源目录所有文件 ===");
+        } catch (Exception e) {
+            Log.e(TAG, "打印资源目录文件时出错: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 递归打印资产目录中的文件
+     * @param path 当前路径
+     * @param depth 递归深度（用于缩进显示）
+     */
+    private void printAssetFilesRecursive(String path, int depth) throws IOException {
+        String[] files = getAssets().list(path);
+        if (files != null) {
+            for (String file : files) {
+                String fullPath = path.isEmpty() ? file : path + "/" + file;
+                
+                // 检查是否为目录
+                String[] subFiles = getAssets().list(fullPath);
+                if (subFiles != null && subFiles.length > 0) {
+                    // 是目录，递归处理
+                    Log.d(TAG, "目录: " + fullPath);
+                    printAssetFilesRecursive(fullPath, depth + 1);
+                } else {
+                    // 是文件
+                    Log.d(TAG, "文件: " + fullPath);
+                }
+            }
+        }
     }
     
     /**
