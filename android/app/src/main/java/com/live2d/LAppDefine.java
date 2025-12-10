@@ -112,7 +112,7 @@ public class LAppDefine {
         /**
          * Relative path of the material directory
          */
-        ROOT("flutter_assets/assets/live2d"),
+        ROOT("flutter_assets/assets/live2d/"),
         /**
          * Relative path of shader directory
          */
