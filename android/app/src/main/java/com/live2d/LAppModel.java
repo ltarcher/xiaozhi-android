@@ -69,7 +69,7 @@ public class LAppModel extends CubismUserModel {
     private float userTimeSeconds = 0.0f;
     
     // 拖拽管理器
-    private final LAppDragManager dragManager = new LAppDragManager();
+    private final TouchManager dragManager = TouchManager.getInstance();
     
     // X轴加速度
     protected float accelerationX = 0.0f;
@@ -80,10 +80,10 @@ public class LAppModel extends CubismUserModel {
     // Z轴加速度
     protected float accelerationZ = 0.0f;
     
-    // X轴拖拽值
+    // X轴拖拽値
     protected float dragX = 0.0f;
     
-    // Y轴拖拽值
+    // Y轴拖拽値
     protected float dragY = 0.0f;
     
     // 不透明度
@@ -303,7 +303,7 @@ public class LAppModel extends CubismUserModel {
                 continue;
             }
             
-            // 从PNG文件创建OpenGL纹理
+            // 从PNGファイル创建OpenGL纹理
             String texturePath = modelSetting.getTextureFileName(modelTextureNumber);
             texturePath = modelHomeDirectory + texturePath;
             
@@ -372,31 +372,17 @@ public class LAppModel extends CubismUserModel {
     }
     
     /**
-     * 更新模型
-     */
-    /**
-     * 删除模型
-     */
-    public void deleteModel() {
-        delete();
-        
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppModel: Model deleted");
-        }
-    }
-    
-    /**
-     * 更新模型
+     * 更新モデル
      */
     public void update() {
         final float deltaTimeSeconds = (float)LAppPal.getDeltaTime();
         userTimeSeconds += deltaTimeSeconds;
         
-        dragManager.update(deltaTimeSeconds);
-        dragX = dragManager.getX();
-        dragY = dragManager.getY();
+        // 更新拖拽参数
+        dragX = dragManager.getCurrentX();
+        dragY = dragManager.getCurrentY();
         
-        // 模型参数更新
+        // 模型パラメータ更新
         model.loadParameters();
         
         // 眼部闪烁
@@ -409,16 +395,16 @@ public class LAppModel extends CubismUserModel {
             expressionManager.updateMotion(model, deltaTimeSeconds);
         }
         
-        // 拖拽跟随功能
-        model.addParameterValue(idParamAngleX, dragX * 30); // -30到30的值
+        // 拖拽跟随機能
+        model.addParameterValue(idParamAngleX, dragX * 30); // -30到30の値
         model.addParameterValue(idParamAngleY, dragY * 30);
         model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
         
-        // 拖拽引起的身体方向调整
-        model.addParameterValue(idParamBodyAngleX, dragX * 10); // -10到10的值
+        // 拖拽引起的身体方向調整
+        model.addParameterValue(idParamBodyAngleX, dragX * 10); // -10到10の値
         
-        // 拖拽引起的眼球方向调整
-        model.addParameterValue(idParamEyeBallX, dragX);  // -1到1的值
+        // 拖拽引起的眼球方向調整
+        model.addParameterValue(idParamEyeBallX, dragX);  // -1到1の値
         model.addParameterValue(idParamEyeBallY, dragY);
         
         // 呼吸效果
@@ -431,9 +417,9 @@ public class LAppModel extends CubismUserModel {
             physics.evaluate(model, deltaTimeSeconds);
         }
         
-        // 唇形同步
+        // 唇形同期
         if (enableLipSync && lipSync) {
-            // 实时唇形同步时，从系统获取音量并输入0~1范围内的值
+            // 実時唇形同期時、システムから音量を取得し0~1の範囲の値を入力
             float value = 0.0f;
             
             for (int i = 0; i < lipSyncIds.size(); i++) {
@@ -442,12 +428,12 @@ public class LAppModel extends CubismUserModel {
             }
         }
         
-        // 姿势
+        // 姿勢
         if (pose != null) {
             pose.updateParameters(model, deltaTimeSeconds);
         }
         
-        // 更新模型参数
+        // 更新モデルパラメータ
         model.update();
     }
     
@@ -460,7 +446,7 @@ public class LAppModel extends CubismUserModel {
             return;
         }
         
-        // 为了避免缓存变量的定义，使用multiply而不是multiplyByMatrix
+        // 为了避免缓存変数の定義、multiplyではなくmultiplyByMatrixを使用
         CubismMatrix44.multiply(
             modelMatrix.getArray(),
             matrix.getArray(),
@@ -472,16 +458,16 @@ public class LAppModel extends CubismUserModel {
     }
     
     /**
-     * 碰撞检测测试
-     * 从指定ID的顶点列表计算矩形，并判断坐标是否在矩形范围内
+     * 碰撞检测テスト
+     * 从指定IDの頂点リストから矩形を計算し、座標が矩形範囲内かを判定
      *
-     * @param hitAreaName 碰撞检测的目标ID
-     * @param x 判断的x坐标
-     * @param y 判断的y坐标
-     * @return 碰撞返回true
+     * @param hitAreaName 碰撞検査の対象ID
+     * @param x 判定するx座標
+     * @param y 判定するy座標
+     * @return 碰撞した場合はtrue
      */
     public boolean hitTest(final String hitAreaName, float x, float y) {
-        // 透明时不进行碰撞检测
+        // 透明な場合は当たり判定しない
         if (opacity < 1) {
             return false;
         }
@@ -494,17 +480,17 @@ public class LAppModel extends CubismUserModel {
                 return isHit(drawID, x, y);
             }
         }
-        // 不存在时返回false
+        // 存在しない場合はfalseを返す
         return false;
     }
     
     /**
-     * 设置唇形同步值
-     * @param value 唇形同步值
+     * 设置唇形同步値
+     * @param value 唇形同期値
      */
     /**
-     * 设置唇形同步值
-     * @param value 唇形同步值
+     * 设置唇形同步値
+     * @param value 唇形同期値
      */
     public void setLipSyncValue(float value) {
         if (!enableLipSync) {
@@ -517,10 +503,10 @@ public class LAppModel extends CubismUserModel {
     }
     
     /**
-     * 设置加速度值
-     * @param x X轴加速度
-     * @param y Y轴加速度
-     * @param z Z轴加速度
+     * 设置加速度値
+     * @param x X軸加速度
+     * @param y Y軸加速度
+     * @param z Z軸加速度
      */
     public void setAcceleration(float x, float y, float z) {
         accelerationX = x;
@@ -530,7 +516,7 @@ public class LAppModel extends CubismUserModel {
     
     /**
      * 获取模型设置
-     * @return 模型设置对象
+     * @return 模型設定オブジェクト
      */
     public ICubismModelSetting getModelSetting() {
         return modelSetting;
@@ -538,7 +524,7 @@ public class LAppModel extends CubismUserModel {
     
     /**
      * 获取模型目录
-     * @return 模型目录路径
+     * @return 模型ディレクトリパス
      */
     public String getModelHomeDirectory() {
         return modelHomeDirectory;

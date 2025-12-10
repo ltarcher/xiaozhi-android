@@ -7,6 +7,8 @@ import android.opengl.GLES20;
 import com.live2d.sdk.cubism.framework.CubismFramework;
 import com.live2d.sdk.cubism.framework.CubismFrameworkConfig;
 
+import com.live2d.LAppPal; // 显式导入LAppPal类
+
 /**
  * Live2D应用程序委托类
  * 作为整个Live2D系统的入口点和协调者
@@ -72,7 +74,6 @@ public class LAppDelegate {
      */
     private LAppDelegate() {
         // 设置日志级别
-        cubismOption.logFunction = new LAppPal.PrintLogFunction();
         cubismOption.loggingLevel = LAppDefine.cubismLoggingLevel;
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
