@@ -116,7 +116,7 @@ public class LAppDefine {
         /**
          * Relative path of shader directory
          */
-        SHADER_ROOT("Shaders"),
+        SHADER_ROOT("flutter_assets/assets/live2d/Shaders"),
         /**
          * Background image file
          */
