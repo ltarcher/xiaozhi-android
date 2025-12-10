@@ -4,6 +4,9 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 
+import com.live2d.LAppLive2DManager;
+import com.live2d.LAppDefine.MotionGroup;
+import com.live2d.LAppDefine.Priority;
 import com.live2d.Live2DViewFactory;
 
 import io.flutter.embedding.android.FlutterActivity;
@@ -12,16 +15,19 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
+    private Live2DViewFactory live2DViewFactory;
 
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
-        super.configureFlutterEngine(flutterEngine);
-        
-        // 注册PlatformView工厂
+        // 先注册PlatformView工厂
+        live2DViewFactory = new Live2DViewFactory(this);
         flutterEngine
                 .getPlatformViewsController()
                 .getRegistry()
-                .registerViewFactory("live2d_view", new Live2DViewFactory(this));
+                .registerViewFactory("live2d_view", live2DViewFactory);
+        
+        // 然后调用父类方法
+        super.configureFlutterEngine(flutterEngine);
         
         // 注册MethodChannel用于与Flutter通信
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
@@ -36,6 +42,37 @@ public class MainActivity extends FlutterActivity {
                                 Double y = call.argument("y");
                                 // TODO: 实现处理点击事件的逻辑
                                 result.success(null);
+                            } else if (call.method.equals("triggerExpression")) {
+                                String expressionName = call.argument("expressionName");
+                                if (expressionName != null) {
+                                    // 获取当前模型并设置表情
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    if (live2DManager.getModel(0) != null) {
+                                        live2DManager.getModel(0).setExpression(expressionName);
+                                        result.success(null);
+                                    } else {
+                                        result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
+                                    }
+                                } else {
+                                    result.error("INVALID_ARGUMENT", "Expression name is null", null);
+                                }
+                            } else if (call.method.equals("playMotion")) {
+                                String motionGroup = call.argument("motionGroup");
+                                Integer priority = call.argument("priority");
+                                
+                                if (motionGroup != null) {
+                                    // 获取当前模型并播放动作
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    if (live2DManager.getModel(0) != null) {
+                                        int prio = priority != null ? priority : Priority.NORMAL.getPriority();
+                                        live2DManager.getModel(0).startRandomMotion(motionGroup, prio);
+                                        result.success(null);
+                                    } else {
+                                        result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
+                                    }
+                                } else {
+                                    result.error("INVALID_ARGUMENT", "Motion group is null", null);
+                                }
                             } else {
                                 result.notImplemented();
                             }

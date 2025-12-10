@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,6 +9,7 @@ import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
+import 'package:xiaozhi/widget/live2d_widget.dart';
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -26,8 +28,8 @@ class _ChatPageState extends State<ChatPage> {
       GlobalKey<HoldToTalkWidgetState>();
 
   bool _isPressing = false;
-
   late ChatBloc chatBloc;
+  late Live2DWidget live2DWidget;
 
   @override
   void initState() {
@@ -205,6 +207,18 @@ class _ChatPageState extends State<ChatPage> {
                 chatState.messageList.first.sendByMe) {
               clearUp();
             }
+            
+            // 当收到新消息时，触发Live2D模型的随机表情
+            if (chatState.messageList.isNotEmpty) {
+              // 我们需要通过全局的MethodChannel来触发Live2D表达式
+              MethodChannel('live2d_channel').invokeMethod('triggerExpression', {
+                'expressionName': 'Happy'
+              }).catchError((error) {
+                if (kDebugMode) {
+                  print("Failed to trigger expression: $error");
+                }
+              });
+            }
           }
         },
         builder: (context, ChatState chatState) {
@@ -239,6 +253,23 @@ class _ChatPageState extends State<ChatPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // 添加Live2D模型预览
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => CallPage()),
+                        );
+                      },
+                      child: Container(
+                        height: 100,
+                        width: 100,
+                        child: Live2DWidget(
+                          modelPath: "assets/live2d/Haru/Haru.model3.json",
+                          width: 100,
+                          height: 100,
+                        ),
+                      ),
+                    ),
                     Expanded(
                       child: SmartRefresher(
                         enablePullDown: false,

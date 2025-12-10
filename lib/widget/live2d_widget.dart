@@ -31,9 +31,17 @@ class _Live2DWidgetState extends State<Live2DWidget> {
 
   Future<void> _initLive2D() async {
     try {
+      if (kDebugMode) {
+        print("Initializing Live2D with model path: ${widget.modelPath}");
+      }
+      
       await _channel.invokeMethod('initLive2D', {
         'modelPath': widget.modelPath,
       });
+      
+      if (kDebugMode) {
+        print("Live2D initialized successfully");
+      }
     } on PlatformException catch (e) {
       if (kDebugMode) {
         print("Failed to init Live2D: ${e.message}");
@@ -70,15 +78,66 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     }
   }
 
+  // 添加触发表情动作的方法
+  Future<void> triggerExpression(String expressionName) async {
+    try {
+      await _channel.invokeMethod('triggerExpression', {
+        'expressionName': expressionName,
+      });
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to trigger expression: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to trigger expression - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error triggering expression: $e");
+      }
+    }
+  }
+
+  // 添加触发动作的方法
+  Future<void> playMotion(String motionGroup, [int priority = 1]) async {
+    try {
+      await _channel.invokeMethod('playMotion', {
+        'motionGroup': motionGroup,
+        'priority': priority,
+      });
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to play motion: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to play motion - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error playing motion: $e");
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // 在Android平台上使用AndroidView来嵌入原生视图
     if (defaultTargetPlatform == TargetPlatform.android) {
+      if (kDebugMode) {
+        print("Building Live2D AndroidView with params: ${widget.modelPath}");
+      }
+      
       return SizedBox(
         width: widget.width,
         height: widget.height,
         child: GestureDetector(
           onTapUp: (details) {
+            if (kDebugMode) {
+              print("Live2D widget tapped");
+            }
+            
             final RenderBox renderBox = context.findRenderObject() as RenderBox;
             final position = renderBox.globalToLocal(details.globalPosition);
             onTap(position.dx, position.dy);

@@ -1,5 +1,6 @@
 package com.live2d;
 
+import android.app.Activity;
 import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
@@ -15,8 +16,11 @@ import io.flutter.plugin.platform.PlatformView;
 public class Live2DPlatformView implements PlatformView {
     private final GLSurfaceView glSurfaceView;
     private final GLRenderer glRenderer;
+    private final Context context;
 
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
+        this.context = context;
+        
         glSurfaceView = new GLSurfaceView(context);
         glSurfaceView.setEGLContextClientVersion(2);
 
@@ -25,6 +29,9 @@ public class Live2DPlatformView implements PlatformView {
         glSurfaceView.setRenderer(glRenderer);
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
 
+        // 初始化Live2D
+        LAppDelegate.getInstance().onStart((Activity) context);
+        
         // 设置触摸事件处理
         glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -67,7 +74,8 @@ public class Live2DPlatformView implements PlatformView {
             glSurfaceView.onPause();
         }
         if (LAppDelegate.getInstance() != null) {
-            LAppDelegate.getInstance().onDestroy();
+            LAppDelegate.getInstance().onPause();
+            LAppDelegate.getInstance().onStop();
         }
     }
 }
