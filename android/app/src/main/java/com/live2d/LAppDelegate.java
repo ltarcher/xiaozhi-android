@@ -48,13 +48,17 @@ public class LAppDelegate {
     }
 
     public void onStart(Activity activity) {
-        Log.d(TAG, "onStart: Initializing LAppDelegate");
+        Log.d(TAG, "onStart: Initializing LAppDelegate with activity: " + activity);
+        // 更新Activity引用
+        if (activity != null) {
+            this.activity = activity;
+            Log.d(TAG, "onStart: Activity reference updated");
+        }
+        
         textureManager = new LAppTextureManager();
         Log.d(TAG, "onStart: Created LAppTextureManager");
         view = new LAppView();
         Log.d(TAG, "onStart: Created LAppView");
-
-        this.activity = activity;
 
         LAppPal.updateTime();
         Log.d(TAG, "onStart: Updated time");
@@ -134,7 +138,9 @@ public class LAppDelegate {
 
         // アプリケーションを非アクティブにする
         if (!isActive) {
-            activity.finishAndRemoveTask();
+            if (activity != null) {
+                activity.finishAndRemoveTask();
+            }
         }
     }
 
@@ -173,6 +179,7 @@ public class LAppDelegate {
 
     // getter, setter群
     public Activity getActivity() {
+        Log.d(TAG, "getActivity: Returning " + (activity != null ? "valid activity" : "null activity"));
         return activity;
     }
 
