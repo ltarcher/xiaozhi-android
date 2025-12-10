@@ -1,9 +1,11 @@
 package com.live2d;
 
+import android.content.res.AssetManager;
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
-import java.lang.ref.WeakReference;
 
 /**
  * 平台相关功能处理类
@@ -15,6 +17,9 @@ public class LAppPal {
     private static double s_lastFrameTime = 0.0;
     // 帧间时间差（秒）
     private static double s_deltaTime = 0.0;
+    
+    // AssetManager引用
+    private static AssetManager s_assetManager;
     
     /**
      * 获取帧间时间差
@@ -44,6 +49,14 @@ public class LAppPal {
     }
     
     /**
+     * 设置AssetManager
+     * @param assetManager AssetManager实例
+     */
+    public static void setAssetManager(AssetManager assetManager) {
+        s_assetManager = assetManager;
+    }
+    
+    /**
      * 打印错误日志
      * @param logText 错误日志内容
      */
@@ -57,9 +70,35 @@ public class LAppPal {
      * @return 文件内容字节数组
      */
     public static byte[] loadFileAsBytes(String filePath) {
-        // 此方法将在后续实现中补充具体内容
-        // 因为需要访问AssetManager，所以会在具体使用时传入
-        return new byte[0];
+        if (s_assetManager == null) {
+            printErrorLog("AssetManager is not set");
+            return new byte[0];
+        }
+        
+        InputStream inputStream = null;
+        try {
+            inputStream = s_assetManager.open(filePath);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, length);
+            }
+            
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            printErrorLog("Failed to load file: " + filePath + ", error: " + e.getMessage());
+            return new byte[0];
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    printErrorLog("Failed to close input stream: " + e.getMessage());
+                }
+            }
+        }
     }
     
     /**
@@ -68,7 +107,10 @@ public class LAppPal {
      * @return 文件内容字符串
      */
     public static String loadFileAsString(String filePath) {
-        // 此方法将在后续实现中补充具体内容
-        return "";
+        byte[] bytes = loadFileAsBytes(filePath);
+        if (bytes.length == 0) {
+            return "";
+        }
+        return new String(bytes);
     }
 }

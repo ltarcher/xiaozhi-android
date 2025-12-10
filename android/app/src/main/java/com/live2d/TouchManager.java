@@ -131,7 +131,7 @@ public class TouchManager {
             if (!isDragging) {
                 final float dx = Math.abs(x1 - startX);
                 final float dy = Math.abs(y1 - startY);
-                const float threshold = 10.0f; // 拖拽判定阈值
+                final float threshold = 10.0f; // 拖拽判定阈值
                 
                 if (dx > threshold || dy > threshold) {
                     isDragging = true;

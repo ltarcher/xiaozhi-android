@@ -23,10 +23,10 @@
   - [x] 创建LAppDelegate类（应用程序委托类）
 
 ## 4. 实现待机页面（基础验证）
-- [ ] 创建一个Android原生的欢迎页面，在其中显示Live2D的Haru模型
-- [ ] 实现页面跳转逻辑，从Live2D待机页面跳转到Flutter主界面
-- [ ] 处理触摸事件，让Haru模型可以响应用户交互
-- [ ] 验证模型加载和显示功能正常
+- [x] 创建一个Android原生的欢迎页面，在其中显示Live2D的Haru模型
+- [x] 实现页面跳转逻辑，从Live2D待机页面跳转到Flutter主界面
+- [x] 处理触摸事件，让Haru模型可以响应用户交互
+- [x] 验证模型加载和显示功能正常
 
 ## 5. 集成步骤
 - [ ] 修改MainActivity.java，继承FlutterActivity并添加Live2D相关初始化代码

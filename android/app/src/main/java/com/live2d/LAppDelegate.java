@@ -1,6 +1,7 @@
 package com.live2d;
 
 import android.app.Activity;
+import android.content.res.AssetManager;
 import android.opengl.GLES20;
 
 import com.live2d.sdk.cubism.framework.CubismFramework;
@@ -36,6 +37,9 @@ public class LAppDelegate {
     
     // Activity引用
     private Activity activity;
+    
+    // AssetManager引用
+    private AssetManager assetManager;
     
     // 纹理管理器
     private LAppTextureManager textureManager;
@@ -82,9 +86,13 @@ public class LAppDelegate {
      */
     public void onStart(Activity activity) {
         this.activity = activity;
+        this.assetManager = activity.getAssets();
+        
+        // 设置AssetManager到LAppPal
+        LAppPal.setAssetManager(assetManager);
         
         // 创建纹理管理器
-        textureManager = new LAppTextureManager();
+        textureManager = new LAppTextureManager(assetManager);
         
         // 创建视图
         view = new LAppView();
@@ -290,6 +298,14 @@ public class LAppDelegate {
      */
     public Activity getActivity() {
         return activity;
+    }
+    
+    /**
+     * 获取AssetManager
+     * @return AssetManager实例
+     */
+    public AssetManager getAssetManager() {
+        return assetManager;
     }
     
     /**

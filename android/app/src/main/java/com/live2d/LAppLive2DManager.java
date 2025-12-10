@@ -1,8 +1,12 @@
 package com.live2d;
 
+import android.content.res.AssetManager;
+
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -75,11 +79,45 @@ public class LAppLive2DManager {
     public void setupModels() {
         modelDir.clear();
         
-        // TODO: 实现模型目录扫描逻辑
-        // 这里需要访问AssetManager来扫描assets/live2d目录下的模型文件夹
+        // 获取AssetManager
+        AssetManager assetManager = LAppDelegate.getInstance().getAssetManager();
+        if (assetManager == null) {
+            LAppPal.printErrorLog("AssetManager is not available");
+            return;
+        }
+        
+        try {
+            // 列出live2d目录下的所有文件和文件夹
+            String[] files = assetManager.list(ResourcePath.LIVE2D_ROOT);
+            if (files != null) {
+                // 遍历所有文件夹，查找模型目录
+                for (String file : files) {
+                    try {
+                        // 尝试列出子目录的内容，判断是否为文件夹
+                        String[] subFiles = assetManager.list(ResourcePath.LIVE2D_ROOT + file);
+                        if (subFiles != null && subFiles.length > 0) {
+                            // 检查是否存在.model3.json文件
+                            String modelSettingFile = file + ".model3.json";
+                            boolean hasModelSetting = Arrays.asList(subFiles).contains(modelSettingFile);
+                            
+                            if (hasModelSetting) {
+                                modelDir.add(file);
+                                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                                    LAppPal.printLog("Found model directory: " + file);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // 忽略无法访问的文件
+                    }
+                }
+            }
+        } catch (IOException e) {
+            LAppPal.printErrorLog("Failed to list model directories: " + e.getMessage());
+        }
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppLive2DManager: Setup models");
+            LAppPal.printLog("LAppLive2DManager: Found " + modelDir.size() + " models");
         }
     }
     
@@ -126,11 +164,8 @@ public class LAppLive2DManager {
                 continue;
             }
             
-            // 乘以投影矩阵
-            model.getModelMatrix().multiplyByMatrix(projection);
-            
-            // 绘制模型
-            model.draw();
+            // 绘制模型并传入投影矩阵
+            model.draw(projection);
         }
     }
     
@@ -140,6 +175,7 @@ public class LAppLive2DManager {
      */
     public void changeScene(int index) {
         if (index < 0 || index >= modelDir.size()) {
+            LAppPal.printErrorLog("Invalid scene index: " + index);
             return;
         }
         
@@ -162,7 +198,7 @@ public class LAppLive2DManager {
         models.add(model);
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppLive2DManager: Changed scene to " + index);
+            LAppPal.printLog("LAppLive2DManager: Changed scene to " + index + " (" + modelDirectory + ")");
         }
     }
     
@@ -223,14 +259,13 @@ public class LAppLive2DManager {
      * @param y 点击点y坐标
      */
     public void onTap(float x, float y) {
-        // TODO: 实现点击处理逻辑
         for (LAppModel model : models) {
             if (model.hitTest("Head", x, y)) {
                 // 点击头部
-                model.setRandomExpression();
+                // TODO: 实现表情切换逻辑
             } else if (model.hitTest("Body", x, y)) {
                 // 点击身体
-                model.startRandomMotion("TapBody", 3);
+                // TODO: 实现动作播放逻辑
             }
         }
     }

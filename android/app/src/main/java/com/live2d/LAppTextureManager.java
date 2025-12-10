@@ -1,5 +1,6 @@
 package com.live2d;
 
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
@@ -39,8 +40,19 @@ public class LAppTextureManager {
         }
     }
     
+    // AssetManager引用
+    private AssetManager assetManager;
+    
     // 纹理信息列表
     private final List<TextureInfo> textures = new ArrayList<>();
+    
+    /**
+     * 构造函数
+     * @param assetManager AssetManager实例
+     */
+    public LAppTextureManager(AssetManager assetManager) {
+        this.assetManager = assetManager;
+    }
     
     /**
      * 从PNG文件创建纹理
@@ -127,8 +139,34 @@ public class LAppTextureManager {
      * @return Bitmap对象
      */
     private Bitmap loadBitmapFromFile(String imagePath) {
-        // 这个方法将在具体使用时实现，因为需要访问AssetManager
-        return null;
+        if (assetManager == null) {
+            LAppPal.printErrorLog("AssetManager is not set");
+            return null;
+        }
+        
+        InputStream inputStream = null;
+        try {
+            inputStream = assetManager.open(imagePath);
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            
+            if (bitmap == null) {
+                LAppPal.printErrorLog("Failed to decode bitmap: " + imagePath);
+                return null;
+            }
+            
+            return bitmap;
+        } catch (IOException e) {
+            LAppPal.printErrorLog("Failed to load bitmap: " + imagePath + ", error: " + e.getMessage());
+            return null;
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    LAppPal.printErrorLog("Failed to close input stream: " + e.getMessage());
+                }
+            }
+        }
     }
     
     /**
