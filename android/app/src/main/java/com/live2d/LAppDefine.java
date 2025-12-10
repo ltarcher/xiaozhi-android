@@ -116,11 +116,11 @@ public class LAppDefine {
         /**
          * 素材目录的相对路径
          */
-        ROOT("/flutter_assets/assets/live2d/"),
+        ROOT("live2d/"),
         /**
-         * 着色器目录的相对パス
+         * 着色器目录の相对パス
          */
-        SHADER_ROOT("/flutter_assets/assets/live2d/Shaders/"),
+        SHADER_ROOT("live2d/Shaders/"),
         /**
          * 背景图像ファイル
          */

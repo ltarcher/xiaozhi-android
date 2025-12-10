@@ -34,6 +34,16 @@ public class LAppPal {
 
     // 将文件作为字节数组加载
     public static byte[] loadFileAsBytes(final String path, Context context) {
+        if (context == null) {
+            printLog("ERROR: Context is null when trying to load file: " + path);
+            return new byte[0];
+        }
+        
+        if (path == null || path.trim().isEmpty()) {
+            printLog("ERROR: Invalid file path (null or empty)");
+            return new byte[0];
+        }
+        
         InputStream fileData = null;
         try {
             if (LAppDefine.DEBUG_LOG_ENABLE) {
@@ -43,26 +53,66 @@ public class LAppPal {
             fileData = context.getAssets().open(path);
 
             int fileSize = fileData.available();
+            if (fileSize < 0) {
+                printLog("ERROR: Cannot determine file size: " + path);
+                return new byte[0];
+            }
+            
             if (LAppDefine.DEBUG_LOG_ENABLE) {
                 printLog("File size: " + fileSize + " bytes");
             }
             
             if (fileSize == 0) {
                 printLog("WARNING: File is empty: " + path);
+                return new byte[0];
             }
             
             byte[] fileBuffer = new byte[fileSize];
-            fileData.read(fileBuffer, 0, fileSize);
+            int bytesRead = fileData.read(fileBuffer, 0, fileSize);
             
-            printLog("Successfully loaded file: " + path + ", size: " + fileSize + " bytes");
-            return fileBuffer;
-        } catch (IOException e) {
-            e.printStackTrace();
-
-            if (LAppDefine.DEBUG_LOG_ENABLE) {
-                printLog("File open error: " + path + ", Error: " + e.getMessage());
+            if (bytesRead != fileSize) {
+                printLog("WARNING: Incomplete read for file: " + path + 
+                        ", expected: " + fileSize + ", actual: " + bytesRead);
             }
-
+            
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                printLog("Successfully loaded file: " + path + ", size: " + fileSize + " bytes");
+            }
+            return fileBuffer;
+        } catch (NullPointerException e) {
+            printLog("CRITICAL ERROR: Null pointer when loading file: " + path + 
+                    ", Error: " + e.getMessage());
+            e.printStackTrace();
+            return new byte[0];
+        } catch (SecurityException e) {
+            printLog("SECURITY ERROR: Permission denied when accessing file: " + path + 
+                    ", Error: " + e.getMessage());
+            e.printStackTrace();
+            return new byte[0];
+        } catch (IOException e) {
+            // 区分不同类型的IO异常
+            if (e.getMessage() != null && 
+                (e.getMessage().contains("Permission") || e.getMessage().contains("permission"))) {
+                printLog("PERMISSION ERROR: Cannot access file: " + path + 
+                        ", Check asset permissions. Error: " + e.getMessage());
+            } else if (e.getMessage() != null && 
+                      (e.getMessage().contains("No such file") || e.getMessage().contains("not found"))) {
+                printLog("NOT FOUND ERROR: File does not exist: " + path + 
+                        ", Please check file path and ensure file is in assets folder.");
+            } else {
+                printLog("FILE IO ERROR: Failed to load file: " + path + 
+                        ", Error: " + e.getMessage());
+            }
+            e.printStackTrace();
+            return new byte[0];
+        } catch (OutOfMemoryError e) {
+            printLog("MEMORY ERROR: Out of memory when loading file: " + path + 
+                    ", File may be too large. Error: " + e.getMessage());
+            return new byte[0];
+        } catch (Exception e) {
+            printLog("UNKNOWN ERROR: Unexpected error when loading file: " + path + 
+                    ", Error: " + e.getMessage());
+            e.printStackTrace();
             return new byte[0];
         } finally {
             try {
@@ -70,11 +120,12 @@ public class LAppPal {
                     fileData.close();
                 }
             } catch (IOException e) {
+                printLog("File close error for: " + path + ", Error: " + e.getMessage());
                 e.printStackTrace();
-
-                if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    printLog("File close error.");
-                }
+            } catch (Exception e) {
+                printLog("Unexpected error during file close for: " + path + 
+                        ", Error: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }

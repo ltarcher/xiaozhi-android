@@ -101,8 +101,16 @@ public class LAppModel extends CubismUserModel {
         LAppPal.printLog("开始设置渲染器");
         CubismRenderer renderer = CubismRendererAndroid.create();
         setupRenderer(renderer);
+        LAppPal.printLog("渲染器设置完成");
 
+        // Setup textures.
+        LAppPal.printLog("开始设置纹理");
         setupTextures();
+        LAppPal.printLog("纹理设置完成");
+        
+        // 设置更新
+        model.saveParameters();
+        
         LAppPal.printLog("LAppModel 资源加载完成");
     }
 
@@ -631,7 +639,7 @@ public class LAppModel extends CubismUserModel {
      * テクスチャをOpenGLテクスチャユニットにロードする
      */
     private void setupTextures() {
-        LAppPal.printLog("开始设置纹理，纹理数量: " + modelSetting.getTextureCount());
+        LAppPal.printLog("開始设置纹理，纹理数量: " + modelSetting.getTextureCount());
         for (int modelTextureNumber = 0; modelTextureNumber < modelSetting.getTextureCount(); modelTextureNumber++) {
             // テクスチャ名が空文字列の場合は、ロードとバインド処理をスキップする
             String textureFileName = modelSetting.getTextureFileName(modelTextureNumber);

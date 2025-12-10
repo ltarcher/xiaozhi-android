@@ -77,6 +77,11 @@ public class WelcomeActivity extends Activity {
         Log.d(TAG, "开始设置模型");
         LAppLive2DManager.getInstance().setUpModel();
         Log.d(TAG, "模型设置完成");
+        
+        // 立即加载Haru模型
+        Log.d(TAG, "开始加载Haru模型");
+        LAppLive2DManager.getInstance().loadModel("Haru");
+        Log.d(TAG, "Haru模型加载完成");
     }
 
     @Override

@@ -54,7 +54,8 @@ public class LAppLive2DManager {
      */
     public void loadModel(String modelDirectoryName) {
         LAppPal.printLog("LAppLive2DManager 开始加载模型: " + modelDirectoryName);
-        String dir = ResourcePath.ROOT.getPath() + modelDirectoryName + "/";
+        // 使用Flutter打包后的资源路径
+        String dir = "/flutter_assets/assets/live2d/" + modelDirectoryName + "/";
         LAppPal.printLog("模型目录路径: " + dir);
         LAppModel model = new LAppModel();
         model.loadAssets(dir, modelDirectoryName + ".model3.json", LAppDelegate.getInstance().getContext());
@@ -76,7 +77,8 @@ public class LAppLive2DManager {
 
         final AssetManager assets = LAppDelegate.getInstance().getContext().getAssets();
         try {
-            String[] live2dDirs = assets.list("live2d");
+            // 使用完整的路径访问Flutter打包的资源
+            String[] live2dDirs = assets.list("/flutter_assets/assets/live2d");
             if (live2dDirs != null) {
                 LAppPal.printLog("找到 " + live2dDirs.length + " 个live2d子目录");
                 for (String modelDirName : live2dDirs) {
@@ -85,7 +87,8 @@ public class LAppLive2DManager {
                         continue;
                     }
                     
-                    String[] files = assets.list(ResourcePath.ROOT.getPath() + modelDirName);
+                    // 使用完整的路径访问Flutter打包的资源
+                    String[] files = assets.list("/flutter_assets/assets/live2d/" + modelDirName);
                     String target = modelDirName + ".model3.json";
                     LAppPal.printLog("检查模型目录: " + modelDirName + ", 目标文件: " + target);
                     // 查找与文件夹同名的.model3.json文件
@@ -222,7 +225,7 @@ public class LAppLive2DManager {
 
         String modelDirName = modelDir.get(index);
 
-        String modelPath = ResourcePath.ROOT.getPath() + modelDirName + "/";
+        String modelPath = "live2d/" + modelDirName + "/";
         String modelJsonName = modelDirName + ".model3.json";
 
         releaseAllModel();
@@ -393,11 +396,10 @@ public class LAppLive2DManager {
     private static LAppLive2DManager s_instance;
 
     private LAppLive2DManager() {
-        setUpModel();
-        // 初始化时加载第一个模型
-        if (!modelDir.isEmpty()) {
-            changeScene(0);
-        }
+        // 注意：不在构造函数中调用setUpModel和changeScene
+        // 这些操作需要在CubismFramework初始化之后进行
+        // setUpModel会在WelcomeActivity.onStart中被调用
+        // changeScene会在需要时被调用
     }
 
     private final List<LAppModel> models = new ArrayList<>();

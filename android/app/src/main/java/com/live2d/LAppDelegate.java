@@ -91,9 +91,10 @@ public class LAppDelegate {
 
         // 加载模型
         LAppPal.printLog("准备加载模型");
-        if (LAppLive2DManager.getInstance().getModel() == null) {
+        LAppLive2DManager manager = LAppLive2DManager.getInstance();
+        if (manager.getModel() == null) {
             LAppPal.printLog("当前没有模型，开始加载Haru模型");
-            LAppLive2DManager.getInstance().loadModel("Haru");
+            manager.loadModel("Haru");
             LAppPal.printLog("Haru模型加载完成");
         } else {
             LAppPal.printLog("已有模型，无需重复加载");
