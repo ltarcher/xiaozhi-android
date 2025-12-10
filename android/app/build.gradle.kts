@@ -35,6 +35,25 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // 添加ProGuard规则以防止Live2D SDK被混淆
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+    
+    // 添加packaging选项以解决可能的资源冲突
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/license.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/notice.txt"
+            excludes += "META-INF/ASL2.0"
         }
     }
 }
@@ -46,4 +65,8 @@ flutter {
 // 添加本地库引用和Live2D依赖
 dependencies {
     implementation(files("../libs/live2d/Live2DCubismCore.aar"))
+    
+    // 添加其他可能需要的依赖
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.core:core-ktx:1.12.0")
 }
