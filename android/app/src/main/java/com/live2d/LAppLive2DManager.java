@@ -279,11 +279,22 @@ public class LAppLive2DManager {
      * 渲染处理
      */
     public void onDraw() {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: onDraw called, model count: " + models.size());
+        }
+        
         for (int i = 0; i < models.size(); i++) {
             LAppModel model = models.get(i);
             
             if (model.getModel() == null) {
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppLive2DManager: Model " + i + " is null, skipping");
+                }
                 continue;
+            }
+            
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppLive2DManager: Drawing model " + i);
             }
             
             // 绘制模型并传入投影矩阵
@@ -296,6 +307,10 @@ public class LAppLive2DManager {
      * @param index 场景索引
      */
     public void changeScene(int index) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: changeScene called with index " + index);
+        }
+        
         if (index < 0 || index >= modelDir.size()) {
             LAppPal.printErrorLog("Invalid scene index: " + index);
             return;
@@ -313,6 +328,12 @@ public class LAppLive2DManager {
         String modelName = modelDir.get(index);
         // 构造正确的路径：live2d/模型名/
         String modelDirectory = ResourcePath.LIVE2D_ROOT + modelName + "/";
+        
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: Loading model from directory: " + modelDirectory);
+            LAppPal.printLog("LAppLive2DManager: Model setting file: " + modelName + ".model3.json");
+        }
+        
         model.loadAssets(
             modelDirectory,
             modelName + ".model3.json"

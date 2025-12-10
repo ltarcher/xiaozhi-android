@@ -196,6 +196,9 @@ public class LAppModel extends CubismUserModel {
      * @return 文件内容字节数组
      */
     protected byte[] createBuffer(String filePath) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppModel: createBuffer loading file: " + filePath);
+        }
         return LAppPal.loadFileAsBytes(filePath);
     }
     
@@ -219,11 +222,22 @@ public class LAppModel extends CubismUserModel {
                 String path = modelHomeDirectory + fileName;
                 
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("create model: " + modelSetting.getModelFileName());
+                    LAppPal.printLog("LAppModel: create model: " + modelSetting.getModelFileName());
+                    LAppPal.printLog("LAppModel: model path: " + path);
                 }
                 
                 byte[] buffer = createBuffer(path);
+                if (buffer == null || buffer.length == 0) {
+                    LAppPal.printErrorLog("LAppModel: Failed to load model file: " + path);
+                    return;
+                }
+                
                 loadModel(buffer);
+                
+                if (model == null) {
+                    LAppPal.printErrorLog("LAppModel: Failed to create CubismModel");
+                    return;
+                }
             }
         }
         
@@ -236,6 +250,10 @@ public class LAppModel extends CubismUserModel {
                     String name = modelSetting.getExpressionName(i);
                     String path = modelSetting.getExpressionFileName(i);
                     path = modelHomeDirectory + path;
+                    
+                    if (LAppDefine.DEBUG_LOG_ENABLE) {
+                        LAppPal.printLog("LAppModel: Loading expression " + name + " from " + path);
+                    }
                     
                     byte[] buffer = createBuffer(path);
                     CubismExpressionMotion motion = loadExpression(buffer);
@@ -252,6 +270,9 @@ public class LAppModel extends CubismUserModel {
             String path = modelSetting.getPhysicsFileName();
             if (!path.isEmpty()) {
                 String modelPath = modelHomeDirectory + path;
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppModel: Loading physics from " + modelPath);
+                }
                 byte[] buffer = createBuffer(modelPath);
                 
                 loadPhysics(buffer);
@@ -263,6 +284,9 @@ public class LAppModel extends CubismUserModel {
             String path = modelSetting.getPoseFileName();
             if (!path.isEmpty()) {
                 String modelPath = modelHomeDirectory + path;
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppModel: Loading pose from " + modelPath);
+                }
                 byte[] buffer = createBuffer(modelPath);
                 loadPose(buffer);
             }
@@ -299,7 +323,7 @@ public class LAppModel extends CubismUserModel {
         }
         
         if (modelSetting == null || modelMatrix == null) {
-            LAppPal.printLog("Failed to setupModel().");
+            LAppPal.printLog("LAppModel: Failed to setupModel().");
             return;
         }
         
@@ -317,9 +341,16 @@ public class LAppModel extends CubismUserModel {
      * 设置纹理
      */
     private void setupTextures() {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppModel: setupTextures called, texture count: " + modelSetting.getTextureCount());
+        }
+        
         for (int modelTextureNumber = 0; modelTextureNumber < modelSetting.getTextureCount(); modelTextureNumber++) {
             // 纹理名为空字符时跳过加载和绑定处理
             if (modelSetting.getTextureFileName(modelTextureNumber).isEmpty()) {
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppModel: Skipping empty texture at index " + modelTextureNumber);
+                }
                 continue;
             }
             
@@ -327,11 +358,25 @@ public class LAppModel extends CubismUserModel {
             String texturePath = modelSetting.getTextureFileName(modelTextureNumber);
             texturePath = modelHomeDirectory + texturePath;
             
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppModel: Loading texture from " + texturePath);
+            }
+            
             LAppTextureManager.TextureInfo texture =
                 LAppDelegate.getInstance()
                             .getTextureManager()
                             .createTextureFromPngFile(texturePath);
+            
+            if (texture == null) {
+                LAppPal.printErrorLog("LAppModel: Failed to create texture from " + texturePath);
+                continue;
+            }
+            
             final int glTextureNumber = texture.id;
+            
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppModel: Binding texture " + modelTextureNumber + " to GL texture " + glTextureNumber);
+            }
             
             this.<CubismRendererAndroid>getRenderer().bindTexture(modelTextureNumber, glTextureNumber);
             
@@ -395,6 +440,10 @@ public class LAppModel extends CubismUserModel {
      * 更新モデル
      */
     public void update() {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            // LAppPal.printLog("LAppModel: update called");
+        }
+        
         final float deltaTimeSeconds = (float)LAppPal.getDeltaTime();
         userTimeSeconds += deltaTimeSeconds;
         
@@ -462,7 +511,14 @@ public class LAppModel extends CubismUserModel {
      * @param matrix 矩阵
      */
     public void draw(CubismMatrix44 matrix) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            // LAppPal.printLog("LAppModel: draw called");
+        }
+        
         if (model == null) {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppModel: Model is null, cannot draw");
+            }
             return;
         }
         
