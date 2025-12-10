@@ -29,11 +29,12 @@ public class GLRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("GLRenderer: onSurfaceCreated");
+            LAppPal.printLog("GLRenderer: onSurfaceCreated 被调用");
         }
-        
-        // 调用AppDelegate的对应方法
         appDelegate.onSurfaceCreated();
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("GLRenderer: onSurfaceCreated 完成");
+        }
     }
     
     /**
@@ -45,11 +46,12 @@ public class GLRenderer implements GLSurfaceView.Renderer {
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("GLRenderer: onSurfaceChanged(" + width + ", " + height + ")");
+            LAppPal.printLog("GLRenderer: onSurfaceChanged 被调用，尺寸: " + width + "x" + height);
         }
-        
-        // 调用AppDelegate的对应方法
         appDelegate.onSurfaceChanged(width, height);
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("GLRenderer: onSurfaceChanged 完成");
+        }
     }
     
     /**

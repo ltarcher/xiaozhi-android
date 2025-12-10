@@ -86,26 +86,46 @@ public class LAppDelegate {
      * @param activity Activity实例
      */
     public void onStart(Activity activity) {
-        this.activity = activity;
-        this.assetManager = activity.getAssets();
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: onStart 被调用");
+        }
         
-        // 设置AssetManager到LAppPal
+        this.activity = activity;
+        
+        // 设置AssetManager
+        assetManager = activity.getResources().getAssets();
         LAppPal.setAssetManager(assetManager);
+        
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: AssetManager 已设置");
+        }
         
         // 创建纹理管理器
         textureManager = new LAppTextureManager(assetManager);
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: 纹理管理器已创建");
+        }
         
         // 创建视图
         view = new LAppView();
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: 视图已创建");
+        }
         
         // 创建Live2D管理器
         live2DManager = LAppLive2DManager.getInstance();
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: Live2D管理器已创建");
+        }
         
-        // 更新时间
+        // 初始化时间系统
         LAppPal.updateTime();
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppDelegate: 时间系统已初始化");
+        }
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppDelegate: onStart");
+            LAppPal.printLog("LAppDelegate: onStart 完成");
         }
     }
     
@@ -185,7 +205,7 @@ public class LAppDelegate {
         windowHeight = height;
         
         // 初始化视图
-        view.initialize();
+        view.initialize(width, height);
         
         // TODO: 初始化精灵等UI元素
         

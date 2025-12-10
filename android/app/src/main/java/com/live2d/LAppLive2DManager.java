@@ -79,45 +79,81 @@ public class LAppLive2DManager {
     public void setupModels() {
         modelDir.clear();
         
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: 开始扫描模型目录");
+        }
+        
         // 获取AssetManager
         AssetManager assetManager = LAppDelegate.getInstance().getAssetManager();
         if (assetManager == null) {
-            LAppPal.printErrorLog("AssetManager is not available");
+            LAppPal.printErrorLog("AssetManager不可用");
             return;
         }
         
         try {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppLive2DManager: 尝试列出目录 " + ResourcePath.LIVE2D_ROOT);
+            }
+            
             // 列出live2d目录下的所有文件和文件夹
             String[] files = assetManager.list(ResourcePath.LIVE2D_ROOT);
             if (files != null) {
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppLive2DManager: 发现 " + files.length + " 个项目在 " + ResourcePath.LIVE2D_ROOT);
+                }
+                
                 // 遍历所有文件夹，查找模型目录
                 for (String file : files) {
+                    if (LAppDefine.DEBUG_LOG_ENABLE) {
+                        LAppPal.printLog("LAppLive2DManager: 检查项目 " + file);
+                    }
+                    
                     try {
                         // 尝试列出子目录的内容，判断是否为文件夹
-                        String[] subFiles = assetManager.list(ResourcePath.LIVE2D_ROOT + file);
+                        String fullPath = ResourcePath.LIVE2D_ROOT + file;
+                        String[] subFiles = assetManager.list(fullPath);
                         if (subFiles != null && subFiles.length > 0) {
+                            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                                LAppPal.printLog("LAppLive2DManager: " + file + " 是目录，包含 " + subFiles.length + " 个项目");
+                            }
+                            
                             // 检查是否存在.model3.json文件
                             String modelSettingFile = file + ".model3.json";
                             boolean hasModelSetting = Arrays.asList(subFiles).contains(modelSettingFile);
                             
                             if (hasModelSetting) {
-                                modelDir.add(file);
+                                // 添加完整的模型路径
+                                modelDir.add(ResourcePath.LIVE2D_ROOT + file + "/");
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                                    LAppPal.printLog("Found model directory: " + file);
+                                    LAppPal.printLog("LAppLive2DManager: 找到模型目录: " + file);
                                 }
+                            } else {
+                                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                                    LAppPal.printLog("LAppLive2DManager: " + file + " 目录不包含 " + modelSettingFile);
+                                }
+                            }
+                        } else {
+                            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                                LAppPal.printLog("LAppLive2DManager: " + file + " 不是有效目录或为空");
                             }
                         }
                     } catch (Exception e) {
                         // 忽略无法访问的文件
+                        LAppPal.printErrorLog("访问目录出错: " + file + ", 错误: " + e.getMessage());
                     }
                 }
+            } else {
+                LAppPal.printErrorLog("无法列出目录: " + ResourcePath.LIVE2D_ROOT);
             }
         } catch (IOException e) {
-            LAppPal.printErrorLog("Failed to list model directories: " + e.getMessage());
+            LAppPal.printErrorLog("扫描模型目录失败: " + e.getMessage());
         }
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppLive2DManager: Found " + modelDir.size() + " models");
+            LAppPal.printLog("LAppLive2DManager: 扫描完成，共找到 " + modelDir.size() + " 个模型");
+            for (int i = 0; i < modelDir.size(); i++) {
+                LAppPal.printLog("LAppLive2DManager: 模型 " + i + ": " + modelDir.get(i));
+            }
         }
     }
     
@@ -189,9 +225,11 @@ public class LAppLive2DManager {
         
         // 加载模型资源
         String modelDirectory = modelDir.get(index);
+        // 从完整路径中提取模型目录名
+        String modelName = modelDirectory.substring(ResourcePath.LIVE2D_ROOT.length(), modelDirectory.length() - 1);
         model.loadAssets(
-            ResourcePath.ROOT.append(modelDirectory).getPath(),
-            modelDirectory + ".model3.json"
+            modelDirectory,
+            modelName + ".model3.json"
         );
         
         // 添加到模型列表

@@ -33,7 +33,7 @@ public class Live2dSplashActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "Live2dSplashActivity onCreate");
+        Log.d(TAG, "Live2dSplashActivity onCreate 开始");
         
         // 初始化Live2D系统
         initLive2D();
@@ -43,26 +43,30 @@ public class Live2dSplashActivity extends Activity {
         
         // 设置内容视图
         setContentView(glSurfaceView);
+        
+        Log.d(TAG, "Live2dSplashActivity onCreate 完成");
     }
     
     /**
      * 初始化Live2D系统
      */
     private void initLive2D() {
-        Log.d(TAG, "Initializing Live2D system");
+        Log.d(TAG, "初始化Live2D系统 开始");
         
         // 获取LAppDelegate单例实例
         live2DDelegate = LAppDelegate.getInstance();
         
         // 在Activity启动时初始化
         live2DDelegate.onStart(this);
+        
+        Log.d(TAG, "初始化Live2D系统 完成");
     }
     
     /**
      * 初始化GLSurfaceView
      */
     private void initGLSurfaceView() {
-        Log.d(TAG, "Initializing GLSurfaceView");
+        Log.d(TAG, "初始化GLSurfaceView 开始");
         
         // 创建GLSurfaceView
         glSurfaceView = new GLSurfaceView(this);
@@ -78,6 +82,8 @@ public class Live2dSplashActivity extends Activity {
         
         // 设置渲染模式为连续渲染
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        
+        Log.d(TAG, "初始化GLSurfaceView 完成");
     }
     
     @Override

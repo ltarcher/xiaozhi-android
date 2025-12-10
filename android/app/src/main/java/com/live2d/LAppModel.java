@@ -143,35 +143,48 @@ public class LAppModel extends CubismUserModel {
      */
     public void loadAssets(final String dir, final String fileName) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppModel: loadAssets(" + dir + ", " + fileName + ")");
+            LAppPal.printLog("LAppModel: loadAssets 开始加载模型资源");
+            LAppPal.printLog("LAppModel: 目录 = " + dir + ", 文件名 = " + fileName);
         }
-        
+
         modelHomeDirectory = dir;
         String filePath = modelHomeDirectory + fileName;
-        
+
         // 读取模型设置文件
         byte[] buffer = createBuffer(filePath);
         if (buffer == null || buffer.length == 0) {
-            LAppPal.printErrorLog("Failed to load model setting file: " + filePath);
+            LAppPal.printErrorLog("LAppModel: 无法加载模型设置文件: " + filePath);
             return;
         }
-        
+
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppModel: 模型设置文件加载成功，大小 = " + buffer.length + " 字节");
+        }
+
         // 解析模型设置
         modelSetting = new CubismModelSettingJson(buffer);
-        
+
         // 设置模型
         setupModel(modelSetting);
         if (model == null) {
-            LAppPal.printErrorLog("Failed to setup model");
+            LAppPal.printErrorLog("LAppModel: 模型设置失败");
             return;
         }
-        
+
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppModel: 模型设置完成");
+        }
+
         // 设置渲染器
         CubismRenderer renderer = CubismRendererAndroid.create();
         setupRenderer(renderer);
-        
+
         // 设置纹理
         setupTextures();
+
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppModel: loadAssets 完成");
+        }
     }
     
     /**

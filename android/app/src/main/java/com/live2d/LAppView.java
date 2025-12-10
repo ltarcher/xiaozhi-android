@@ -17,6 +17,9 @@ public class LAppView {
         VIEW_FRAME_BUFFER       // 视图的帧缓冲区渲染
     }
     
+    // 投影矩阵
+    protected final CubismMatrix44 projection = CubismMatrix44.create();
+    
     // 视图矩阵
     protected final CubismViewMatrix viewMatrix = new CubismViewMatrix();
     
@@ -28,6 +31,10 @@ public class LAppView {
     
     // 背景颜色 [R, G, B, A]
     protected final float[] clearColor = new float[4];
+    
+    // 视图宽度和高度
+    protected int width;
+    protected int height;
     
     // 触摸管理器
     protected TouchManager touchManager;
@@ -52,53 +59,32 @@ public class LAppView {
     
     /**
      * 初始化视图
+     * @param width 宽度
+     * @param height 高度
      */
-    public void initialize() {
-        final int width = LAppDelegate.getInstance().getWindowWidth();
-        final int height = LAppDelegate.getInstance().getWindowHeight();
-        
-        // 计算屏幕比例
-        float ratio = (float) width / (float) height;
-        float left = -ratio;
-        float right = ratio;
-        float bottom = LAppDefine.LogicalView.LEFT.getValue();
-        float top = LAppDefine.LogicalView.RIGHT.getValue();
-        
-        // 设置屏幕矩形范围
-        viewMatrix.setScreenRect(left, right, bottom, top);
-        // 设置默认缩放
-        viewMatrix.scale(LAppDefine.Scale.DEFAULT.getValue(), LAppDefine.Scale.DEFAULT.getValue());
-        
-        // 初始化设备到屏幕的变换矩阵
-        deviceToScreen.loadIdentity();
-        
-        if (width > height) {
-            // 横屏
-            float screenW = Math.abs(right - left);
-            deviceToScreen.scaleRelative(screenW / width, -screenW / width);
-        } else {
-            // 竖屏
-            float screenH = Math.abs(top - bottom);
-            deviceToScreen.scaleRelative(screenH / height, -screenH / height);
+    public void initialize(int width, int height) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppView: initialize 被调用，尺寸: " + width + "x" + height);
         }
         
-        // 平移变换
-        deviceToScreen.translateRelative(-width * 0.5f, -height * 0.5f);
+        this.width = width;
+        this.height = height;
         
-        // 设置缩放限制
-        viewMatrix.setMaxScale(LAppDefine.Scale.MAX.getValue());   // 最大放大率
-        viewMatrix.setMinScale(LAppDefine.Scale.MIN.getValue());   // 最小缩小率
+        // 初始化投影矩阵
+        projection.loadIdentity();
         
-        // 设置最大显示范围
-        viewMatrix.setMaxScreenRect(
-            LAppDefine.MaxLogicalView.LEFT.getValue(),
-            LAppDefine.MaxLogicalView.RIGHT.getValue(),
-            LAppDefine.MaxLogicalView.BOTTOM.getValue(),
-            LAppDefine.MaxLogicalView.TOP.getValue()
-        );
+        // 初始化设备到屏幕矩阵
+        deviceToScreen.loadIdentity();
+        // 将设备坐标系转换为屏幕坐标系
+        // 竖屏情况下，将宽高比调整为height/width
+        if (width > height) {
+            deviceToScreen.scale(1.0f, (float) width / (float) height);
+        } else {
+            deviceToScreen.scale((float) height / (float) width, 1.0f);
+        }
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppView: Initialized (" + width + "x" + height + ")");
+            LAppPal.printLog("LAppView: 初始化完成");
         }
     }
     

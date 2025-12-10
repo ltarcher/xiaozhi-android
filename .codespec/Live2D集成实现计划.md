@@ -32,7 +32,7 @@ android/app/src/main/java/com/live2d/
 
 ## 4. 模块架构关系图
 
-```mermaid
+```
 graph TD
     A[Flutter UI层] -->|MethodChannel| B[LAppDelegate]
     B --> C[LAppLive2DManager]
@@ -102,7 +102,7 @@ graph TD
 
 ## 6. Live2D初始化流程图
 
-```mermaid
+```
 flowchart TD
     A[Application Start] --> B[MainActivity.onCreate]
     B --> C[创建LAppDelegate实例]
@@ -144,7 +144,7 @@ flowchart TD
 
 ## 7. 模型加载流程图
 
-```mermaid
+```
 flowchart TD
     A[LAppLive2DManager.changeScene] --> B[释放当前模型]
     B --> C[创建新的LAppModel实例]
@@ -329,3 +329,34 @@ flutter:
    - 不要混用相对路径和绝对路径访问同一资源
    - 保持路径格式与SDK API期望的一致性
    - 在不同场景下使用正确的路径格式（AssetManager访问 vs SDK内部方法调用）
+
+## 14. 调试命令
+
+在开发和调试过程中，可以使用以下命令来查看日志：
+
+1. **查看Live2D相关日志**：
+   ```bash
+   adb logcat -s "Live2dSplashActivity:*" "LAppDelegate:*" "LAppLive2DManager:*" "LAppModel:*" "LAppPal:*" "GLRenderer:*"
+   ```
+
+2. **查看所有错误和严重日志**：
+   ```bash
+   adb logcat "*:E" "*:F"
+   ```
+
+3. **查看特定标签的日志并保存到文件**：
+   ```bash
+   adb logcat -s "LApp*" > live2d_debug.log
+   ```
+
+4. **清空日志缓冲区**：
+   ```bash
+   adb logcat -c
+   ```
+
+5. **实时查看日志**：
+   ```bash
+   adb logcat
+   ```
+
+通过这些调试命令，可以有效地跟踪Live2D集成过程中的各种问题，包括模型加载、纹理处理、渲染过程等关键环节。
