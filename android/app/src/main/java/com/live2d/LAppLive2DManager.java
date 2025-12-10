@@ -146,7 +146,7 @@ public class LAppLive2DManager {
             }
             
             // 首先尝试使用Flutter资源路径
-            String[] files = assetManager.list(ResourcePath.LIVE2D_ROOT);
+            String[] files = assetManager.list(ResourcePath.FULL_LIVE2D_PATH);
             
             // 如果Flutter路径失败，尝试原生路径
             if (files == null || files.length == 0) {
@@ -169,7 +169,7 @@ public class LAppLive2DManager {
                     
                     try {
                         // 尝试列出子目录的内容，判断是否为文件夹
-                        String fullPath = ResourcePath.LIVE2D_ROOT + file;
+                        String fullPath = ResourcePath.FULL_LIVE2D_PATH + file;
                         String[] subFiles = assetManager.list(fullPath);
                         
                         // 如果Flutter路径失败，尝试原生路径
@@ -189,7 +189,7 @@ public class LAppLive2DManager {
                             
                             if (hasModelSetting) {
                                 // 添加完整的模型路径
-                                modelDir.add(ResourcePath.LIVE2D_ROOT + file + "/");
+                                modelDir.add(file); // 注意这里我们只存储模型名称，而不是完整路径
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
                                     LAppPal.printLog("LAppLive2DManager: 找到模型目录: " + file);
                                 }
@@ -230,8 +230,9 @@ public class LAppLive2DManager {
                     }
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             LAppPal.printErrorLog("扫描模型目录失败: " + e.getMessage());
+            e.printStackTrace();
         }
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
@@ -309,9 +310,9 @@ public class LAppLive2DManager {
         LAppModel model = new LAppModel();
         
         // 加载模型资源
-        String modelDirectory = modelDir.get(index);
-        // 从完整路径中提取模型目录名
-        String modelName = modelDirectory.substring(ResourcePath.LIVE2D_ROOT.length(), modelDirectory.length() - 1);
+        String modelName = modelDir.get(index);
+        // 构造正确的路径：live2d/模型名/
+        String modelDirectory = ResourcePath.LIVE2D_ROOT + modelName + "/";
         model.loadAssets(
             modelDirectory,
             modelName + ".model3.json"

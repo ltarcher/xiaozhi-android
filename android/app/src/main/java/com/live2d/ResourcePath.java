@@ -5,7 +5,7 @@ package com.live2d;
  */
 public class ResourcePath {
     // Flutter资源根路径
-    public static final String FLUTTER_ASSETS_ROOT = "/flutter_assets/assets/";
+    public static final String FLUTTER_ASSETS_ROOT = "flutter_assets/assets/";
     
     // Live2D资源根路径（相对于assets目录）
     public static final String LIVE2D_ROOT = "live2d/";
@@ -28,6 +28,8 @@ public class ResourcePath {
     // 关闭按钮图标路径
     public static final String CLOSE_IMAGE = "close.png";
     
+    private final String path;
+    
     /**
      * 获取根路径（Flutter）
      * @return 根路径
@@ -45,8 +47,6 @@ public class ResourcePath {
      * @return 原生资源根路径
      */
     public static ResourcePath NATIVE_ROOT = new ResourcePath(NATIVE_LIVE2D_PATH);
-    
-    private final String path;
     
     /**
      * 构造函数
