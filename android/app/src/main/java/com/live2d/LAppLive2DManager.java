@@ -188,8 +188,8 @@ public class LAppLive2DManager {
                             boolean hasModelSetting = Arrays.asList(subFiles).contains(modelSettingFile);
                             
                             if (hasModelSetting) {
-                                // 添加完整的模型路径
-                                modelDir.add(file); // 注意这里我们只存储模型名称，而不是完整路径
+                                // 添加模型名称到列表
+                                modelDir.add(file);
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
                                     LAppPal.printLog("LAppLive2DManager: 找到模型目录: " + file);
                                 }

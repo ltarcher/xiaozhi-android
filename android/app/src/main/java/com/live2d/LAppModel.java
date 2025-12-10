@@ -185,6 +185,9 @@ public class LAppModel extends CubismUserModel {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             LAppPal.printLog("LAppModel: loadAssets 完成");
         }
+
+        // 标记模型已初始化
+        isInitialized = true;
     }
     
     /**
@@ -300,10 +303,14 @@ public class LAppModel extends CubismUserModel {
             return;
         }
         
+        // 设置模型矩阵
+        modelMatrix.setWidth(2.0f);
+        modelMatrix.setHeight(2.0f);
+        modelMatrix.setCenterPosition(0.0f, 0.0f);
+        
         model.saveParameters();
         
         isUpdated = false;
-        isInitialized = true;
     }
     
     /**

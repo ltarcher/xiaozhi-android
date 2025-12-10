@@ -1,5 +1,7 @@
 package com.live2d;
 
+import android.opengl.GLES20;
+
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
 import com.live2d.sdk.cubism.framework.math.CubismViewMatrix;
 
@@ -83,6 +85,11 @@ public class LAppView {
             deviceToScreen.scale((float) height / (float) width, 1.0f);
         }
         
+        // 设置屏幕矩形范围
+        viewMatrix.setScreenRect(-1.0f, 1.0f, -1.0f, 1.0f);
+        // 设置最大屏幕矩形范围
+        viewMatrix.setMaxScreenRect(-2.0f, 2.0f, -2.0f, 2.0f);
+        
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             LAppPal.printLog("LAppView: 初始化完成");
         }
@@ -92,8 +99,9 @@ public class LAppView {
      * 渲染处理
      */
     public void render() {
-        // TODO: 实现渲染逻辑
-        // 这里会包含背景渲染、模型渲染等逻辑
+        // 清除屏幕
+        GLES20.glClearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
     }
     
     /**

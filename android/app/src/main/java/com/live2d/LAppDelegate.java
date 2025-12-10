@@ -212,7 +212,8 @@ public class LAppDelegate {
         // 加载模型
         live2DManager.setupModels();
         if (live2DManager.getModelCount() > 0) {
-            live2DManager.changeScene(live2DManager.getCurrentSceneIndex());
+            // 默认加载第一个模型
+            live2DManager.changeScene(0);
         }
         
         isActive = true;
