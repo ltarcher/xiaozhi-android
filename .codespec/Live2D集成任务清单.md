@@ -6,22 +6,22 @@
 - [x] 创建任务清单
 
 ## 2. Java类文件移植
-- [ ] 将官方demo中的Java类复制到项目中
-- [ ] 调整包名以匹配现有项目结构
-- [ ] 解决类间依赖和导入问题
+- [x] 将官方demo中的Java类复制到项目中
+- [x] 调整包名以匹配现有项目结构
+- [x] 解决类间依赖和导入问题
 
 ## 3. 资源路径适配
-- [ ] 确认Flutter assets中的模型资源可被Android访问
-- [ ] 调整代码中的资源访问路径（特别注意flutter资源路径为flutter_assets/assets/live2d/）
-- [ ] 验证资源加载逻辑
+- [x] 确认Flutter assets中的模型资源可被Android访问
+- [x] 调整代码中的资源访问路径（特别注意flutter资源路径为flutter_assets/assets/live2d/）
+- [x] 验证资源加载逻辑
 
 ## 4. 依赖配置
-- [ ] 确保Live2DCubismCore.aar正确引入
-- [ ] 检查build.gradle配置
-- [ ] 添加必要的权限声明
+- [x] 确保Live2DCubismCore.aar正确引入
+- [x] 检查build.gradle配置
+- [x] 添加必要的权限声明
 
 ## 5. Activity集成
-- [ ] 创建新的Activity用于Live2D显示并设置为项目启动页面
+- [x] 创建新的Activity用于Live2D显示并设置为项目启动页面
 
 ## 6. Flutter集成
 - [ ] 实现MethodChannel通信机制
