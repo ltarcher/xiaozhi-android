@@ -19,7 +19,7 @@ import java.util.List;
 
 import android.content.res.AssetManager;
 
-import static com.live2d.demo.LAppDefine.*;
+import static com.live2d.LAppDefine.*;
 
 /**
  * サンプルアプリケーションにおいてCubismModelを管理するクラス。

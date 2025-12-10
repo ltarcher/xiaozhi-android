@@ -9,12 +9,12 @@ package com.live2d;
 
 import android.opengl.GLES20;
 
-import com.live2d.demo.TouchManager;
+import com.live2d.TouchManager;
 import com.live2d.sdk.cubism.framework.math.CubismMatrix44;
 import com.live2d.sdk.cubism.framework.math.CubismViewMatrix;
 import com.live2d.sdk.cubism.framework.rendering.android.CubismOffscreenSurfaceAndroid;
 
-import static com.live2d.demo.LAppDefine.*;
+import static com.live2d.LAppDefine.*;
 
 import static android.opengl.GLES20.*;
 

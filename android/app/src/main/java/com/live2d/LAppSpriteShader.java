@@ -2,7 +2,7 @@ package com.live2d;
 
 import android.opengl.GLES20;
 
-import com.live2d.demo.LAppDefine;
+import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.utils.CubismDebug;
 
 /**

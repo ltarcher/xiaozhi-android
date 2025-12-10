@@ -7,7 +7,7 @@
 
 package com.live2d;
 
-import com.live2d.demo.LAppDefine;
+import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.CubismDefaultParameterId.ParameterId;
 import com.live2d.sdk.cubism.framework.CubismFramework;
 import com.live2d.sdk.cubism.framework.CubismModelSettingJson;
