@@ -10,29 +10,34 @@
 
 ## 3. 修改Android项目结构
 - [x] 修改android/app/build.gradle.kts文件，添加对Live2D AAR库的引用
-- [ ] 在Flutter Android项目中创建Live2D相关的Java类（参考Sample中的实现）
-- [ ] 创建Live2D管理器类（类似Sample中的LAppLive2DManager）
-- [ ] 创建视图类（类似Sample中的LAppView）
-- [ ] 创建渲染器类（类似Sample中的GLRenderer）
-- [ ] 创建纹理管理类（类似Sample中的LAppTextureManager）
-- [ ] 创建模型类（类似Sample中的LAppModel）
-- [ ] 创建委托类（类似Sample中的LAppDelegate）
+- [x] 在Flutter Android项目中创建Live2D相关的Java类（参考Sample中的实现）
+  - [x] 创建LAppDefine类（常量定义）
+  - [x] 创建LAppPal类（平台相关功能处理）
+  - [x] 创建TouchManager类（触摸管理）
+  - [x] 创建ResourcePath类（资源路径管理）
+  - [x] 创建LAppTextureManager类（纹理管理）
+  - [x] 创建GLRenderer类（OpenGL渲染器）
+  - [x] 创建LAppModel类（模型类）
+  - [x] 创建LAppView类（视图类）
+  - [x] 创建LAppLive2DManager类（模型管理器）
+  - [x] 创建LAppDelegate类（应用程序委托类）
 
-## 4. 集成步骤
+## 4. 实现待机页面（基础验证）
+- [ ] 创建一个Android原生的欢迎页面，在其中显示Live2D的Haru模型
+- [ ] 实现页面跳转逻辑，从Live2D待机页面跳转到Flutter主界面
+- [ ] 处理触摸事件，让Haru模型可以响应用户交互
+- [ ] 验证模型加载和显示功能正常
+
+## 5. 集成步骤
 - [ ] 修改MainActivity.java，继承FlutterActivity并添加Live2D相关初始化代码
 - [ ] 添加OpenGL ES支持
 - [ ] 添加必要的权限声明到AndroidManifest.xml（如果需要）
 - [ ] 配置ProGuard规则以防SDK被混淆
 
-## 5. 与Flutter集成
+## 6. 与Flutter集成
 - [ ] 实现Android与Flutter的MethodChannel通信机制
 - [ ] 在Flutter端创建Live2D控制器接口
 - [ ] 实现从Flutter控制Live2D模型（播放动作、切换表情等）
-
-## 6. 实现待机页面
-- [ ] 创建一个Android原生的欢迎页面，在其中显示Live2D的Haru模型
-- [ ] 实现页面跳转逻辑，从Live2D待机页面跳转到Flutter主界面
-- [ ] 处理触摸事件，让Haru模型可以响应用户交互
 
 ## 7. 口型同步功能
 - [ ] 实现音频输入检测和分析
