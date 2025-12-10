@@ -119,87 +119,73 @@ public class LAppLive2DManager {
      * 查找assets目录中的模型文件夹并设置模型目录列表
      */
     public void setupModels() {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: setupModels called");
+        }
+        
+        // 扫描模型目录
+        scanModelDirs();
+        
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: setupModels completed");
+        }
+    }
+    
+    /**
+     * 扫描模型目录
+     * 查找assets目录中的模型文件夹并添加到modelDir列表
+     */
+    public void scanModelDirs() {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: 开始扫描模型目录...");
+        }
+        
         modelDir.clear();
         
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppLive2DManager: 开始扫描模型目录");
-        }
-        
-        // 获取AssetManager
-        AssetManager assetManager = LAppDelegate.getInstance().getAssetManager();
-        if (assetManager == null) {
-            LAppPal.printErrorLog("AssetManager不可用");
-            return;
-        }
-        
-        // 调试：打印所有assets内容
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("=== 开始递归打印所有Assets内容 ===");
-            printAssetsRecursively(assetManager, "", "");
-            LAppPal.printLog("=== 结束递归打印所有Assets内容 ===");
-        }
-        
         try {
+            AssetManager assetManager = LAppDelegate.getInstance().getAssetManager();
+            
+            // 调试：打印资源目录结构
             if (LAppDefine.DEBUG_LOG_ENABLE) {
-                LAppPal.printLog("LAppLive2DManager: 尝试列出目录 " + ResourcePath.LIVE2D_ROOT);
-                LAppPal.printLog("LAppLive2DManager: 完整路径为 " + ResourcePath.FULL_LIVE2D_PATH);
+                LAppPal.printLog("=== 资源目录结构 ===");
+                printAssetsRecursively(assetManager, "", "");
+                LAppPal.printLog("==================");
             }
             
-            // 首先尝试使用Flutter资源路径
-            String[] files = assetManager.list(ResourcePath.FULL_LIVE2D_PATH);
-            
-            // 如果Flutter路径失败，尝试原生路径
-            if (files == null || files.length == 0) {
-                if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("LAppLive2DManager: Flutter路径无效，尝试原生路径: " + ResourcePath.NATIVE_LIVE2D_PATH);
-                }
-                files = assetManager.list(ResourcePath.NATIVE_LIVE2D_PATH);
-            }
+            // 使用FULL_LIVE2D_PATH来查找模型目录
+            String live2dPath = ResourcePath.FULL_LIVE2D_PATH;
+            String[] files = assetManager.list(live2dPath);
             
             if (files != null) {
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("LAppLive2DManager: 发现 " + files.length + " 个项目在目录中");
+                    LAppPal.printLog("LAppLive2DManager: " + live2dPath + " 目录包含 " + files.length + " 个项目");
                 }
                 
-                // 遍历所有文件夹，查找模型目录
+                // 遍历所有项目
                 for (String file : files) {
-                    if (LAppDefine.DEBUG_LOG_ENABLE) {
-                        LAppPal.printLog("LAppLive2DManager: 检查项目 " + file);
-                    }
-                    
                     try {
-                        // 尝试列出子目录的内容，判断是否为文件夹
-                        String fullPath = ResourcePath.FULL_LIVE2D_PATH + file;
-                        String[] subFiles = assetManager.list(fullPath);
-                        
-                        // 如果Flutter路径失败，尝试原生路径
-                        if ((subFiles == null || subFiles.length == 0) && !ResourcePath.NATIVE_LIVE2D_PATH.isEmpty()) {
-                            fullPath = ResourcePath.NATIVE_LIVE2D_PATH + file;
-                            subFiles = assetManager.list(fullPath);
-                        }
+                        // 检查是否为目录且包含.model3.json文件
+                        String subPath = live2dPath + file;
+                        String[] subFiles = assetManager.list(subPath);
                         
                         if (subFiles != null && subFiles.length > 0) {
                             if (LAppDefine.DEBUG_LOG_ENABLE) {
-                                LAppPal.printLog("LAppLive2DManager: " + file + " 是目录，包含 " + subFiles.length + " 个项目");
+                                LAppPal.printLog("LAppLive2DManager: 检查目录 " + subPath + " 包含 " + subFiles.length + " 个项目");
+                                for (String subFile : subFiles) {
+                                    LAppPal.printLog("LAppLive2DManager:   - " + subFile);
+                                }
                             }
                             
-                            // 检查是否存在.model3.json文件
+                            // 检查是否存在同名的.model3.json文件
                             String modelSettingFile = file + ".model3.json";
-                            boolean hasModelSetting = Arrays.asList(subFiles).contains(modelSettingFile);
-                            
-                            if (hasModelSetting) {
-                                // 添加模型名称到列表
+                            if (Arrays.asList(subFiles).contains(modelSettingFile)) {
                                 modelDir.add(file);
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
-                                    LAppPal.printLog("LAppLive2DManager: 找到模型目录: " + file);
+                                    LAppPal.printLog("LAppLive2DManager: 发现模型目录: " + file);
                                 }
                             } else {
                                 if (LAppDefine.DEBUG_LOG_ENABLE) {
                                     LAppPal.printLog("LAppLive2DManager: " + file + " 目录不包含 " + modelSettingFile);
-                                    LAppPal.printLog("LAppLive2DManager: " + file + " 目录中的文件列表:");
-                                    for (String subFile : subFiles) {
-                                        LAppPal.printLog("LAppLive2DManager:   - " + subFile);
-                                    }
                                 }
                             }
                         } else {
@@ -213,7 +199,7 @@ public class LAppLive2DManager {
                     }
                 }
             } else {
-                LAppPal.printErrorLog("无法列出目录: " + ResourcePath.LIVE2D_ROOT);
+                LAppPal.printErrorLog("无法列出目录: " + live2dPath);
                 
                 // 调试：尝试列出根目录内容
                 if (LAppDefine.DEBUG_LOG_ENABLE) {
@@ -303,7 +289,7 @@ public class LAppLive2DManager {
     }
     
     /**
-     * 切换场景
+     * 切换场景（加载模型）
      * @param index 场景索引
      */
     public void changeScene(int index) {
@@ -326,8 +312,8 @@ public class LAppLive2DManager {
         
         // 加载模型资源
         String modelName = modelDir.get(index);
-        // 构造正确的路径：live2d/模型名/
-        String modelDirectory = ResourcePath.LIVE2D_ROOT + modelName + "/";
+        // 构造正确的路径：使用FULL_LIVE2D_PATH而不是LIVE2D_ROOT
+        String modelDirectory = ResourcePath.FULL_LIVE2D_PATH + modelName + "/";
         
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             LAppPal.printLog("LAppLive2DManager: Loading model from directory: " + modelDirectory);
@@ -339,12 +325,47 @@ public class LAppLive2DManager {
             modelName + ".model3.json"
         );
         
-        // 添加到模型列表
-        models.add(model);
-        
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppLive2DManager: Changed scene to " + index + " (" + modelDirectory + ")");
+        // 检查模型是否成功加载
+        // LAppModel的isInitialized()方法可能在loadAssets()后被重置
+        // 改为检查模型对象是否存在来判断加载是否成功
+        if (model.getModel() != null) {
+            // 添加到模型列表
+            models.add(model);
+            
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppLive2DManager: Changed scene to " + index + " (" + modelDirectory + ")");
+            }
+        } else {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppLive2DManager: Failed to initialize model for scene " + index);
+            }
         }
+    }
+    
+    /**
+     * 通过模型名称切换场景
+     * @param modelName 模型名称
+     */
+    public void changeScene(String modelName) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("LAppLive2DManager: changeScene called with model name " + modelName);
+        }
+        
+        // 查找模型名称对应的索引
+        int index = modelDir.indexOf(modelName);
+        if (index == -1) {
+            LAppPal.printErrorLog("Model not found: " + modelName);
+            // 如果找不到指定模型，使用第一个模型
+            if (!modelDir.isEmpty()) {
+                index = 0;
+                LAppPal.printLog("Using first available model: " + modelDir.get(index));
+            } else {
+                LAppPal.printErrorLog("No models available");
+                return;
+            }
+        }
+        
+        changeScene(index);
     }
     
     /**

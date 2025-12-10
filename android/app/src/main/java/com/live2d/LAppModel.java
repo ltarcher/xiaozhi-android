@@ -137,28 +137,27 @@ public class LAppModel extends CubismUserModel {
     }
     
     /**
-     * 从assets目录加载模型资源
-     * @param dir 模型目录
-     * @param fileName 模型设置文件名
+     * 加载模型资产
+     * @param dir 资产目录
+     * @param fileName .model3.json文件名
      */
-    public void loadAssets(final String dir, final String fileName) {
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppModel: loadAssets 开始加载模型资源");
-            LAppPal.printLog("LAppModel: 目录 = " + dir + ", 文件名 = " + fileName);
-        }
-
+    public void loadAssets(String dir, String fileName) {
         modelHomeDirectory = dir;
-        String filePath = modelHomeDirectory + fileName;
-
-        // 读取模型设置文件
-        byte[] buffer = createBuffer(filePath);
-        if (buffer == null || buffer.length == 0) {
-            LAppPal.printErrorLog("LAppModel: 无法加载模型设置文件: " + filePath);
-            return;
-        }
-
+        
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("LAppModel: 模型设置文件加载成功，大小 = " + buffer.length + " 字节");
+            LAppPal.printLog("LAppModel: loadAssets from " + dir + ", file: " + fileName);
+        }
+        
+        // 加载模型设置文件(.model3.json)
+        String modelSettingPath = dir + fileName;
+        byte[] buffer = createBuffer(modelSettingPath);
+        if (buffer == null || buffer.length == 0) {
+            LAppPal.printErrorLog("LAppModel: 模型设置文件加载失败: " + modelSettingPath);
+            return;
+        } else {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppModel: 模型设置文件加载成功，大小 = " + buffer.length + " 字节");
+            }
         }
 
         // 解析模型设置
@@ -181,6 +180,11 @@ public class LAppModel extends CubismUserModel {
 
         // 设置纹理
         setupTextures();
+        // 检查纹理是否加载成功
+        if (!isInitialized) {
+            LAppPal.printErrorLog("LAppModel: 纹理加载失败");
+            return;
+        }
 
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             LAppPal.printLog("LAppModel: loadAssets 完成");
@@ -369,7 +373,9 @@ public class LAppModel extends CubismUserModel {
             
             if (texture == null) {
                 LAppPal.printErrorLog("LAppModel: Failed to create texture from " + texturePath);
-                continue;
+                // 如果纹理加载失败，则标记模型加载失败
+                isInitialized = false;
+                return;
             }
             
             final int glTextureNumber = texture.id;

@@ -11,7 +11,10 @@ import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 
 import com.live2d.LAppDelegate;
-import com.live2d.GLRenderer;
+import com.live2d.LAppLive2DManager;
+import com.live2d.LAppModel;
+import com.live2d.LAppPal;
+import com.live2d.ResourcePath;
 
 import java.io.IOException;
 
@@ -29,7 +32,7 @@ public class Live2dSplashActivity extends Activity {
     private LAppDelegate live2DDelegate;
     
     // 渲染器
-    private GLRenderer glRenderer;
+    private com.live2d.GLRenderer glRenderer;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +63,24 @@ public class Live2dSplashActivity extends Activity {
         
         // 在Activity启动时初始化
         live2DDelegate.onStart(this);
+        
+        // 扫描模型目录
+        LAppLive2DManager live2DManager = live2DDelegate.getLive2DManager();
+        if (live2DManager != null) {
+            live2DManager.scanModelDirs();
+            
+            // 加载第一个模型
+            int modelCount = live2DManager.getModelCount();
+            Log.d(TAG, "找到模型数量: " + modelCount);
+            if (modelCount > 0) {
+                Log.d(TAG, "加载第一个模型");
+                live2DManager.changeScene(0);
+            } else {
+                Log.e(TAG, "未找到任何Live2D模型");
+            }
+        } else {
+            Log.e(TAG, "Live2DManager 未初始化");
+        }
         
         // 打印资源目录所有文件全路径
         printAssetFiles();
@@ -118,7 +139,7 @@ public class Live2dSplashActivity extends Activity {
         glSurfaceView.setEGLContextClientVersion(2);
         
         // 创建渲染器
-        glRenderer = new GLRenderer(live2DDelegate);
+        glRenderer = new com.live2d.GLRenderer(live2DDelegate);
         
         // 设置渲染器
         glSurfaceView.setRenderer(glRenderer);

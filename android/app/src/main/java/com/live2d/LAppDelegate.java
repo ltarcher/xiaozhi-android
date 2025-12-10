@@ -205,15 +205,32 @@ public class LAppDelegate {
         windowHeight = height;
         
         // 初始化视图
-        view.initialize(width, height);
+        if (view != null) {
+            view.initialize(width, height);
+        }
         
         // TODO: 初始化精灵等UI元素
         
-        // 加载模型
-        live2DManager.setupModels();
-        if (live2DManager.getModelCount() > 0) {
-            // 默认加载第一个模型
-            live2DManager.changeScene(0);
+        // 确保Live2D管理器存在并加载模型
+        if (live2DManager != null) {
+            live2DManager.setupModels();
+            int modelCount = live2DManager.getModelCount();
+            if (modelCount > 0) {
+                // 默认加载第一个模型
+                live2DManager.changeScene(0);
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppDelegate: 成功加载模型，当前模型数量: " + live2DManager.getModelCount());
+                }
+            } else {
+                if (LAppDefine.DEBUG_LOG_ENABLE) {
+                    LAppPal.printLog("LAppDelegate: 没有找到可加载的模型");
+                    LAppPal.printLog("LAppDelegate: setupModels后模型数量: " + modelCount);
+                }
+            }
+        } else {
+            if (LAppDefine.DEBUG_LOG_ENABLE) {
+                LAppPal.printLog("LAppDelegate: Live2D管理器未初始化");
+            }
         }
         
         isActive = true;
@@ -336,6 +353,14 @@ public class LAppDelegate {
      */
     public LAppTextureManager getTextureManager() {
         return textureManager;
+    }
+    
+    /**
+     * 获取Live2D管理器
+     * @return Live2D管理器实例
+     */
+    public LAppLive2DManager getLive2DManager() {
+        return live2DManager;
     }
     
     /**

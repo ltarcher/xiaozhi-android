@@ -75,7 +75,7 @@ public class LAppTextureManager {
         Bitmap bitmap = loadBitmapFromFile(imagePath);
         if (bitmap == null) {
             LAppPal.printErrorLog("Failed to load bitmap: " + imagePath);
-            return textureInfo;
+            return null; // 返回null而不是textureInfo
         }
         
         // 创建纹理
@@ -86,7 +86,7 @@ public class LAppTextureManager {
         if (textureInfo.id == 0) {
             LAppPal.printErrorLog("Failed to generate texture: " + imagePath);
             bitmap.recycle();
-            return textureInfo;
+            return null; // 返回null而不是textureInfo
         }
         
         // 绑定纹理
