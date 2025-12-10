@@ -23,3 +23,4 @@ plugins {
 }
 
 include(":app")
+include(":libs:live2d:Framework:framework")
