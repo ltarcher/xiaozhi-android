@@ -124,8 +124,8 @@ public class LAppView implements AutoCloseable {
         } else {
             float x = windowWidth * 0.5f;
             float y = windowHeight * 0.5f;
-            float fWidth = (float) windowWidth;
-            float fHeight = (float) windowHeight;
+            float fWidth = (float) backTexture.width;
+            float fHeight = (float) backTexture.height;
             Log.d(TAG, "initializeSprite: Back sprite params - x=" + x + ", y=" + y + 
                   ", width=" + fWidth + ", height=" + fHeight);
 
@@ -230,11 +230,12 @@ public class LAppView implements AutoCloseable {
         if (backSprite != null) {
             backSprite.render();
         }
-        if (gearSprite != null) {
+        // 根据显示标志决定是否渲染齿轮按钮
+        if (gearSprite != null && isGearVisible) {
             gearSprite.render();
         }
-        // 注释掉下面这行来移除关闭按钮
-        if (powerSprite != null) {
+        // 根据显示标志决定是否渲染关闭按钮
+        if (powerSprite != null && isPowerVisible) {
             powerSprite.render();
         }
 
@@ -399,13 +400,13 @@ public class LAppView implements AutoCloseable {
 
         live2DManager.onTap(x, y);
 
-        // 齿轮按钮是否被按下
-        if (gearSprite.isHit(pointX, pointY)) {
+        // 齿轮按钮是否被按下 (只有在可见时才响应点击)
+        if (isGearVisible && gearSprite != null && gearSprite.isHit(pointX, pointY)) {
             isChangedModel = true;
         }
 
-        // 电源按钮是否被按下
-        if (powerSprite.isHit(pointX, pointY)) {
+        // 电源按钮是否被按下 (只有在可见时才响应点击)
+        if (isPowerVisible && powerSprite != null && powerSprite.isHit(pointX, pointY)) {
             // 应用程序结束
             LAppDelegate.getInstance().deactivateApp();
         }
@@ -492,6 +493,42 @@ public class LAppView implements AutoCloseable {
     }
 
     /**
+     * 设置齿轮按钮的可见性
+     * 
+     * @param visible true表示显示，false表示隐藏
+     */
+    public void setGearVisible(boolean visible) {
+        this.isGearVisible = visible;
+    }
+
+    /**
+     * 设置电源按钮的可见性
+     * 
+     * @param visible true表示显示，false表示隐藏
+     */
+    public void setPowerVisible(boolean visible) {
+        this.isPowerVisible = visible;
+    }
+
+    /**
+     * 获取齿轮按钮的可见性状态
+     * 
+     * @return true表示显示，false表示隐藏
+     */
+    public boolean isGearVisible() {
+        return isGearVisible;
+    }
+
+    /**
+     * 获取电源按钮的可见性状态
+     * 
+     * @return true表示显示，false表示隐藏
+     */
+    public boolean isPowerVisible() {
+        return isPowerVisible;
+    }
+
+    /**
      * Return rendering target enum instance.
      *
      * @return rendering target
@@ -525,6 +562,16 @@ public class LAppView implements AutoCloseable {
      * 模型切换标志
      */
     private boolean isChangedModel;
+
+    /**
+     * 齿轮按钮可见性标志，默认为true（可见）
+     */
+    private boolean isGearVisible = true;
+
+    /**
+     * 电源按钮可见性标志，默认为true（可见）
+     */
+    private boolean isPowerVisible = true;
 
     private final TouchManager touchManager = new TouchManager();
 
