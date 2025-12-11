@@ -234,9 +234,9 @@ public class LAppView implements AutoCloseable {
             gearSprite.render();
         }
         // 注释掉下面这行来移除关闭按钮
-        // if (powerSprite != null) {
-        //     powerSprite.render();
-        // }
+        if (powerSprite != null) {
+            powerSprite.render();
+        }
 
         if (isChangedModel) {
             isChangedModel = false;
