@@ -7,7 +7,9 @@ import androidx.annotation.NonNull;
 import com.live2d.LAppLive2DManager;
 import com.live2d.LAppDefine.MotionGroup;
 import com.live2d.LAppDefine.Priority;
+import com.live2d.LAppView;
 import com.live2d.Live2DViewFactory;
+import com.live2d.LAppDelegate;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -72,6 +74,68 @@ public class MainActivity extends FlutterActivity {
                                     }
                                 } else {
                                     result.error("INVALID_ARGUMENT", "Motion group is null", null);
+                                }
+                            } else if (call.method.equals("setGearVisible")) {
+                                Boolean visible = call.argument("visible");
+                                if (visible != null) {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate != null) {
+                                        LAppView appView = appDelegate.getView();
+                                        if (appView != null) {
+                                            appView.setGearVisible(visible);
+                                            result.success(null);
+                                        } else {
+                                            result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        }
+                                    } else {
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                    }
+                                } else {
+                                    result.error("INVALID_ARGUMENT", "Visible argument is null", null);
+                                }
+                            } else if (call.method.equals("setPowerVisible")) {
+                                Boolean visible = call.argument("visible");
+                                if (visible != null) {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate != null) {
+                                        LAppView appView = appDelegate.getView();
+                                        if (appView != null) {
+                                            appView.setPowerVisible(visible);
+                                            result.success(null);
+                                        } else {
+                                            result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        }
+                                    } else {
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                    }
+                                } else {
+                                    result.error("INVALID_ARGUMENT", "Visible argument is null", null);
+                                }
+                            } else if (call.method.equals("isGearVisible")) {
+                                LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                if (appDelegate != null) {
+                                    LAppView appView = appDelegate.getView();
+                                    if (appView != null) {
+                                        boolean visible = appView.isGearVisible();
+                                        result.success(visible);
+                                    } else {
+                                        result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                    }
+                                } else {
+                                    result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                }
+                            } else if (call.method.equals("isPowerVisible")) {
+                                LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                if (appDelegate != null) {
+                                    LAppView appView = appDelegate.getView();
+                                    if (appView != null) {
+                                        boolean visible = appView.isPowerVisible();
+                                        result.success(visible);
+                                    } else {
+                                        result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                    }
+                                } else {
+                                    result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                 }
                             } else {
                                 result.notImplemented();
