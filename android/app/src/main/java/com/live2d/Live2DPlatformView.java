@@ -75,29 +75,52 @@ public class Live2DPlatformView implements PlatformView {
             public boolean onTouch(View v, MotionEvent event) {
                 final float pointX = event.getX();
                 final float pointY = event.getY();
-                Log.d(TAG, "Touch event received: action=" + event.getAction() + ", x=" + pointX + ", y=" + pointY);
+                String actionName = getActionName(event.getAction());
+                Log.d(TAG, "Touch event received: action=" + actionName + " (" + event.getAction() + "), x=" + pointX + ", y=" + pointY + ", viewWidth=" + v.getWidth() + ", viewHeight=" + v.getHeight());
 
                 // 将触摸事件添加到GL线程队列中
                 glSurfaceView.queueEvent(new Runnable() {
                     @Override
                     public void run() {
+                        String actionNameInGL = getActionName(event.getAction());
+                        Log.d(TAG, "Executing in GL thread: " + actionNameInGL + " at (" + pointX + ", " + pointY + ")");
                         switch (event.getAction()) {
                             case MotionEvent.ACTION_DOWN:
-                                Log.d(TAG, "Processing ACTION_DOWN event");
+                                Log.d(TAG, "Processing ACTION_DOWN event - coordinates: (" + pointX + ", " + pointY + ")");
                                 LAppDelegate.getInstance().onTouchBegan(pointX, pointY);
                                 break;
                             case MotionEvent.ACTION_UP:
-                                Log.d(TAG, "Processing ACTION_UP event");
+                                Log.d(TAG, "Processing ACTION_UP event - coordinates: (" + pointX + ", " + pointY + ")");
                                 LAppDelegate.getInstance().onTouchEnd(pointX, pointY);
                                 break;
                             case MotionEvent.ACTION_MOVE:
-                                Log.d(TAG, "Processing ACTION_MOVE event");
+                                Log.d(TAG, "Processing ACTION_MOVE event - coordinates: (" + pointX + ", " + pointY + ")");
                                 LAppDelegate.getInstance().onTouchMoved(pointX, pointY);
+                                break;
+                            default:
+                                Log.d(TAG, "Processing other touch event: " + actionNameInGL);
                                 break;
                         }
                     }
                 });
                 return true;
+            }
+            
+            private String getActionName(int action) {
+                switch (action) {
+                    case MotionEvent.ACTION_DOWN:
+                        return "ACTION_DOWN";
+                    case MotionEvent.ACTION_UP:
+                        return "ACTION_UP";
+                    case MotionEvent.ACTION_MOVE:
+                        return "ACTION_MOVE";
+                    case MotionEvent.ACTION_CANCEL:
+                        return "ACTION_CANCEL";
+                    case MotionEvent.ACTION_OUTSIDE:
+                        return "ACTION_OUTSIDE";
+                    default:
+                        return "UNKNOWN (" + action + ")";
+                }
             }
         });
         Log.d(TAG, "Live2DPlatformView construction completed");
@@ -124,5 +147,15 @@ public class Live2DPlatformView implements PlatformView {
             Log.d(TAG, "LAppDelegate paused and stopped");
         }
         Log.d(TAG, "dispose() completed");
+    }
+    
+    /**
+     * 强制刷新视图
+     */
+    public void refreshView() {
+        if (glSurfaceView != null) {
+            glSurfaceView.requestRender();
+            Log.d(TAG, "View refresh requested");
+        }
     }
 }

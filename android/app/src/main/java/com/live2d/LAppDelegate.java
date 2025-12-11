@@ -149,10 +149,16 @@ public class LAppDelegate {
         Log.d(TAG, "onTouchBegan: x=" + x + ", y=" + y);
         mouseX = x;
         mouseY = y;
+        
+        // 添加额外的调试信息
+        Log.d(TAG, "onTouchBegan: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
         if (view != null) {
             isCaptured = true;
             view.onTouchesBegan(mouseX, mouseY);
+            Log.d(TAG, "onTouchBegan: Successfully called view.onTouchesBegan");
+        } else {
+            Log.e(TAG, "onTouchBegan: View is null, cannot process touch event");
         }
     }
 
@@ -160,10 +166,16 @@ public class LAppDelegate {
         Log.d(TAG, "onTouchEnd: x=" + x + ", y=" + y);
         mouseX = x;
         mouseY = y;
+        
+        // 添加额外的调试信息
+        Log.d(TAG, "onTouchEnd: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
         if (view != null) {
             isCaptured = false;
             view.onTouchesEnded(mouseX, mouseY);
+            Log.d(TAG, "onTouchEnd: Successfully called view.onTouchesEnded");
+        } else {
+            Log.e(TAG, "onTouchEnd: View is null, cannot process touch event");
         }
     }
 
@@ -171,10 +183,30 @@ public class LAppDelegate {
         Log.d(TAG, "onTouchMoved: x=" + x + ", y=" + y);
         mouseX = x;
         mouseY = y;
+        
+        // 添加额外的调试信息
+        Log.d(TAG, "onTouchMoved: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
         if (isCaptured && view != null) {
             view.onTouchesMoved(mouseX, mouseY);
+            Log.d(TAG, "onTouchMoved: Successfully called view.onTouchesMoved");
+        } else {
+            if (!isCaptured) {
+                Log.w(TAG, "onTouchMoved: Not captured, ignoring touch move event");
+            }
+            if (view == null) {
+                Log.e(TAG, "onTouchMoved: View is null, cannot process touch event");
+            }
         }
+    }
+
+    /**
+     * 请求重新渲染
+     */
+    public void requestRender() {
+        Log.d(TAG, "requestRender: Render requested");
+        // 由于run()方法会在每一帧被调用，我们只需要确保它会被调用即可
+        // 这里不需要额外的操作
     }
 
     // getter, setter群
@@ -223,6 +255,16 @@ public class LAppDelegate {
     private int windowWidth;
     private int windowHeight;
     private boolean isActive = true;
+    
+    // 添加初始化检查方法
+    public boolean isInitialized() {
+        boolean initialized = (view != null && textureManager != null && activity != null);
+        Log.d(TAG, "isInitialized: view=" + (view != null) + 
+              ", textureManager=" + (textureManager != null) + 
+              ", activity=" + (activity != null) + 
+              ", result=" + initialized);
+        return initialized;
+    }
 
     /**
      * 模型シーン索引

@@ -232,11 +232,17 @@ public class LAppView implements AutoCloseable {
         }
         // 根据显示标志决定是否渲染齿轮按钮
         if (gearSprite != null && isGearVisible) {
+            Log.d(TAG, "render: Rendering gear sprite, visible=" + isGearVisible);
             gearSprite.render();
+        } else {
+            Log.d(TAG, "render: Not rendering gear sprite, gearSprite=" + gearSprite + ", isGearVisible=" + isGearVisible);
         }
         // 根据显示标志决定是否渲染关闭按钮
         if (powerSprite != null && isPowerVisible) {
+            Log.d(TAG, "render: Rendering power sprite, visible=" + isPowerVisible);
             powerSprite.render();
+        } else {
+            Log.d(TAG, "render: Not rendering power sprite, powerSprite=" + powerSprite + ", isPowerVisible=" + isPowerVisible);
         }
 
         if (isChangedModel) {
@@ -359,6 +365,7 @@ public class LAppView implements AutoCloseable {
      * @param pointY 屏幕Y坐标
      */
     public void onTouchesBegan(float pointX, float pointY) {
+        Log.d(TAG, "onTouchesBegan: pointX=" + pointX + ", pointY=" + pointY);
         touchManager.touchesBegan(pointX, pointY);
     }
 
@@ -369,6 +376,7 @@ public class LAppView implements AutoCloseable {
      * @param pointY 屏幕Y坐标
      */
     public void onTouchesMoved(float pointX, float pointY) {
+        Log.d(TAG, "onTouchesMoved: pointX=" + pointX + ", pointY=" + pointY);
         float viewX = transformViewX(touchManager.getLastX());
         float viewY = transformViewY(touchManager.getLastY());
 
@@ -384,6 +392,7 @@ public class LAppView implements AutoCloseable {
      * @param pointY 屏幕Y坐标
      */
     public void onTouchesEnded(float pointX, float pointY) {
+        Log.d(TAG, "onTouchesEnded: pointX=" + pointX + ", pointY=" + pointY);
         // 触摸结束
         LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
         live2DManager.onDrag(0.0f, 0.0f);
@@ -402,13 +411,21 @@ public class LAppView implements AutoCloseable {
 
         // 齿轮按钮是否被按下 (只有在可见时才响应点击)
         if (isGearVisible && gearSprite != null && gearSprite.isHit(pointX, pointY)) {
+            Log.d(TAG, "onTouchesEnded: Gear button clicked");
             isChangedModel = true;
+        } else {
+            Log.d(TAG, "onTouchesEnded: Gear button not clicked. Visible: " + isGearVisible + 
+                  ", gearSprite: " + gearSprite + ", hit: " + (gearSprite != null ? gearSprite.isHit(pointX, pointY) : "N/A"));
         }
 
         // 电源按钮是否被按下 (只有在可见时才响应点击)
         if (isPowerVisible && powerSprite != null && powerSprite.isHit(pointX, pointY)) {
+            Log.d(TAG, "onTouchesEnded: Power button clicked");
             // 应用程序结束
             LAppDelegate.getInstance().deactivateApp();
+        } else {
+            Log.d(TAG, "onTouchesEnded: Power button not clicked. Visible: " + isPowerVisible + 
+                  ", powerSprite: " + powerSprite + ", hit: " + (powerSprite != null ? powerSprite.isHit(pointX, pointY) : "N/A"));
         }
 
     }
@@ -498,7 +515,10 @@ public class LAppView implements AutoCloseable {
      * @param visible true表示显示，false表示隐藏
      */
     public void setGearVisible(boolean visible) {
+        Log.d(TAG, "setGearVisible: Setting gear visible to " + visible);
         this.isGearVisible = visible;
+        // 强制下次渲染时更新显示
+        requestRender();
     }
 
     /**
@@ -507,7 +527,22 @@ public class LAppView implements AutoCloseable {
      * @param visible true表示显示，false表示隐藏
      */
     public void setPowerVisible(boolean visible) {
+        Log.d(TAG, "setPowerVisible: Setting power visible to " + visible);
         this.isPowerVisible = visible;
+        // 强制下次渲染时更新显示
+        requestRender();
+    }
+
+    /**
+     * 请求重新渲染视图
+     */
+    private void requestRender() {
+        // 通知LAppDelegate需要重新渲染
+        LAppDelegate appDelegate = LAppDelegate.getInstance();
+        if (appDelegate != null) {
+            appDelegate.requestRender();
+            Log.d(TAG, "requestRender: Render requested");
+        }
     }
 
     /**
@@ -516,6 +551,7 @@ public class LAppView implements AutoCloseable {
      * @return true表示显示，false表示隐藏
      */
     public boolean isGearVisible() {
+        Log.d(TAG, "isGearVisible: Returning " + isGearVisible);
         return isGearVisible;
     }
 
@@ -525,6 +561,7 @@ public class LAppView implements AutoCloseable {
      * @return true表示显示，false表示隐藏
      */
     public boolean isPowerVisible() {
+        Log.d(TAG, "isPowerVisible: Returning " + isPowerVisible);
         return isPowerVisible;
     }
 

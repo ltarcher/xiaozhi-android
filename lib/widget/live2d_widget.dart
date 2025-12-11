@@ -39,6 +39,23 @@ class Live2DWidget extends StatefulWidget {
   Future<void> triggerExpression(String expressionName) {
     return Future.value();
   }
+  
+  // 添加控制按钮可见性的方法
+  Future<void> setGearVisible(bool visible) {
+    return Future.value();
+  }
+  
+  Future<void> setPowerVisible(bool visible) {
+    return Future.value();
+  }
+  
+  Future<bool?> isGearVisible() {
+    return Future.value(null);
+  }
+  
+  Future<bool?> isPowerVisible() {
+    return Future.value(null);
+  }
 }
 
 class _Live2DWidgetState extends State<Live2DWidget> {
@@ -190,7 +207,154 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       }
     }
   }
+  
+  // 添加控制按钮可见性的私有方法
+  Future<void> _setGearVisible(bool visible) async {
+    try {
+      if (kDebugMode) {
+        print("Setting gear visible to: $visible for instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('setGearVisible', {
+        'visible': visible,
+        'instanceId': _actualInstanceId,
+      });
+      
+      if (kDebugMode) {
+        print("Gear visibility set successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to set gear visible: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to set gear visible - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error setting gear visible: $e");
+      }
+    }
+  }
+  
+  Future<void> _setPowerVisible(bool visible) async {
+    try {
+      if (kDebugMode) {
+        print("Setting power visible to: $visible for instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('setPowerVisible', {
+        'visible': visible,
+        'instanceId': _actualInstanceId,
+      });
+      
+      if (kDebugMode) {
+        print("Power visibility set successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to set power visible: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to set power visible - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error setting power visible: $e");
+      }
+    }
+  }
+  
+  Future<bool?> _isGearVisible() async {
+    try {
+      final result = await _channel.invokeMethod('isGearVisible', {
+        'instanceId': _actualInstanceId,
+      });
+      return result as bool?;
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to get gear visible state: ${e.message}");
+      }
+      return null;
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to get gear visible state - Missing plugin: ${e.message}");
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error getting gear visible state: $e");
+      }
+      return null;
+    }
+  }
+  
+  Future<bool?> _isPowerVisible() async {
+    try {
+      final result = await _channel.invokeMethod('isPowerVisible', {
+        'instanceId': _actualInstanceId,
+      });
+      return result as bool?;
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to get power visible state: ${e.message}");
+      }
+      return null;
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to get power visible state - Missing plugin: ${e.message}");
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error getting power visible state: $e");
+      }
+      return null;
+    }
+  }
+  
 
+  void _onPlatformViewCreated(int id) {
+    if (kDebugMode) {
+      print("Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
+    }
+  }
+
+  @override
+  void dispose() {
+    // 组件销毁时通知原生层清理资源
+    _cleanup();
+    super.dispose();
+  }
+
+  Future<void> _cleanup() async {
+    try {
+      if (kDebugMode) {
+        print("Cleaning up Live2D instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('cleanupInstance', {
+        'instanceId': _actualInstanceId,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error cleaning up Live2D instance: $e");
+      }
+    }
+  }
+  
+  // 为了方便从外部调用，我们将这些方法暴露出去
+  Future<void> activate() => _activate();
+  Future<void> deactivate() => _deactivate();
+  Future<void> playMotion(String motionGroup, [int priority = 1]) => _playMotion(motionGroup, priority);
+  Future<void> triggerExpression(String expressionName) => _triggerExpression(expressionName);
+  Future<void> setGearVisible(bool visible) => _setGearVisible(visible);
+  Future<void> setPowerVisible(bool visible) => _setPowerVisible(visible);
+  Future<bool?> isGearVisible() => _isGearVisible();
+  Future<bool?> isPowerVisible() => _isPowerVisible();
+  
   @override
   Widget build(BuildContext context) {
     // 在Android平台上使用AndroidView来嵌入原生视图
@@ -235,40 +399,4 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       ),
     );
   }
-
-  void _onPlatformViewCreated(int id) {
-    if (kDebugMode) {
-      print("Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
-    }
-  }
-
-  @override
-  void dispose() {
-    // 组件销毁时通知原生层清理资源
-    _cleanup();
-    super.dispose();
-  }
-
-  Future<void> _cleanup() async {
-    try {
-      if (kDebugMode) {
-        print("Cleaning up Live2D instance: $_actualInstanceId");
-      }
-      
-      await _channel.invokeMethod('cleanupInstance', {
-        'instanceId': _actualInstanceId,
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error cleaning up Live2D instance: $e");
-      }
-    }
-  }
-  
-  // 为了方便从外部调用，我们将这些方法暴露出去
-  Future<void> activate() => _activate();
-  Future<void> deactivate() => _deactivate();
-  Future<void> playMotion(String motionGroup, [int priority = 1]) => _playMotion(motionGroup, priority);
-  Future<void> triggerExpression(String expressionName) => _triggerExpression(expressionName);
-  
 }

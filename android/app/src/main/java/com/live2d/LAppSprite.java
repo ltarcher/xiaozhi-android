@@ -8,6 +8,7 @@
 package com.live2d;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -16,6 +17,8 @@ import java.nio.FloatBuffer;
 import static android.opengl.GLES20.*;
 
 public class LAppSprite {
+    private static final String TAG = "LAppSprite";
+
     public LAppSprite(
         float x,
         float y,
@@ -24,10 +27,12 @@ public class LAppSprite {
         int textureId,
         int programId
     ) {
+        Log.d(TAG, "LAppSprite constructor: x=" + x + ", y=" + y + ", width=" + width + ", height=" + height);
         rect.left = x - width * 0.5f;
         rect.right = x + width * 0.5f;
         rect.up = y + height * 0.5f;
         rect.down = y - height * 0.5f;
+        Log.d(TAG, "LAppSprite rect: left=" + rect.left + ", right=" + rect.right + ", up=" + rect.up + ", down=" + rect.down);
 
         this.textureId = textureId;
 
@@ -44,6 +49,7 @@ public class LAppSprite {
     }
 
     public void render() {
+        Log.v(TAG, "render: Rendering sprite");
         // Set the camera position (View matrix)
         uvVertex[0] = 1.0f;
         uvVertex[1] = 0.0f;
@@ -107,6 +113,7 @@ public class LAppSprite {
      * @param uvVertex uv顶点坐标
      */
     public void renderImmediate(int textureId, final float[] uvVertex) {
+        Log.v(TAG, "renderImmediate: Rendering sprite with textureId=" + textureId);
         // 启用attribute属性
         GLES20.glEnableVertexAttribArray(positionLocation);
         GLES20.glEnableVertexAttribArray(uvLocation);
@@ -151,10 +158,12 @@ public class LAppSprite {
 
     // 调整大小
     public void resize(float x, float y, float width, float height) {
+        Log.d(TAG, "resize: x=" + x + ", y=" + y + ", width=" + width + ", height=" + height);
         rect.left = x - width * 0.5f;
         rect.right = x + width * 0.5f;
         rect.up = y + height * 0.5f;
         rect.down = y - height * 0.5f;
+        Log.d(TAG, "resize: New rect: left=" + rect.left + ", right=" + rect.right + ", up=" + rect.up + ", down=" + rect.down);
     }
 
     /**
@@ -167,11 +176,17 @@ public class LAppSprite {
     public boolean isHit(float pointX, float pointY) {
         // y座標は変換する必要あり
         float y = maxHeight - pointY;
-
-        return (pointX >= rect.left && pointX <= rect.right && y <= rect.up && y >= rect.down);
+        Log.v(TAG, "isHit: pointX=" + pointX + ", pointY=" + pointY + ", convertedY=" + y + 
+              ", rect.left=" + rect.left + ", rect.right=" + rect.right + 
+              ", rect.up=" + rect.up + ", rect.down=" + rect.down);
+        
+        boolean hit = (pointX >= rect.left && pointX <= rect.right && y <= rect.up && y >= rect.down);
+        Log.v(TAG, "isHit: result=" + hit);
+        return hit;
     }
 
     public void setColor(float r, float g, float b, float a) {
+        Log.v(TAG, "setColor: r=" + r + ", g=" + g + ", b=" + b + ", a=" + a);
         spriteColor[0] = r;
         spriteColor[1] = g;
         spriteColor[2] = b;
@@ -185,6 +200,7 @@ public class LAppSprite {
      * @param height 高さ
      */
     public void setWindowSize(int width, int height) {
+        Log.v(TAG, "setWindowSize: width=" + width + ", height=" + height);
         maxWidth = width;
         maxHeight = height;
     }
