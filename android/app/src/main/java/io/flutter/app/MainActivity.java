@@ -50,23 +50,20 @@ public class MainActivity extends FlutterActivity {
                                 Double y = call.argument("y");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "onTap called: x=" + x + ", y=" + y + ", instanceId=" + instanceId);
-                                // TODO: 实现处理点击事件的逻辑
+                                // TODO: 实现点击事件处理逻辑
                                 result.success(null);
                             } else if (call.method.equals("triggerExpression")) {
                                 String expressionName = call.argument("expressionName");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "triggerExpression called: expressionName=" + expressionName + ", instanceId=" + instanceId);
-                                if (expressionName != null) {
-                                    // 获取当前模型并设置表情
-                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                    if (live2DManager.getModel(0) != null) {
-                                        live2DManager.getModel(0).setExpression(expressionName);
-                                        result.success(null);
-                                    } else {
-                                        result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
-                                    }
+                                
+                                // 获取当前模型并触发表情
+                                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                if (live2DManager.getModel(0) != null) {
+                                    live2DManager.getModel(0).setRandomExpression();
+                                    result.success(null);
                                 } else {
-                                    result.error("INVALID_ARGUMENT", "Expression name is null", null);
+                                    result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
                                 }
                             } else if (call.method.equals("playMotion")) {
                                 String motionGroup = call.argument("motionGroup");
@@ -93,12 +90,16 @@ public class MainActivity extends FlutterActivity {
                                 Log.d(TAG, "setGearVisible called: visible=" + visible + ", instanceId=" + instanceId);
                                 if (visible != null) {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    Log.d(TAG, "setGearVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
                                     if (appDelegate != null) {
                                         LAppView appView = appDelegate.getView();
+                                        Log.d(TAG, "setGearVisible: appView=" + (appView != null ? "not null" : "null"));
                                         if (appView != null) {
                                             appView.setGearVisible(visible);
+                                            Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ")");
                                             // 强制刷新视图
                                             appDelegate.requestRender();
+                                            Log.d(TAG, "setGearVisible: Called appDelegate.requestRender()");
                                             result.success(null);
                                         } else {
                                             Log.e(TAG, "setGearVisible: Live2D view is not ready");
@@ -118,12 +119,16 @@ public class MainActivity extends FlutterActivity {
                                 Log.d(TAG, "setPowerVisible called: visible=" + visible + ", instanceId=" + instanceId);
                                 if (visible != null) {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    Log.d(TAG, "setPowerVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
                                     if (appDelegate != null) {
                                         LAppView appView = appDelegate.getView();
+                                        Log.d(TAG, "setPowerVisible: appView=" + (appView != null ? "not null" : "null"));
                                         if (appView != null) {
                                             appView.setPowerVisible(visible);
+                                            Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ")");
                                             // 强制刷新视图
                                             appDelegate.requestRender();
+                                            Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender()");
                                             result.success(null);
                                         } else {
                                             Log.e(TAG, "setPowerVisible: Live2D view is not ready");
@@ -177,9 +182,11 @@ public class MainActivity extends FlutterActivity {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "refreshView called: instanceId=" + instanceId);
                                 LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                Log.d(TAG, "refreshView: appDelegate=" + (appDelegate != null ? "not null" : "null"));
                                 if (appDelegate != null) {
                                     // 请求重新渲染视图
                                     appDelegate.requestRender();
+                                    Log.d(TAG, "refreshView: Called appDelegate.requestRender()");
                                     result.success(null);
                                 } else {
                                     Log.e(TAG, "refreshView: Live2D app delegate is not ready");

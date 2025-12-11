@@ -94,32 +94,58 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 控制齿轮按钮可见性的方法
   void _toggleGearVisible() {
+    if (kDebugMode) {
+      print('ChatPage: _toggleGearVisible called, current value: $_isGearVisible');
+    }
     setState(() {
       _isGearVisible = !_isGearVisible;
+      if (kDebugMode) {
+        print('ChatPage: _isGearVisible updated to: $_isGearVisible');
+      }
     });
     
     // 更新Live2D中的齿轮按钮可见性
     if (_live2DKey.currentWidget != null) {
+      if (kDebugMode) {
+        print('ChatPage: Calling Live2D setGearVisible with value: $_isGearVisible');
+      }
       (_live2DKey.currentWidget as Live2DWidget).setGearVisible(_isGearVisible);
+    } else {
+      if (kDebugMode) {
+        print('ChatPage: Live2D widget is null, cannot set gear visible');
+      }
     }
   }
   
   // 控制电源按钮可见性的方法
   void _togglePowerVisible() {
+    if (kDebugMode) {
+      print('ChatPage: _togglePowerVisible called, current value: $_isPowerVisible');
+    }
     setState(() {
       _isPowerVisible = !_isPowerVisible;
+      if (kDebugMode) {
+        print('ChatPage: _isPowerVisible updated to: $_isPowerVisible');
+      }
     });
     
     // 更新Live2D中的电源按钮可见性
     if (_live2DKey.currentWidget != null) {
+      if (kDebugMode) {
+        print('ChatPage: Calling Live2D setPowerVisible with value: $_isPowerVisible');
+      }
       (_live2DKey.currentWidget as Live2DWidget).setPowerVisible(_isPowerVisible);
+    } else {
+      if (kDebugMode) {
+        print('ChatPage: Live2D widget is null, cannot set power visible');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (kDebugMode) {
-      print('ChatPage: build called');
+      print('ChatPage: build called, gearVisible: $_isGearVisible, powerVisible: $_isPowerVisible');
     }
     final MediaQueryData mediaQuery = MediaQuery.of(context);
 
@@ -351,6 +377,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 PopupMenuButton<String>(
                   icon: Icon(Icons.visibility),
                   onSelected: (String result) {
+                    if (kDebugMode) {
+                      print('ChatPage: Popup menu item selected: $result');
+                    }
                     switch (result) {
                       case 'toggle_gear':
                         _toggleGearVisible();
@@ -358,34 +387,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       case 'toggle_power':
                         _togglePowerVisible();
                         break;
+                      default:
+                        if (kDebugMode) {
+                          print('ChatPage: Unknown menu item selected: $result');
+                        }
                     }
                   },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    PopupMenuItem<String>(
-                      value: 'toggle_gear',
-                      child: Row(
-                        children: [
-                          Icon(_isGearVisible ? Icons.visibility : Icons.visibility_off),
-                          SizedBox(width: 8),
-                          Text(_isGearVisible 
-                            ? '${AppLocalizations.of(context)!.setting}齿轮按钮' 
-                            : '显示齿轮按钮'),
-                        ],
+                  itemBuilder: (BuildContext context) {
+                    if (kDebugMode) {
+                      print('ChatPage: Building popup menu items, gearVisible: $_isGearVisible, powerVisible: $_isPowerVisible');
+                    }
+                    return <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        value: 'toggle_gear',
+                        child: Row(
+                          children: [
+                            Icon(_isGearVisible ? Icons.visibility : Icons.visibility_off),
+                            SizedBox(width: 8),
+                            Text(_isGearVisible 
+                              ? '${AppLocalizations.of(context)!.setting}齿轮按钮' 
+                              : '显示齿轮按钮'),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'toggle_power',
-                      child: Row(
-                        children: [
-                          Icon(_isPowerVisible ? Icons.visibility : Icons.visibility_off),
-                          SizedBox(width: 8),
-                          Text(_isPowerVisible 
-                            ? '${AppLocalizations.of(context)!.setting}电源按钮' 
-                            : '显示电源按钮'),
-                        ],
+                      PopupMenuItem<String>(
+                        value: 'toggle_power',
+                        child: Row(
+                          children: [
+                            Icon(_isPowerVisible ? Icons.visibility : Icons.visibility_off),
+                            SizedBox(width: 8),
+                            Text(_isPowerVisible 
+                              ? '${AppLocalizations.of(context)!.setting}电源按钮' 
+                              : '显示电源按钮'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ];
+                  },
                 ),
                 IconButton(
                   onPressed: () {

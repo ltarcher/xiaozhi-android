@@ -23,6 +23,9 @@ public class Live2DPlatformView implements PlatformView {
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
         Log.d(TAG, "Live2DPlatformView constructor called");
         
+        // 注册到LAppDelegate
+        LAppDelegate.getInstance().setLive2DPlatformView(this);
+        
         // 优先通过LAppDelegate获取Activity
         LAppDelegate appDelegate = LAppDelegate.getInstance();
         this.activity = appDelegate.getActivity();

@@ -67,13 +67,16 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     super.initState();
     // 如果没有提供instanceId，则使用widget的hashCode作为唯一标识
     _actualInstanceId = widget.instanceId ?? 'live2d_${widget.hashCode}';
+    if (kDebugMode) {
+      print("Live2DWidget: initState called with instanceId: $_actualInstanceId");
+    }
     _initLive2D();
   }
 
   Future<void> _initLive2D() async {
     try {
       if (kDebugMode) {
-        print("Initializing Live2D with model path: ${widget.modelPath}, instanceId: $_actualInstanceId");
+        print("Live2DWidget: Initializing Live2D with model path: ${widget.modelPath}, instanceId: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('initLive2D', {
@@ -82,19 +85,19 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
       
       if (kDebugMode) {
-        print("Live2D initialized successfully for instance: $_actualInstanceId");
+        print("Live2DWidget: Live2D initialized successfully for instance: $_actualInstanceId");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to init Live2D: ${e.message}");
+        print("Live2DWidget: Failed to init Live2D due to PlatformException: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to init Live2D - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to init Live2D - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error initializing Live2D: $e");
+        print("Live2DWidget: Unexpected error initializing Live2D: $e");
       }
     }
   }
@@ -103,7 +106,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _activate() async {
     try {
       if (kDebugMode) {
-        print("Activating Live2D instance: $_actualInstanceId");
+        print("Live2DWidget: Activating Live2D instance: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('activateInstance', {
@@ -111,11 +114,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to activate Live2D instance: ${e.message}");
+        print("Live2DWidget: Failed to activate Live2D instance: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error activating Live2D instance: $e");
+        print("Live2DWidget: Unexpected error activating Live2D instance: $e");
       }
     }
   }
@@ -124,7 +127,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _deactivate() async {
     try {
       if (kDebugMode) {
-        print("Deactivating Live2D instance: $_actualInstanceId");
+        print("Live2DWidget: Deactivating Live2D instance: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('deactivateInstance', {
@@ -132,17 +135,20 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to deactivate Live2D instance: ${e.message}");
+        print("Live2DWidget: Failed to deactivate Live2D instance: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error deactivating Live2D instance: $e");
+        print("Live2DWidget: Unexpected error deactivating Live2D instance: $e");
       }
     }
   }
 
   Future<void> onTap(double x, double y) async {
     try {
+      if (kDebugMode) {
+        print("Live2DWidget: onTap called with x:$x, y:$y for instance: $_actualInstanceId");
+      }
       await _channel.invokeMethod('onTap', {
         'x': x,
         'y': y,
@@ -150,15 +156,15 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to handle tap: ${e.message}");
+        print("Live2DWidget: Failed to handle tap: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to handle tap - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to handle tap - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error handling tap: $e");
+        print("Live2DWidget: Unexpected error handling tap: $e");
       }
     }
   }
@@ -166,21 +172,24 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   // 添加触发表情动作的方法
   Future<void> _triggerExpression(String expressionName) async {
     try {
+      if (kDebugMode) {
+        print("Live2DWidget: Triggering expression: $expressionName for instance: $_actualInstanceId");
+      }
       await _channel.invokeMethod('triggerExpression', {
         'expressionName': expressionName,
         'instanceId': _actualInstanceId, // 传递实例ID
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to trigger expression: ${e.message}");
+        print("Live2DWidget: Failed to trigger expression: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to trigger expression - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to trigger expression - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error triggering expression: $e");
+        print("Live2DWidget: Unexpected error triggering expression: $e");
       }
     }
   }
@@ -188,6 +197,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   // 添加触发动作的方法
   Future<void> _playMotion(String motionGroup, [int priority = 1]) async {
     try {
+      if (kDebugMode) {
+        print("Live2DWidget: Playing motion: $motionGroup with priority: $priority for instance: $_actualInstanceId");
+      }
       await _channel.invokeMethod('playMotion', {
         'motionGroup': motionGroup,
         'priority': priority,
@@ -195,15 +207,15 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to play motion: ${e.message}");
+        print("Live2DWidget: Failed to play motion: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to play motion - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to play motion - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error playing motion: $e");
+        print("Live2DWidget: Unexpected error playing motion: $e");
       }
     }
   }
@@ -212,7 +224,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _setGearVisible(bool visible) async {
     try {
       if (kDebugMode) {
-        print("Setting gear visible to: $visible for instance: $_actualInstanceId");
+        print("Live2DWidget: Setting gear visible to: $visible for instance: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('setGearVisible', {
@@ -221,19 +233,19 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
       
       if (kDebugMode) {
-        print("Gear visibility set successfully");
+        print("Live2DWidget: Gear visibility set successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to set gear visible: ${e.message}");
+        print("Live2DWidget: Failed to set gear visible due to PlatformException: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to set gear visible - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to set gear visible - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error setting gear visible: $e");
+        print("Live2DWidget: Unexpected error setting gear visible: $e");
       }
     }
   }
@@ -241,7 +253,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _setPowerVisible(bool visible) async {
     try {
       if (kDebugMode) {
-        print("Setting power visible to: $visible for instance: $_actualInstanceId");
+        print("Live2DWidget: Setting power visible to: $visible for instance: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('setPowerVisible', {
@@ -250,42 +262,48 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
       
       if (kDebugMode) {
-        print("Power visibility set successfully");
+        print("Live2DWidget: Power visibility set successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to set power visible: ${e.message}");
+        print("Live2DWidget: Failed to set power visible due to PlatformException: ${e.message}");
       }
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to set power visible - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to set power visible - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error setting power visible: $e");
+        print("Live2DWidget: Unexpected error setting power visible: $e");
       }
     }
   }
   
   Future<bool?> _isGearVisible() async {
     try {
+      if (kDebugMode) {
+        print("Live2DWidget: Getting gear visible state for instance: $_actualInstanceId");
+      }
       final result = await _channel.invokeMethod('isGearVisible', {
         'instanceId': _actualInstanceId,
       });
+      if (kDebugMode) {
+        print("Live2DWidget: Gear visible state: $result");
+      }
       return result as bool?;
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to get gear visible state: ${e.message}");
+        print("Live2DWidget: Failed to get gear visible state: ${e.message}");
       }
       return null;
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to get gear visible state - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to get gear visible state - Missing plugin: ${e.message}");
       }
       return null;
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error getting gear visible state: $e");
+        print("Live2DWidget: Unexpected error getting gear visible state: $e");
       }
       return null;
     }
@@ -293,38 +311,71 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   
   Future<bool?> _isPowerVisible() async {
     try {
+      if (kDebugMode) {
+        print("Live2DWidget: Getting power visible state for instance: $_actualInstanceId");
+      }
       final result = await _channel.invokeMethod('isPowerVisible', {
         'instanceId': _actualInstanceId,
       });
+      if (kDebugMode) {
+        print("Live2DWidget: Power visible state: $result");
+      }
       return result as bool?;
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Failed to get power visible state: ${e.message}");
+        print("Live2DWidget: Failed to get power visible state: ${e.message}");
       }
       return null;
     } on MissingPluginException catch (e) {
       if (kDebugMode) {
-        print("Failed to get power visible state - Missing plugin: ${e.message}");
+        print("Live2DWidget: Failed to get power visible state - Missing plugin: ${e.message}");
       }
       return null;
     } catch (e) {
       if (kDebugMode) {
-        print("Unexpected error getting power visible state: $e");
+        print("Live2DWidget: Unexpected error getting power visible state: $e");
       }
       return null;
     }
   }
   
+  // 添加刷新视图的方法
+  Future<void> _refreshView() async {
+    try {
+      if (kDebugMode) {
+        print("Live2DWidget: Refreshing view for instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('refreshView', {
+        'instanceId': _actualInstanceId,
+      });
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to refresh view: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to refresh view - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Unexpected error refreshing view: $e");
+      }
+    }
+  }
 
   void _onPlatformViewCreated(int id) {
     if (kDebugMode) {
-      print("Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
+      print("Live2DWidget: Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
     }
   }
 
   @override
   void dispose() {
     // 组件销毁时通知原生层清理资源
+    if (kDebugMode) {
+      print("Live2DWidget: Disposing widget for instance: $_actualInstanceId");
+    }
     _cleanup();
     super.dispose();
   }
@@ -332,15 +383,18 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _cleanup() async {
     try {
       if (kDebugMode) {
-        print("Cleaning up Live2D instance: $_actualInstanceId");
+        print("Live2DWidget: Cleaning up Live2D instance: $_actualInstanceId");
       }
       
+      // 删除不存在的cleanupInstance调用
+      /*
       await _channel.invokeMethod('cleanupInstance', {
         'instanceId': _actualInstanceId,
       });
+      */
     } catch (e) {
       if (kDebugMode) {
-        print("Error cleaning up Live2D instance: $e");
+        print("Live2DWidget: Error cleaning up Live2D instance: $e");
       }
     }
   }
@@ -360,7 +414,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     // 在Android平台上使用AndroidView来嵌入原生视图
     if (defaultTargetPlatform == TargetPlatform.android) {
       if (kDebugMode) {
-        print("Building Live2D AndroidView with params: ${widget.modelPath}, instanceId: $_actualInstanceId");
+        print("Live2DWidget: Building Live2D AndroidView with params: ${widget.modelPath}, instanceId: $_actualInstanceId");
       }
       
       return SizedBox(
@@ -369,7 +423,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         child: GestureDetector(
           onTapUp: (details) {
             if (kDebugMode) {
-              print("Live2D widget tapped on instance: $_actualInstanceId");
+              print("Live2DWidget: Live2D widget tapped on instance: $_actualInstanceId");
             }
             
             final RenderBox renderBox = context.findRenderObject() as RenderBox;

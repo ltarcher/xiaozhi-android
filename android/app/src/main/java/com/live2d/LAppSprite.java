@@ -49,7 +49,7 @@ public class LAppSprite {
     }
 
     public void render() {
-        Log.v(TAG, "render: Rendering sprite");
+        // Log.v(TAG, "render: Rendering sprite");
         // Set the camera position (View matrix)
         uvVertex[0] = 1.0f;
         uvVertex[1] = 0.0f;

@@ -205,8 +205,18 @@ public class LAppDelegate {
      */
     public void requestRender() {
         Log.d(TAG, "requestRender: Render requested");
-        // 由于run()方法会在每一帧被调用，我们只需要确保它会被调用即可
-        // 这里不需要额外的操作
+        // 通知Live2DPlatformView需要重新渲染
+        if (live2DPlatformView != null) {
+            live2DPlatformView.refreshView();
+        }
+    }
+    
+    /**
+     * 设置Live2DPlatformView实例引用
+     * @param platformView
+     */
+    public void setLive2DPlatformView(Live2DPlatformView platformView) {
+        this.live2DPlatformView = platformView;
     }
 
     // getter, setter群
@@ -247,6 +257,8 @@ public class LAppDelegate {
     }
 
     private Activity activity;
+    
+    private Live2DPlatformView live2DPlatformView; // 添加对Live2DPlatformView的引用
 
     private final CubismFramework.Option cubismOption = new CubismFramework.Option();
 
