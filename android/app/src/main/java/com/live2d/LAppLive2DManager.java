@@ -310,6 +310,15 @@ public class LAppLive2DManager {
     }
 
     /**
+     * 返回模型目录的数量
+     *
+     * @return 模型目录的数量
+     */
+    public int getModelDirSize() {
+        return modelDir.size();
+    }
+
+    /**
      * 动作播放时执行的回调函数
      */
     private static class BeganMotion implements IBeganMotionCallback {

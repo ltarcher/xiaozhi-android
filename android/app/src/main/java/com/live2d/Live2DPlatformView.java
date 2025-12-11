@@ -16,12 +16,22 @@ import io.flutter.plugin.platform.PlatformView;
 
 public class Live2DPlatformView implements PlatformView {
     private static final String TAG = "Live2DPlatformView";
-    private final GLSurfaceView glSurfaceView;
-    private final GLRenderer glRenderer;
+    private GLSurfaceView glSurfaceView;
+    private GLRenderer glRenderer;
     private Activity activity;
+    private boolean isInitialized = false;
+    private String modelPath;
+    private String instanceId;
+    private boolean isRunning = false;
 
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
         Log.d(TAG, "Live2DPlatformView constructor called");
+        
+        if (creationParams != null) {
+            modelPath = (String) creationParams.get("modelPath");
+            instanceId = (String) creationParams.get("instanceId");
+            Log.d(TAG, "Creation params - modelPath: " + modelPath + ", instanceId: " + instanceId);
+        }
         
         // 优先通过LAppDelegate获取Activity
         LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -52,22 +62,7 @@ public class Live2DPlatformView implements PlatformView {
             // 在这种情况下，我们仍然尝试使用context，尽管可能会有一些限制
         }
 
-        // 使用可用的context创建GLSurfaceView
-        glSurfaceView = new GLSurfaceView(context);
-        glSurfaceView.setEGLContextClientVersion(2);
-
-        // 创建渲染器
-        glRenderer = new GLRenderer();
-        glSurfaceView.setRenderer(glRenderer);
-        glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
-
-        // 初始化Live2D（如果有activity的话）
-        if (this.activity != null) {
-            appDelegate.onStart(this.activity);
-            Log.d(TAG, "Live2D initialized with Activity context");
-        } else {
-            Log.w(TAG, "Live2D initialized without Activity context. Some features may not work.");
-        }
+        initializeGLSurfaceView(context);
         
         // 设置触摸事件处理
         glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
@@ -103,16 +98,88 @@ public class Live2DPlatformView implements PlatformView {
         Log.d(TAG, "Live2DPlatformView construction completed");
     }
 
+    private void initializeGLSurfaceView(@NonNull Context context) {
+        Log.d(TAG, "initializeGLSurfaceView called");
+        // 创建或重新创建GLSurfaceView
+        glSurfaceView = new GLSurfaceView(context);
+        glSurfaceView.setEGLContextClientVersion(2);
+
+        // 创建渲染器
+        glRenderer = new GLRenderer();
+        glSurfaceView.setRenderer(glRenderer);
+        glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        
+        isInitialized = true;
+        isRunning = true;
+
+        // 初始化Live2D（如果有activity的话）
+        if (this.activity != null) {
+            LAppDelegate.getInstance().onStart(this.activity);
+            Log.d(TAG, "Live2D initialized with Activity context");
+        } else {
+            Log.w(TAG, "Live2D initialized without Activity context. Some features may not work.");
+        }
+        Log.d(TAG, "initializeGLSurfaceView completed");
+    }
+
+    public void onResume() {
+        Log.d(TAG, "onResume called, isRunning: " + isRunning);
+        if (glSurfaceView != null) {
+            glSurfaceView.onResume();
+            Log.d(TAG, "GLSurfaceView resumed");
+        }
+        
+        // 确保Live2D系统也恢复运行
+        LAppDelegate appDelegate = LAppDelegate.getInstance();
+        if (appDelegate != null) {
+            Log.d(TAG, "LAppDelegate instance available");
+            if (activity != null) {
+                Log.d(TAG, "Activity available, calling onStart");
+                appDelegate.onStart(activity);
+            } else {
+                // 如果没有activity，至少确保系统运行
+                Activity currentActivity = appDelegate.getActivity();
+                Log.d(TAG, "Current activity from appDelegate: " + (currentActivity != null ? "Available" : "Null"));
+                if (currentActivity != null) {
+                    Log.d(TAG, "Calling onStart with current activity");
+                    appDelegate.onStart(currentActivity);
+                } else {
+                    Log.d(TAG, "No activity available for onStart");
+                }
+            }
+            Log.d(TAG, "LAppDelegate restarted");
+        } else {
+            Log.d(TAG, "LAppDelegate instance is null");
+        }
+        isRunning = true;
+        Log.d(TAG, "onResume completed");
+    }
+
+    public void onPause() {
+        Log.d(TAG, "onPause called, isRunning: " + isRunning);
+        if (glSurfaceView != null) {
+            glSurfaceView.onPause();
+            Log.d(TAG, "GLSurfaceView paused");
+        }
+        
+        if (LAppDelegate.getInstance() != null) {
+            LAppDelegate.getInstance().onPause();
+            Log.d(TAG, "LAppDelegate paused");
+        }
+        isRunning = false;
+        Log.d(TAG, "onPause completed");
+    }
+
     @NonNull
     @Override
     public View getView() {
-        Log.d(TAG, "getView() called");
+        Log.d(TAG, "getView() called, isRunning: " + isRunning);
         return glSurfaceView;
     }
 
     @Override
     public void dispose() {
-        Log.d(TAG, "dispose() called");
+        Log.d(TAG, "dispose() called, isRunning: " + isRunning);
         // 清理资源
         if (glSurfaceView != null) {
             glSurfaceView.onPause();
@@ -123,6 +190,8 @@ public class Live2DPlatformView implements PlatformView {
             LAppDelegate.getInstance().onStop();
             Log.d(TAG, "LAppDelegate paused and stopped");
         }
+        isInitialized = false;
+        isRunning = false;
         Log.d(TAG, "dispose() completed");
     }
 }

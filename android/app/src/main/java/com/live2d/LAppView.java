@@ -31,6 +31,8 @@ public class LAppView implements AutoCloseable {
         VIEW_FRAME_BUFFER  // LAppViewForSmallDemo持有的帧缓冲区渲染
     }
 
+    private boolean isInitialized = false;
+
     public LAppView() {
         Log.d(TAG, "LAppView constructor called");
         clearColor[0] = 1.0f;
@@ -42,7 +44,19 @@ public class LAppView implements AutoCloseable {
     @Override
     public void close() {
         Log.d(TAG, "close: Closing LAppView");
-        spriteShader.close();
+        if (spriteShader != null) {
+            spriteShader.close();
+            spriteShader = null;
+        }
+        
+        // 清理精灵资源
+        backSprite = null;
+        gearSprite = null;
+        powerSprite = null;
+        renderingSprite = null;
+        
+        isInitialized = false;
+        Log.d(TAG, "close: LAppView closed successfully");
     }
 
     // 初始化
@@ -86,7 +100,37 @@ public class LAppView implements AutoCloseable {
             MaxLogicalView.TOP.getValue()
         );
 
-        spriteShader = new LAppSpriteShader();
+        if (spriteShader == null) {
+            spriteShader = new LAppSpriteShader();
+        }
+        
+        isInitialized = true;
+        Log.d(TAG, "initialize: LAppView initialized successfully");
+    }
+    
+    /**
+     * 检查是否已初始化
+     */
+    public boolean isInitialized() {
+        return isInitialized;
+    }
+    
+    /**
+     * 页面恢复时调用，确保渲染状态正确
+     */
+    public void onResume() {
+        Log.d(TAG, "onResume: Resuming LAppView");
+        if (!isInitialized) {
+            initialize();
+        }
+        
+        // 触发一次完整的模型更新
+        LAppLive2DManager live2dManager = LAppLive2DManager.getInstance();
+        if (live2dManager != null) {
+            live2dManager.onUpdate();
+        }
+        
+        Log.d(TAG, "onResume: LAppView resumed");
     }
 
     // 精灵初始化
@@ -202,6 +246,12 @@ public class LAppView implements AutoCloseable {
 
     // 绘制
     public void render() {
+        // 防止在未初始化时进行渲染
+        if (!isInitialized) {
+            Log.w(TAG, "render: Attempted to render before initialization");
+            return;
+        }
+        
         // 获取屏幕尺寸
         int maxWidth = LAppDelegate.getInstance().getWindowWidth();
         int maxHeight = LAppDelegate.getInstance().getWindowHeight();
@@ -245,7 +295,17 @@ public class LAppView implements AutoCloseable {
 
         // 模型绘制
         LAppLive2DManager live2dManager = LAppLive2DManager.getInstance();
-        live2dManager.onUpdate();
+        if (live2dManager == null) {
+            Log.e(TAG, "render: Live2DManager is null");
+            return;
+        }
+        
+        try {
+            live2dManager.onUpdate();
+        } catch (Exception e) {
+            Log.e(TAG, "render: Error in onUpdate", e);
+            return;
+        }
 
         // 当各模型持有纹理作为绘制目标时
         if (renderingTarget == RenderingTarget.MODEL_FRAME_BUFFER && renderingSprite != null) {
@@ -258,13 +318,19 @@ public class LAppView implements AutoCloseable {
 
             for (int i = 0; i < live2dManager.getModelNum(); i++) {
                 LAppModel model = live2dManager.getModel(i);
+                if (model == null) continue;
+                
                 float alpha = i < 1 ? 1.0f : model.getOpacity();    // 获取第一个的不透明度
 
                 renderingSprite.setColor(1.0f * alpha, 1.0f * alpha, 1.0f * alpha, alpha);
 
-                if (model != null && renderingSprite != null) {
+                if (renderingSprite != null) {
                     renderingSprite.setWindowSize(maxWidth, maxHeight);
-                    renderingSprite.renderImmediate(model.getRenderingBuffer().getColorBuffer()[0], uvVertex);
+                    try {
+                        renderingSprite.renderImmediate(model.getRenderingBuffer().getColorBuffer()[0], uvVertex);
+                    } catch (Exception e) {
+                        Log.e(TAG, "render: Error rendering model " + i, e);
+                    }
                 }
             }
         }

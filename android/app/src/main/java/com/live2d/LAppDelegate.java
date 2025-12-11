@@ -55,6 +55,17 @@ public class LAppDelegate {
             Log.d(TAG, "onStart: Activity reference updated");
         }
         
+        // 检查并确保CubismFramework已初始化
+        if (!CubismFramework.isInitialized()) {
+            Log.d(TAG, "onStart: CubismFramework not initialized, initializing...");
+            CubismFramework.cleanUp();
+            CubismFramework.startUp(cubismOption);
+            CubismFramework.initialize();
+            Log.d(TAG, "onStart: CubismFramework initialized");
+        } else {
+            Log.d(TAG, "onStart: CubismFramework already initialized");
+        }
+        
         textureManager = new LAppTextureManager();
         Log.d(TAG, "onStart: Created LAppTextureManager");
         view = new LAppView();
@@ -76,13 +87,17 @@ public class LAppDelegate {
         }
         textureManager = null;
 
-        LAppLive2DManager.releaseInstance();
-        CubismFramework.dispose();
+        // 不要在这里释放CubismFramework，因为可能会在恢复时重新使用
+        // LAppLive2DManager.releaseInstance();
+        // CubismFramework.dispose();
         Log.d(TAG, "onStop: Released resources");
     }
 
     public void onDestroy() {
         Log.d(TAG, "onDestroy: Destroying LAppDelegate");
+        // 在destroy时才真正释放框架
+        LAppLive2DManager.releaseInstance();
+        CubismFramework.dispose();
         releaseInstance();
     }
 
@@ -96,8 +111,16 @@ public class LAppDelegate {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Initialize Cubism SDK framework
-        CubismFramework.initialize();
+        // 检查并确保CubismFramework已初始化
+        if (!CubismFramework.isInitialized()) {
+            Log.d(TAG, "onSurfaceCreated: CubismFramework not initialized, initializing...");
+            CubismFramework.cleanUp();
+            CubismFramework.startUp(cubismOption);
+            CubismFramework.initialize();
+            Log.d(TAG, "onSurfaceCreated: CubismFramework initialized");
+        } else {
+            Log.d(TAG, "onSurfaceCreated: CubismFramework already initialized");
+        }
         Log.d(TAG, "onSurfaceCreated: CubismFramework initialized");
     }
 
@@ -108,7 +131,7 @@ public class LAppDelegate {
         windowWidth = width;
         windowHeight = height;
 
-        // AppViewの初期化
+        // AppView的初期化
         view.initialize();
         Log.d(TAG, "onSurfaceChanged: View initialized");
         view.initializeSprite();
@@ -208,7 +231,8 @@ public class LAppDelegate {
         // Set up Cubism SDK framework.
         cubismOption.logFunction = new LAppPal.PrintLogFunction();
         cubismOption.loggingLevel = LAppDefine.cubismLoggingLevel;
-
+        
+        // 只在构造函数中启动框架，不在这里初始化
         CubismFramework.cleanUp();
         CubismFramework.startUp(cubismOption);
         Log.d(TAG, "LAppDelegate constructor: CubismFramework started up");

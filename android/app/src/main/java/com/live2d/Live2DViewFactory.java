@@ -1,6 +1,7 @@
 package com.live2d;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.Nullable;
@@ -13,6 +14,7 @@ import io.flutter.plugin.platform.PlatformView;
 import io.flutter.plugin.platform.PlatformViewFactory;
 
 public class Live2DViewFactory extends PlatformViewFactory {
+    private static final String TAG = "Live2DViewFactory";
     private final Context context;
 
     public Live2DViewFactory(Context context) {
@@ -26,6 +28,7 @@ public class Live2DViewFactory extends PlatformViewFactory {
     @NonNull
     @Override
     public PlatformView create(Context context, int viewId, @Nullable Object args) {
+        Log.d(TAG, "Creating Live2DPlatformView with viewId: " + viewId);
         @SuppressWarnings("unchecked")
         Map<String, Object> creationParams = (Map<String, Object>) args;
         return new Live2DPlatformView(context, creationParams);

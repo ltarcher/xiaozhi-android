@@ -29,8 +29,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   bool _isPressing = false;
   late ChatBloc chatBloc;
-  late Live2DWidget live2DWidget;
-  final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
+  final GlobalKey _live2DKey = GlobalKey();
+  Live2DWidget? _live2DWidget;
 
   @override
   void initState() {
@@ -58,19 +58,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       print('ChatPage: didChangeAppLifecycleState called with state: $state');
     }
     // 应用生命周期变化时处理Live2D实例
-    if (_live2DKey.currentState != null) {
+    if (_live2DKey.currentWidget != null) {
       if (state == AppLifecycleState.resumed) {
         if (kDebugMode) {
           print('ChatPage: Activating Live2D widget');
         }
         // 使用新的公开方法
         (_live2DKey.currentWidget as Live2DWidget).activate();
-      } else {
+      } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
         if (kDebugMode) {
           print('ChatPage: Deactivating Live2D widget');
         }
         // 使用新的公开方法
         (_live2DKey.currentWidget as Live2DWidget).deactivate();
+      } else {
+        if (kDebugMode) {
+          print('ChatPage: Unhandled lifecycle state: $state');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        print('ChatPage: Live2D widget is null, skipping lifecycle handling');
       }
     }
   }
@@ -281,7 +289,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             }
             
             // 当收到新消息时，触发Live2D模型的随机表情
-            if (chatState.messageList.isNotEmpty) {
+            if (chatState.messageList.isNotEmpty && !chatState.messageList.first.sendByMe) {
               // 使用新的公开方法触发表情
               if (_live2DKey.currentWidget != null) {
                 if (kDebugMode) {
@@ -342,6 +350,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       // 将Live2D模型作为消息列表区域的背景
                       child: LayoutBuilder(
                         builder: (context, constraints) {
+                          if (kDebugMode) {
+                            print('ChatPage: Building Live2D background with constraints: ${constraints.toString()}');
+                          }
+                          
                           return Stack(
                             children: [
                               // Live2D模型作为消息列表背景

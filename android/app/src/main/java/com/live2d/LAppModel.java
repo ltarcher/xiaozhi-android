@@ -42,27 +42,91 @@ public class LAppModel extends CubismUserModel {
     
     public LAppModel() {
         Log.d(TAG, "LAppModel constructor called");
-        if (LAppDefine.MOC_CONSISTENCY_VALIDATION_ENABLE) {
-            mocConsistency = true;
-        }
-
-        if (LAppDefine.MOTION_CONSISTENCY_VALIDATION_ENABLE) {
-            motionConsistency = true;
-        }
-
-        if (LAppDefine.DEBUG_LOG_ENABLE) {
-            debugMode = true;
+        
+        // 检查CubismFramework是否已初始化
+        if (!CubismFramework.isInitialized()) {
+            Log.w(TAG, "CubismFramework not initialized, initializing now");
+            try {
+                CubismFramework.startUp(new CubismFramework.Option());
+                CubismFramework.initialize();
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize CubismFramework", e);
+            }
         }
         
+        // 检查CubismIdManager是否可用
         CubismIdManager idManager = CubismFramework.getIdManager();
-
-        idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
-        idParamAngleY = idManager.getId(ParameterId.ANGLE_Y.getId());
-        idParamAngleZ = idManager.getId(ParameterId.ANGLE_Z.getId());
-        idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
-        idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
-        idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
-
+        if (idManager == null) {
+            Log.e(TAG, "CubismIdManager is null, attempting to re-initialize CubismFramework");
+            // 如果IdManager为空，尝试重新初始化框架
+            try {
+                CubismFramework.cleanUp();
+                CubismFramework.startUp(new CubismFramework.Option());
+                CubismFramework.initialize();
+                idManager = CubismFramework.getIdManager();
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to re-initialize CubismFramework", e);
+            }
+        }
+        
+        // 确保ID管理器已初始化
+        if (idManager == null) {
+            Log.e(TAG, "Failed to initialize CubismIdManager");
+        } else {
+            Log.d(TAG, "CubismIdManager is available");
+        }
+        
+        // 初始化参数ID
+        try {
+            if (idManager != null) {
+                idParamAngleX = idManager.getId("ParamAngleX");
+                idParamAngleY = idManager.getId("ParamAngleY");
+                idParamAngleZ = idManager.getId("ParamAngleZ");
+                idParamBodyAngleX = idManager.getId("ParamBodyAngleX");
+                idParamEyeBallX = idManager.getId("ParamEyeBallX");
+                idParamEyeBallY = idManager.getId("ParamEyeBallY");
+                idParamEyeLOpen = idManager.getId("ParamEyeLOpen");
+                idParamEyeROpen = idManager.getId("ParamEyeROpen");
+                idParamMouthOpenY = idManager.getId("ParamMouthOpenY");
+                idParamBreath = idManager.getId("ParamBreath");
+                
+                Log.d(TAG, "Parameter IDs successfully initialized");
+            } else {
+                // 初始化默认值以避免空指针异常
+                idParamAngleX = null;
+                idParamAngleY = null;
+                idParamAngleZ = null;
+                idParamBodyAngleX = null;
+                idParamEyeBallX = null;
+                idParamEyeBallY = null;
+                idParamEyeLOpen = null;
+                idParamEyeROpen = null;
+                idParamMouthOpenY = null;
+                idParamBreath = null;
+                
+                Log.e(TAG, "Could not initialize parameter IDs due to null CubismIdManager");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize parameter IDs: " + e.getMessage(), e);
+            
+            // 初始化默认值以避免空指针异常
+            idParamAngleX = null;
+            idParamAngleY = null;
+            idParamAngleZ = null;
+            idParamBodyAngleX = null;
+            idParamEyeBallX = null;
+            idParamEyeBallY = null;
+            idParamEyeLOpen = null;
+            idParamEyeROpen = null;
+            idParamMouthOpenY = null;
+            idParamBreath = null;
+        }
+        
+        // 设置配置选项
+        mocConsistency = LAppDefine.MOC_CONSISTENCY_VALIDATION_ENABLE;
+        motionConsistency = LAppDefine.MOTION_CONSISTENCY_VALIDATION_ENABLE;
+        debugMode = LAppDefine.DEBUG_LOG_ENABLE;
+        
         Log.d(TAG, "LAppModel constructor completed");
     }
 
@@ -104,88 +168,81 @@ public class LAppModel extends CubismUserModel {
     /**
      * 模型的更新处理。根据模型的参数决定绘制状态
      */
+    /**
+     * 模型更新处理
+     */
     public void update() {
+        //Log.d(TAG, "update: Updating model");
+        
+        if (model == null) {
+            Log.w(TAG, "update: Model is null, skipping update");
+            return;
+        }
+        
+        //Log.d(TAG, "update: Model isUpdated=" + model.isUpdated() + ", isInitialized=" + model.isInitialized());
+        
+        // 确保模型已初始化
+        if (!isInitialized()) {
+            Log.w(TAG, "update: Model not initialized, skipping update");
+            return;
+        }
+        
         final float deltaTimeSeconds = LAppPal.getDeltaTime();
-        userTimeSeconds += deltaTimeSeconds;
-
-        dragManager.update(deltaTimeSeconds);
-        dragX = dragManager.getX();
-        dragY = dragManager.getY();
-
-        // 是否有通过动作更新参数
-        boolean isMotionUpdated = false;
-
-//         加载上次保存的状态
-        model.loadParameters();
-
-        // 如果没有播放动作，则从待机动作中随机播放
-        if (motionManager.isFinished()) {
-            startRandomMotion(LAppDefine.MotionGroup.IDLE.getId(), LAppDefine.Priority.IDLE.getPriority());
-        } else {
-            // 更新动作
-            isMotionUpdated = motionManager.updateMotion(model, deltaTimeSeconds);
+        //Log.d(TAG, "update: Delta time seconds = " + deltaTimeSeconds);
+        
+        // 动作更新
+        if (motionManager != null) {
+            //Log.d(TAG, "update: Updating motion manager");
+            motionManager.updateMotion(model, deltaTimeSeconds);
         }
-
-        // 保存模型状态
-        model.saveParameters();
-
-        // 不透明度
-        opacity = model.getModelOpacity();
-
-        // eye blink
-        // 仅在没有主要动作更新时才眨眼
-        if (!isMotionUpdated) {
-            if (eyeBlink != null) {
-                eyeBlink.updateParameters(model, deltaTimeSeconds);
-            }
-        }
-
-        // expression
+        
+        // 表达式更新
         if (expressionManager != null) {
-            // 通过表情更新参数（相对变化）
+            //Log.d(TAG, "update: Updating expression manager");
             expressionManager.updateMotion(model, deltaTimeSeconds);
         }
-
-        // 拖拽跟随功能
-        // 通过拖拽调整面部朝向
-        model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
-        model.addParameterValue(idParamAngleY, dragY * 30);
-        model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
-
-        // 通过拖拽调整身体朝向
-        model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
-
-        // 通过拖拽调整眼部朝向
-        model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
-        model.addParameterValue(idParamEyeBallY, dragY);
-
-        // Breath Function
-        if (breath != null) {
-            breath.updateParameters(model, deltaTimeSeconds);
+        
+        // 拖动处理
+        if (dragManager != null) {
+            //Log.d(TAG, "update: Updating drag manager");
+            dragManager.update(deltaTimeSeconds);
+            dragX = dragManager.getX();
+            dragY = dragManager.getY();
         }
-
-        // Physics Setting
+        
+        // 物理运算更新
         if (physics != null) {
+            //Log.d(TAG, "update: Updating physics");
             physics.evaluate(model, deltaTimeSeconds);
         }
-
-        // Lip Sync Setting
-        if (lipSync) {
-            // 实时进行唇形同步时，从系统获取音量并在0~1范围内输入值
-            float value = 0.0f;
-
-            for (int i = 0; i < lipSyncIds.size(); i++) {
-                CubismId lipSyncId = lipSyncIds.get(i);
-                model.addParameterValue(lipSyncId, value, 0.8f);
-            }
-        }
-
-        // Pose Setting
+        
+        // 姿势更新
         if (pose != null) {
+            //Log.d(TAG, "update: Updating pose");
             pose.updateParameters(model, deltaTimeSeconds);
         }
-
-        model.update();
+        
+        // 模型参数更新
+        model.loadParameters();          // 加载上次保存的状态
+        if (isInitialized()) {
+            //Log.d(TAG, "update: Updating model parameters");
+            model.update();
+        } else {
+            Log.w(TAG, "update: Model not initialized, skipping model.update()");
+        }
+        model.saveParameters();          // 保存状态
+        
+        // 眼睛眨眼
+        if (eyeBlink != null) {
+            //Log.d(TAG, "update: Updating eye blink");
+            eyeBlink.updateParameters(model, deltaTimeSeconds);
+        }
+        
+        // 呼吸运动
+        if (breath != null) {
+            //Log.d(TAG, "update: Updating breath");
+            breath.updateParameters(model, deltaTimeSeconds);
+        }
     }
 
     /**
@@ -312,11 +369,39 @@ public class LAppModel extends CubismUserModel {
         return startMotion(group, number, priority, onFinishedMotionHandler, onBeganMotionHandler);
     }
 
+    /**
+     * 绘制模型
+     *
+     * @param matrix 投影变换矩阵
+     */
     public void draw(CubismMatrix44 matrix) {
+        //Log.d(TAG, "draw: Drawing model");
+        
         if (model == null) {
+            Log.w(TAG, "draw: Model is null, skipping draw");
             return;
         }
-
+        
+        if (!isInitialized()) {
+            Log.w(TAG, "draw: Model not initialized, skipping draw");
+            return;
+        }
+        
+        if (getRenderer() == null) {
+            Log.w(TAG, "draw: Renderer is null, skipping draw");
+            return;
+        }
+        
+        if (matrix == null) {
+            Log.w(TAG, "draw: Matrix is null, skipping draw");
+            return;
+        }
+        
+        if (modelMatrix == null) {
+            Log.w(TAG, "draw: ModelMatrix is null, skipping draw");
+            return;
+        }
+        
         // 为避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
         CubismMatrix44.multiply(
             modelMatrix.getArray(),
@@ -324,6 +409,7 @@ public class LAppModel extends CubismUserModel {
             matrix.getArray()
         );
 
+        //Log.d(TAG, "draw: Drawing with renderer");
         this.<CubismRendererAndroid>getRenderer().setMvpMatrix(matrix);
         this.<CubismRendererAndroid>getRenderer().drawModel();
     }
@@ -694,44 +780,60 @@ public class LAppModel extends CubismUserModel {
     /**
      * 模型设置的眨眼功能用参数ID
      */
-    private final List<CubismId> eyeBlinkIds = new ArrayList<CubismId>();
+    private final List<CubismId> eyeBlinkIds = new ArrayList<>();
     /**
      * 模型设置的唇形同步功能用参数ID
      */
-    private final List<CubismId> lipSyncIds = new ArrayList<CubismId>();
+    private final List<CubismId> lipSyncIds = new ArrayList<>();
     /**
      * 已加载动作的映射
      */
-    private final Map<String, ACubismMotion> motions = new HashMap<String, ACubismMotion>();
+    private final Map<String, ACubismMotion> motions = new HashMap<>();
     /**
      * 已加载表情的映射
      */
-    private final Map<String, ACubismMotion> expressions = new HashMap<String, ACubismMotion>();
+    private final Map<String, ACubismMotion> expressions = new HashMap<>();
 
     /**
      * 参数ID: ParamAngleX
      */
-    private final CubismId idParamAngleX;
+    private CubismId idParamAngleX;
     /**
      * 参数ID: ParamAngleY
      */
-    private final CubismId idParamAngleY;
+    private CubismId idParamAngleY;
     /**
      * 参数ID: ParamAngleZ
      */
-    private final CubismId idParamAngleZ;
+    private CubismId idParamAngleZ;
     /**
      * 参数ID: ParamBodyAngleX
      */
-    private final CubismId idParamBodyAngleX;
+    private CubismId idParamBodyAngleX;
     /**
      * 参数ID: ParamEyeBallX
      */
-    private final CubismId idParamEyeBallX;
+    private CubismId idParamEyeBallX;
     /**
      * 参数ID: ParamEyeBallY
      */
-    private final CubismId idParamEyeBallY;
+    private CubismId idParamEyeBallY;
+    /**
+     * 参数ID: ParamEyeLOpen
+     */
+    private CubismId idParamEyeLOpen;
+    /**
+     * 参数ID: ParamEyeROpen
+     */
+    private CubismId idParamEyeROpen;
+    /**
+     * 参数ID: ParamMouthOpenY
+     */
+    private CubismId idParamMouthOpenY;
+    /**
+     * 参数ID: ParamBreath
+     */
+    private CubismId idParamBreath;
 
     /**
      * 帧缓冲区以外的绘制目标
