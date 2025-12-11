@@ -332,23 +332,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ),
               ],
             ),
-            body: Stack(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 将Live2D模型作为背景铺满整个屏幕
-                Positioned.fill(
-                  child: Live2DWidget(
-                    key: _live2DKey, // 添加key以便访问widget状态
-                    modelPath: "assets/live2d/Haru/Haru.model3.json",
-                    width: mediaQuery.size.width * 0.75,
-                    height: mediaQuery.size.height * 0.75,
-                    instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: SmartRefresher(
+                Expanded(
+                  // 将Live2D模型作为消息列表区域的背景
+                  child: Stack(
+                    children: [
+                      // Live2D模型作为消息列表背景
+                      Positioned.fill(
+                        child: Live2DWidget(
+                          key: _live2DKey, // 添加key以便访问widget状态
+                          modelPath: "assets/live2d/Haru/Haru.model3.json",
+                          width: mediaQuery.size.width,
+                          height: mediaQuery.size.height,
+                          instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
+                        ),
+                      ),
+                      SmartRefresher(
                         enablePullDown: false,
                         enablePullUp: true,
                         controller: _refreshController,
@@ -438,90 +439,90 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   .toList(),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(XConst.spacer).copyWith(
-                        bottom: 12 + MediaQuery.of(context).padding.bottom,
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(XConst.spacer).copyWith(
+                    bottom: 12 + MediaQuery.of(context).padding.bottom,
+                  ),
+                  child: GestureDetector(
+                    onTapDown: (_) {
+                      if (kDebugMode) {
+                        print('ChatPage: Tap down on hold-to-talk button');
+                      }
+                      holdToTalkKey.currentState!.setCancelTapUp(false);
+                      if (!_isPressing) {
+                        setState(() {
+                          _isPressing = true;
+                        });
+                      }
+                    },
+                    onTapUp: (_) {
+                      if (kDebugMode) {
+                        print('ChatPage: Tap up on hold-to-talk button');
+                      }
+                      holdToTalkKey.currentState!.setCancelTapUp(false);
+                      clearUp();
+                    },
+                    onTapCancel: () {
+                      if (kDebugMode) {
+                        print('ChatPage: Tap cancel on hold-to-talk button');
+                      }
+                      holdToTalkKey.currentState!.setCancelTapUp(false);
+                      clearUp();
+                    },
+                    onLongPressStart: (_) async {
+                      if (kDebugMode) {
+                        print('ChatPage: Long press started on hold-to-talk button');
+                      }
+                      holdToTalkKey.currentState!.setSpeaking(true);
+                      if (!_isPressing) {
+                        setState(() {
+                          _isPressing = true;
+                        });
+                      }
+                      chatBloc.add(ChatStartListenEvent());
+                    },
+                    onLongPressEnd: (detail) async {
+                      if (kDebugMode) {
+                        print('ChatPage: Long press ended on hold-to-talk button');
+                      }
+                      clearUp();
+                    },
+                    onLongPressCancel: () {
+                      if (kDebugMode) {
+                        print('ChatPage: Long press cancelled on hold-to-talk button');
+                      }
+                      holdToTalkKey.currentState!.setCancelTapUp(false);
+                      clearUp();
+                    },
+                    onLongPressMoveUpdate: (detail) {
+                      if (kDebugMode) {
+                        print('ChatPage: Long press move update on hold-to-talk button');
+                      }
+                      if ((mediaQuery.size.height -
+                              detail.globalPosition.dy) <
+                          (XConst.holdToTalkResponseAreaHeight +
+                              mediaQuery.padding.bottom)) {
+                        holdToTalkKey.currentState!.setCancelTapUp(false);
+                      } else {
+                        holdToTalkKey.currentState!.setCancelTapUp(true);
+                      }
+                      if (mounted) setState(() {});
+                    },
+                    child: FilledButton(
+                      onPressed: () {},
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.mic_rounded),
+                          SizedBox(width: XConst.spacer),
+                          Text(AppLocalizations.of(context)!.holdToTalk),
+                        ],
                       ),
-                      child: GestureDetector(
-                        onTapDown: (_) {
-                          if (kDebugMode) {
-                            print('ChatPage: Tap down on hold-to-talk button');
-                          }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          if (!_isPressing) {
-                            setState(() {
-                              _isPressing = true;
-                            });
-                          }
-                        },
-                        onTapUp: (_) {
-                          if (kDebugMode) {
-                            print('ChatPage: Tap up on hold-to-talk button');
-                          }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          clearUp();
-                        },
-                        onTapCancel: () {
-                          if (kDebugMode) {
-                            print('ChatPage: Tap cancel on hold-to-talk button');
-                          }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          clearUp();
-                        },
-                        onLongPressStart: (_) async {
-                          if (kDebugMode) {
-                            print('ChatPage: Long press started on hold-to-talk button');
-                          }
-                          holdToTalkKey.currentState!.setSpeaking(true);
-                          if (!_isPressing) {
-                            setState(() {
-                              _isPressing = true;
-                            });
-                          }
-                          chatBloc.add(ChatStartListenEvent());
-                        },
-                        onLongPressEnd: (detail) async {
-                          if (kDebugMode) {
-                            print('ChatPage: Long press ended on hold-to-talk button');
-                          }
-                          clearUp();
-                        },
-                        onLongPressCancel: () {
-                          if (kDebugMode) {
-                            print('ChatPage: Long press cancelled on hold-to-talk button');
-                          }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          clearUp();
-                        },
-                        onLongPressMoveUpdate: (detail) {
-                          if (kDebugMode) {
-                            print('ChatPage: Long press move update on hold-to-talk button');
-                          }
-                          if ((mediaQuery.size.height -
-                                  detail.globalPosition.dy) <
-                              (XConst.holdToTalkResponseAreaHeight +
-                                  mediaQuery.padding.bottom)) {
-                            holdToTalkKey.currentState!.setCancelTapUp(false);
-                          } else {
-                            holdToTalkKey.currentState!.setCancelTapUp(true);
-                          }
-                          if (mounted) setState(() {});
-                        },
-                        child: FilledButton(
-                          onPressed: () {},
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.mic_rounded),
-                              SizedBox(width: XConst.spacer),
-                              Text(AppLocalizations.of(context)!.holdToTalk),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
-                  ],
+                  ),
                 ),
                 HoldToTalkWidget(key: holdToTalkKey),
               ],
