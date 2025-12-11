@@ -10,7 +10,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
-            android:name="com.live2d.TestLive2DActivity"
+            android:name="io.flutter.app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -33,7 +33,7 @@
         </activity>
         
         <activity
-            android:name="io.flutter.app.MainActivity"
+            android:name="com.live2d.TestLive2DActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
