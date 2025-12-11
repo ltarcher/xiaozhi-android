@@ -21,7 +21,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   late RefreshController _refreshController;
 
   final GlobalKey<HoldToTalkWidgetState> holdToTalkKey =
@@ -30,20 +30,55 @@ class _ChatPageState extends State<ChatPage> {
   bool _isPressing = false;
   late ChatBloc chatBloc;
   late Live2DWidget live2DWidget;
+  final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
 
   @override
   void initState() {
+    if (kDebugMode) {
+      print('ChatPage: initState called');
+    }
     _refreshController = RefreshController();
+    WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
     super.initState();
   }
 
   @override
   void dispose() {
+    if (kDebugMode) {
+      print('ChatPage: dispose called');
+    }
+    WidgetsBinding.instance.removeObserver(this); // 移除观察者
     _refreshController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (kDebugMode) {
+      print('ChatPage: didChangeAppLifecycleState called with state: $state');
+    }
+    // 应用生命周期变化时处理Live2D实例
+    if (_live2DKey.currentState != null) {
+      if (state == AppLifecycleState.resumed) {
+        if (kDebugMode) {
+          print('ChatPage: Activating Live2D widget');
+        }
+        // 使用新的公开方法
+        (_live2DKey.currentWidget as Live2DWidget).activate();
+      } else {
+        if (kDebugMode) {
+          print('ChatPage: Deactivating Live2D widget');
+        }
+        // 使用新的公开方法
+        (_live2DKey.currentWidget as Live2DWidget).deactivate();
+      }
+    }
+  }
+
   clearUp() async {
+    if (kDebugMode) {
+      print('ChatPage: clearUp called');
+    }
     chatBloc.add(ChatStopListenEvent());
     holdToTalkKey.currentState!.setSpeaking(false);
     if (_isPressing && mounted) {
@@ -55,6 +90,9 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (kDebugMode) {
+      print('ChatPage: build called');
+    }
     final MediaQueryData mediaQuery = MediaQuery.of(context);
 
     OtaBloc otaBloc = BlocProvider.of<OtaBloc>(context);
@@ -64,7 +102,13 @@ class _ChatPageState extends State<ChatPage> {
     return BlocListener(
       bloc: otaBloc,
       listener: (context, OtaState otaState) {
+        if (kDebugMode) {
+          print('ChatPage: OtaBloc state changed to: ${otaState.runtimeType}');
+        }
         if (otaState is OtaNotActivatedState) {
+          if (kDebugMode) {
+            print('ChatPage: Showing activation dialog with code: ${otaState.code}');
+          }
           showDialog(
             context: context,
             builder: (context) {
@@ -113,6 +157,9 @@ class _ChatPageState extends State<ChatPage> {
                     children: [
                       TextButton(
                         onPressed: () async {
+                          if (kDebugMode) {
+                            print('ChatPage: User rejected activation');
+                          }
                           Navigator.pop(context);
                         },
                         child: Text(AppLocalizations.of(context)!.reject),
@@ -120,6 +167,9 @@ class _ChatPageState extends State<ChatPage> {
                       SizedBox(width: XConst.spacer),
                       FilledButton(
                         onPressed: () async {
+                          if (kDebugMode) {
+                            print('ChatPage: User accepted activation, code copied and URL launched');
+                          }
                           Navigator.pop(context);
                           try {
                             await Clipboard.setData(
@@ -128,7 +178,11 @@ class _ChatPageState extends State<ChatPage> {
                             if (null != otaState.url) {
                               await launchUrl(Uri.parse(otaState.url!));
                             }
-                          } catch (_) {}
+                          } catch (e) {
+                            if (kDebugMode) {
+                              print('ChatPage: Error during activation process: $e');
+                            }
+                          }
                         },
                         child: Text(AppLocalizations.of(context)!.ok),
                       ),
@@ -143,7 +197,13 @@ class _ChatPageState extends State<ChatPage> {
       child: BlocConsumer(
         bloc: chatBloc,
         listener: (context, ChatState chatState) {
+          if (kDebugMode) {
+            print('ChatPage: ChatBloc state changed to: ${chatState.runtimeType}');
+          }
           if (chatState is ChatNoMicrophonePermissionState) {
+            if (kDebugMode) {
+              print('ChatPage: No microphone permission, showing dialog');
+            }
             clearUp();
 
             showDialog(
@@ -172,6 +232,9 @@ class _ChatPageState extends State<ChatPage> {
                       children: [
                         TextButton(
                           onPressed: () async {
+                            if (kDebugMode) {
+                              print('ChatPage: User rejected microphone permission');
+                            }
                             Navigator.pop(context);
                           },
                           child: Text(AppLocalizations.of(context)!.reject),
@@ -179,6 +242,9 @@ class _ChatPageState extends State<ChatPage> {
                         SizedBox(width: XConst.spacer),
                         FilledButton(
                           onPressed: () async {
+                            if (kDebugMode) {
+                              print('ChatPage: User granted microphone permission');
+                            }
                             Navigator.pop(context);
                             chatBloc.add(
                               ChatStartListenEvent(
@@ -197,6 +263,9 @@ class _ChatPageState extends State<ChatPage> {
           }
 
           if (chatState is ChatInitialState) {
+            if (kDebugMode) {
+              print('ChatPage: ChatInitialState - hasMore: ${chatState.hasMore}, messageList length: ${chatState.messageList.length}');
+            }
             if (chatState.hasMore) {
               _refreshController.loadComplete();
             } else {
@@ -205,23 +274,32 @@ class _ChatPageState extends State<ChatPage> {
 
             if (chatState.messageList.isNotEmpty &&
                 chatState.messageList.first.sendByMe) {
+              if (kDebugMode) {
+                print('ChatPage: Message sent by me, calling clearUp');
+              }
               clearUp();
             }
             
             // 当收到新消息时，触发Live2D模型的随机表情
             if (chatState.messageList.isNotEmpty) {
-              // 我们需要通过全局的MethodChannel来触发Live2D表达式
-              MethodChannel('live2d_channel').invokeMethod('triggerExpression', {
-                'expressionName': 'Happy'
-              }).catchError((error) {
+              // 使用新的公开方法触发表情
+              if (_live2DKey.currentWidget != null) {
                 if (kDebugMode) {
-                  print("Failed to trigger expression: $error");
+                  print('ChatPage: Triggering Live2D expression');
                 }
-              });
+                (_live2DKey.currentWidget as Live2DWidget).triggerExpression('Happy');
+              } else {
+                if (kDebugMode) {
+                  print('ChatPage: Live2D widget not available for triggering expression');
+                }
+              }
             }
           }
         },
         builder: (context, ChatState chatState) {
+          if (kDebugMode) {
+            print('ChatPage: Building UI with ${chatState.messageList.length} messages');
+          }
           return Scaffold(
             appBar: AppBar(
               title: Text(AppLocalizations.of(context)!.xiaozhi),
@@ -229,6 +307,9 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   IconButton(
                     onPressed: () {
+                      if (kDebugMode) {
+                        print('ChatPage: Navigating to SettingPage');
+                      }
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => SettingPage()),
                       );
@@ -240,6 +321,9 @@ class _ChatPageState extends State<ChatPage> {
               actions: [
                 IconButton(
                   onPressed: () {
+                    if (kDebugMode) {
+                      print('ChatPage: Navigating to CallPage');
+                    }
                     Navigator.of(
                       context,
                     ).push(MaterialPageRoute(builder: (context) => CallPage()));
@@ -253,9 +337,11 @@ class _ChatPageState extends State<ChatPage> {
                 // 将Live2D模型作为背景铺满整个屏幕
                 Positioned.fill(
                   child: Live2DWidget(
+                    key: _live2DKey, // 添加key以便访问widget状态
                     modelPath: "assets/live2d/Haru/Haru.model3.json",
                     width: mediaQuery.size.width * 0.75,
                     height: mediaQuery.size.height * 0.75,
+                    instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
                   ),
                 ),
                 Column(
@@ -290,6 +376,9 @@ class _ChatPageState extends State<ChatPage> {
                           },
                         ),
                         onLoading: () {
+                          if (kDebugMode) {
+                            print('ChatPage: Loading more messages');
+                          }
                           chatBloc.add(ChatLoadMoreEvent());
                         },
                         child: ListView(
@@ -356,6 +445,9 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                       child: GestureDetector(
                         onTapDown: (_) {
+                          if (kDebugMode) {
+                            print('ChatPage: Tap down on hold-to-talk button');
+                          }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           if (!_isPressing) {
                             setState(() {
@@ -364,14 +456,23 @@ class _ChatPageState extends State<ChatPage> {
                           }
                         },
                         onTapUp: (_) {
+                          if (kDebugMode) {
+                            print('ChatPage: Tap up on hold-to-talk button');
+                          }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
                         onTapCancel: () {
+                          if (kDebugMode) {
+                            print('ChatPage: Tap cancel on hold-to-talk button');
+                          }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
                         onLongPressStart: (_) async {
+                          if (kDebugMode) {
+                            print('ChatPage: Long press started on hold-to-talk button');
+                          }
                           holdToTalkKey.currentState!.setSpeaking(true);
                           if (!_isPressing) {
                             setState(() {
@@ -381,13 +482,22 @@ class _ChatPageState extends State<ChatPage> {
                           chatBloc.add(ChatStartListenEvent());
                         },
                         onLongPressEnd: (detail) async {
+                          if (kDebugMode) {
+                            print('ChatPage: Long press ended on hold-to-talk button');
+                          }
                           clearUp();
                         },
                         onLongPressCancel: () {
+                          if (kDebugMode) {
+                            print('ChatPage: Long press cancelled on hold-to-talk button');
+                          }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
                         onLongPressMoveUpdate: (detail) {
+                          if (kDebugMode) {
+                            print('ChatPage: Long press move update on hold-to-talk button');
+                          }
                           if ((mediaQuery.size.height -
                                   detail.globalPosition.dy) <
                               (XConst.holdToTalkResponseAreaHeight +

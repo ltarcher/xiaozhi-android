@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 
 class Live2DTestPage extends StatefulWidget {
@@ -8,7 +10,7 @@ class Live2DTestPage extends StatefulWidget {
   State<Live2DTestPage> createState() => _Live2DTestPageState();
 }
 
-class _Live2DTestPageState extends State<Live2DTestPage> {
+class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObserver {
   // 默认使用的模型路径
   String _selectedModel = 'assets/live2d/Haru/Haru.model3.json';
   
@@ -20,6 +22,34 @@ class _Live2DTestPageState extends State<Live2DTestPage> {
     {'name': 'Natori', 'path': 'assets/live2d/Natori/Natori.model3.json'},
     {'name': 'Rice', 'path': 'assets/live2d/Rice/Rice.model3.json'},
   ];
+
+  final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
+
+  @override
+  void initState() {
+    WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 移除观察者
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 应用生命周期变化时处理Live2D实例
+    if (_live2DKey.currentState != null) {
+      if (state == AppLifecycleState.resumed) {
+        // 使用新的公开方法
+        (_live2DKey.currentState as Live2DWidget).activate();
+      } else {
+        // 使用新的公开方法
+        (_live2DKey.currentState as Live2DWidget).deactivate();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +96,11 @@ class _Live2DTestPageState extends State<Live2DTestPage> {
                   border: Border.all(color: Colors.grey),
                 ),
                 child: Live2DWidget(
+                  key: _live2DKey, // 添加key以便访问widget状态
                   modelPath: _selectedModel,
                   width: 300,
                   height: 500,
+                  instanceId: 'live2d_test_page_live2d', // 为这个实例指定特定ID
                 ),
               ),
             ),
@@ -82,19 +114,28 @@ class _Live2DTestPageState extends State<Live2DTestPage> {
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    // 可以在这里添加触发特定动作的代码
+                    // 触发特定动作，使用新的公开方法
+                    if (_live2DKey.currentWidget != null) {
+                      (_live2DKey.currentWidget as Live2DWidget).playMotion('tap_body');
+                    }
                   },
                   child: const Text('Action 1'),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // 可以在这里添加触发特定表情的代码
+                    // 触发特定表情，使用新的公开方法
+                    if (_live2DKey.currentWidget != null) {
+                      (_live2DKey.currentWidget as Live2DWidget).triggerExpression('Happy');
+                    }
                   },
                   child: const Text('Expression 1'),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // 可以在这里添加触发随机动作的代码
+                    // 触发随机动作，使用新的公开方法
+                    if (_live2DKey.currentWidget != null) {
+                      (_live2DKey.currentWidget as Live2DWidget).playMotion('shake');
+                    }
                   },
                   child: const Text('Random'),
                 ),

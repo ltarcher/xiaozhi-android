@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -14,8 +16,9 @@ class CallPage extends StatefulWidget {
   State<CallPage> createState() => _CallPageState();
 }
 
-class _CallPageState extends State<CallPage> {
+class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
   late ChatBloc chatBloc;
+  final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
 
   StorageMessage? _message;
 
@@ -23,13 +26,29 @@ class _CallPageState extends State<CallPage> {
   void initState() {
     chatBloc = BlocProvider.of<ChatBloc>(context);
     chatBloc.add(ChatStartCallEvent());
+    WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
     super.initState();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // 移除观察者
     chatBloc.add(ChatStopCallEvent());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 应用生命周期变化时处理Live2D实例
+    if (_live2DKey.currentState != null) {
+      if (state == AppLifecycleState.resumed) {
+        // 使用新的公开方法
+        (_live2DKey.currentWidget as Live2DWidget).activate();
+      } else {
+        // 使用新的公开方法
+        (_live2DKey.currentWidget as Live2DWidget).deactivate();
+      }
+    }
   }
 
   @override
@@ -56,9 +75,11 @@ class _CallPageState extends State<CallPage> {
               // 使用Live2DWidget替换原来的AnimatedMeshGradient
               Center(
                 child: Live2DWidget(
+                  key: _live2DKey, // 添加key以便访问widget状态
                   modelPath: "assets/live2d/Haru/Haru.model3.json",
                   width: mediaQuery.size.width * 0.4,
                   height: mediaQuery.size.width * 0.4,
+                  instanceId: 'call_page_live2d', // 为这个实例指定特定ID
                 ),
               ),
               Container(
