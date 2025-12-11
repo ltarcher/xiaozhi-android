@@ -124,8 +124,8 @@ public class LAppView implements AutoCloseable {
         } else {
             float x = windowWidth * 0.5f;
             float y = windowHeight * 0.5f;
-            float fWidth = (float) backTexture.width;
-            float fHeight = (float) backTexture.height;
+            float fWidth = (float) windowWidth;
+            float fHeight = (float) windowHeight;
             Log.d(TAG, "initializeSprite: Back sprite params - x=" + x + ", y=" + y + 
                   ", width=" + fWidth + ", height=" + fHeight);
 
