@@ -124,8 +124,8 @@ public class LAppView implements AutoCloseable {
         } else {
             float x = windowWidth * 0.5f;
             float y = windowHeight * 0.5f;
-            float fWidth = (float) backTexture.width;
-            float fHeight = (float) backTexture.height;
+            float fWidth = (float) windowWidth;
+            float fHeight = (float) windowHeight;
             Log.d(TAG, "initializeSprite: Back sprite params - x=" + x + ", y=" + y + 
                   ", width=" + fWidth + ", height=" + fHeight);
 
@@ -227,9 +227,9 @@ public class LAppView implements AutoCloseable {
 
         // UI与背景的绘制
         // 注释掉下面这段代码来移除背景图片，使背景变为透明
-        //if (backSprite != null) {
-        //    backSprite.render();
-        //}
+        if (backSprite != null) {
+            backSprite.render();
+        }
         if (gearSprite != null) {
             gearSprite.render();
         }
