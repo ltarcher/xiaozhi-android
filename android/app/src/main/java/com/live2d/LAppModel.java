@@ -436,7 +436,9 @@ public class LAppModel extends CubismUserModel {
      * 设置渲染器
      * @param renderer 渲染器
      */
-    private void setupRenderer(CubismRenderer renderer) {
+    @Override
+    public void setupRenderer(CubismRenderer renderer) {
+        super.setupRenderer(renderer);
         // 禁用高精度遮罩以避免clippingContext为null的问题
         renderer.isUsingHighPrecisionMask(false);
         
