@@ -65,8 +65,19 @@ public class MainActivity extends FlutterActivity {
                                 String modelPath = call.argument("modelPath");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "initLive2D called: modelPath=" + modelPath + ", instanceId=" + instanceId);
-                                // TODO: 实现初始化Live2D模型的逻辑
-                                result.success(null);
+                                
+                                try {
+                                    // 确保实例映射存在
+                                    int modelIndex = getModelIndex(instanceId);
+                                    Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    
+                                    // TODO: 实现具体的模型初始化逻辑
+                                    // 这里可以根据modelPath加载特定的模型
+                                    result.success(modelIndex);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in initLive2D for instance: " + instanceId, e);
+                                    result.error("INIT_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
+                                }
                             } else if (call.method.equals("onTap")) {
                                 Double x = call.argument("x");
                                 Double y = call.argument("y");
@@ -143,23 +154,6 @@ public class MainActivity extends FlutterActivity {
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in playMotion for instance: " + instanceId, e);
                                     result.error("MOTION_ERROR", "Failed to play motion: " + e.getMessage(), null);
-                                }
-                            } else if (call.method.equals("initLive2D")) {
-                                String modelPath = call.argument("modelPath");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "initLive2D called: modelPath=" + modelPath + ", instanceId=" + instanceId);
-                                
-                                try {
-                                    // 确保实例映射存在
-                                    int modelIndex = getModelIndex(instanceId);
-                                    Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                    
-                                    // TODO: 实现具体的模型初始化逻辑
-                                    // 这里可以根据modelPath加载特定的模型
-                                    result.success(modelIndex);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error in initLive2D for instance: " + instanceId, e);
-                                    result.error("INIT_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("activateInstance")) {
                                 handleActivateInstance(call, result);
@@ -386,27 +380,32 @@ public class MainActivity extends FlutterActivity {
                 instanceMap.put(instanceId, nextModelIndex++);
             }
             
-            // 如果提供了模型路径，初始化模型
-            if (modelPath != null && !modelPath.isEmpty()) {
-                try {
-                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                    Log.d(TAG, "activateInstance: Attempting to load model from path: " + modelPath);
-                    
-                    // 确保Live2D管理器已初始化
-                    if (live2DManager.getModelNum() == 0) {
-                        Log.d(TAG, "activateInstance: No models loaded, forcing scene change to index 0");
-                        live2DManager.nextScene();
-                    }
-                    
-                    // 尝试直接切换到指定模型
-                    changeToModelByName(modelPath, instanceId);
-                    
-                } catch (Exception e) {
-                    Log.e(TAG, "activateInstance: Error initializing model", e);
-                    // 不抛出异常，允许继续使用默认模型
+            // 简化的激活逻辑，避免强制重新加载导致的崩溃
+            try {
+                Log.d(TAG, "activateInstance: Activating instance without force reload: " + instanceId);
+                
+                // 只请求渲染，不强制重新加载模型
+                LAppDelegate appDelegate = LAppDelegate.getInstance();
+                if (appDelegate != null) {
+                    appDelegate.requestRender();
+                    Log.d(TAG, "activateInstance: Requested render for instance: " + instanceId);
                 }
-            } else {
-                Log.d(TAG, "activateInstance: No model path provided, using default model");
+                
+                // 如果确实需要重新加载模型，使用更安全的方式
+                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                if (live2DManager != null && live2DManager.getModelNum() == 0) {
+                    Log.d(TAG, "activateInstance: No models loaded, safely loading first model");
+                    try {
+                        live2DManager.nextScene();
+                        Log.d(TAG, "activateInstance: Safely loaded first model");
+                    } catch (Exception e) {
+                        Log.e(TAG, "activateInstance: Error loading first model", e);
+                    }
+                }
+                
+            } catch (Exception e) {
+                Log.e(TAG, "activateInstance: Error during activation", e);
+                // 不抛出异常，允许继续使用
             }
             
             Log.d(TAG, "Instance activated: " + instanceId + " -> modelIndex: " + instanceMap.get(instanceId));

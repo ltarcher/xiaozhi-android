@@ -199,31 +199,17 @@ public class Live2DPlatformView implements PlatformView {
                 Log.d(TAG, "Instance ID registered with Live2D module: " + instanceId);
             }
             
-            // 如果提供了模型路径，可以考虑预加载模型
+            // 只请求渲染，不强制重新加载模型
             if (modelPath != null && !modelPath.isEmpty()) {
                 Log.d(TAG, "Model path provided: " + modelPath);
                 
-                // 在GL线程中确保模型加载
-                glSurfaceView.queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            // 确保Live2D管理器已初始化并至少有一个模型
-                            LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                            if (live2DManager.getModelNum() == 0) {
-                                Log.d(TAG, "No models loaded in Live2DManager, forcing model loading");
-                                live2DManager.nextScene();
-                            }
-                            
-                            Log.d(TAG, "Live2D models loaded successfully, count: " + live2DManager.getModelNum());
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error initializing Live2D models in GL thread", e);
-                        }
-                    }
-                });
+                // 简单的渲染请求，避免强制重新加载导致的崩溃
+                appDelegate.requestRender();
+                Log.d(TAG, "Requested render after parameter initialization");
             }
         }
     }
+    
     
     /**
      * 获取当前实例ID

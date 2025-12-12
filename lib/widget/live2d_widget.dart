@@ -115,36 +115,27 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       return;
     }
     
-    if (_isActive) {
-      if (kDebugMode) {
-        print("Live2D activation skipped - already active");
-      }
-      // 即使已经激活，也重新初始化确保状态正确
-      await _initLive2D();
-      return;
-    }
-    
     try {
       _isActive = true;
       if (kDebugMode) {
         print("Activating Live2D instance: $_actualInstanceId");
       }
       
-      // 重新初始化Live2D，因为PlatformView可能已被销毁
-      await _initLive2D();
-      
+      // 简化的激活逻辑，只请求渲染，不强制重新加载模型
       await _channel.invokeMethod('activateInstance', {
         'instanceId': _actualInstanceId,
+        // 移除modelPath参数以避免强制重新加载导致的崩溃
       });
       
-      // 强制刷新UI
+      // 简单的延迟，确保激活完成
+      await Future.delayed(Duration(milliseconds: 50));
+      
+      // 轻量级刷新
       if (mounted) {
         if (kDebugMode) {
-          print("Refreshing UI for Live2D instance: $_actualInstanceId");
+          print("Requesting refresh for Live2D instance: $_actualInstanceId");
         }
-        // 标记需要重建PlatformView
-        _needsRebuild = true;
-        setState(() {});
+        await _refreshView();
       }
       
       if (kDebugMode) {
