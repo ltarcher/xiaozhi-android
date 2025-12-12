@@ -14,12 +14,34 @@ import com.live2d.LAppDelegate;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 
 public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
     private static final String TAG = "MainActivity";
     private Live2DViewFactory live2DViewFactory;
+    
+    // 添加实例映射管理
+    private java.util.Map<String, Integer> instanceMap = new java.util.HashMap<>();
+    private int nextModelIndex = 0;
+
+    /**
+     * 获取模型索引的辅助方法
+     * @param instanceId 实例ID
+     * @return 模型索引
+     */
+    private int getModelIndex(String instanceId) {
+        if (instanceId == null) {
+            return 0; // 默认索引
+        }
+        
+        if (!instanceMap.containsKey(instanceId)) {
+            instanceMap.put(instanceId, nextModelIndex++);
+        }
+        
+        return instanceMap.get(instanceId);
+    }
 
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
@@ -50,20 +72,49 @@ public class MainActivity extends FlutterActivity {
                                 Double y = call.argument("y");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "onTap called: x=" + x + ", y=" + y + ", instanceId=" + instanceId);
-                                // TODO: 实现点击事件处理逻辑
-                                result.success(null);
+                                
+                                try {
+                                    // 将触摸事件传递给Live2D模块处理
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate != null) {
+                                        // 直接调用触摸处理方法
+                                        float touchX = x != null ? x.floatValue() : 0.0f;
+                                        float touchY = y != null ? y.floatValue() : 0.0f;
+                                        
+                                        // 模拟触摸事件序列
+                                        appDelegate.onTouchBegan(touchX, touchY);
+                                        appDelegate.onTouchEnd(touchX, touchY);
+                                        
+                                        Log.d(TAG, "onTap: Successfully processed touch event for instance: " + instanceId);
+                                        result.success(null);
+                                    } else {
+                                        Log.e(TAG, "onTap: LAppDelegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in onTap for instance: " + instanceId, e);
+                                    result.error("TAP_ERROR", "Failed to process tap: " + e.getMessage(), null);
+                                }
                             } else if (call.method.equals("triggerExpression")) {
                                 String expressionName = call.argument("expressionName");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "triggerExpression called: expressionName=" + expressionName + ", instanceId=" + instanceId);
                                 
-                                // 获取当前模型并触发表情
-                                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                if (live2DManager.getModel(0) != null) {
-                                    live2DManager.getModel(0).setRandomExpression();
-                                    result.success(null);
-                                } else {
-                                    result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
+                                try {
+                                    // 获取当前模型并触发表情，使用多实例管理
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    int modelIndex = getModelIndex(instanceId);
+                                    Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    
+                                    if (live2DManager.getModel(modelIndex) != null) {
+                                        live2DManager.getModel(modelIndex).setRandomExpression();
+                                        result.success(null);
+                                    } else {
+                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in triggerExpression for instance: " + instanceId, e);
+                                    result.error("EXPRESSION_ERROR", "Failed to trigger expression: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("playMotion")) {
                                 String motionGroup = call.argument("motionGroup");
@@ -71,126 +122,203 @@ public class MainActivity extends FlutterActivity {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "playMotion called: motionGroup=" + motionGroup + ", priority=" + priority + ", instanceId=" + instanceId);
                                 
-                                if (motionGroup != null) {
-                                    // 获取当前模型并播放动作
+                                if (motionGroup == null) {
+                                    result.error("INVALID_ARGUMENT", "Motion group is null", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    // 获取当前模型并播放动作，使用多实例管理
                                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                    if (live2DManager.getModel(0) != null) {
+                                    int modelIndex = getModelIndex(instanceId);
+                                    Log.d(TAG, "playMotion: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    
+                                    if (live2DManager.getModel(modelIndex) != null) {
                                         int prio = priority != null ? priority : Priority.NORMAL.getPriority();
-                                        live2DManager.getModel(0).startRandomMotion(motionGroup, prio);
+                                        live2DManager.getModel(modelIndex).startRandomMotion(motionGroup, prio);
                                         result.success(null);
                                     } else {
-                                        result.error("MODEL_NOT_READY", "Live2D model is not ready", null);
+                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
                                     }
-                                } else {
-                                    result.error("INVALID_ARGUMENT", "Motion group is null", null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in playMotion for instance: " + instanceId, e);
+                                    result.error("MOTION_ERROR", "Failed to play motion: " + e.getMessage(), null);
                                 }
+                            } else if (call.method.equals("initLive2D")) {
+                                String modelPath = call.argument("modelPath");
+                                String instanceId = call.argument("instanceId");
+                                Log.d(TAG, "initLive2D called: modelPath=" + modelPath + ", instanceId=" + instanceId);
+                                
+                                try {
+                                    // 确保实例映射存在
+                                    int modelIndex = getModelIndex(instanceId);
+                                    Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    
+                                    // TODO: 实现具体的模型初始化逻辑
+                                    // 这里可以根据modelPath加载特定的模型
+                                    result.success(modelIndex);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in initLive2D for instance: " + instanceId, e);
+                                    result.error("INIT_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
+                                }
+                            } else if (call.method.equals("activateInstance")) {
+                                handleActivateInstance(call, result);
+                            } else if (call.method.equals("deactivateInstance")) {
+                                handleDeactivateInstance(call, result);
                             } else if (call.method.equals("setGearVisible")) {
                                 Boolean visible = call.argument("visible");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "setGearVisible called: visible=" + visible + ", instanceId=" + instanceId);
-                                if (visible != null) {
-                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
-                                    Log.d(TAG, "setGearVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
-                                    if (appDelegate != null) {
-                                        LAppView appView = appDelegate.getView();
-                                        Log.d(TAG, "setGearVisible: appView=" + (appView != null ? "not null" : "null"));
-                                        if (appView != null) {
-                                            appView.setGearVisible(visible);
-                                            Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ")");
-                                            // 强制刷新视图
-                                            appDelegate.requestRender();
-                                            Log.d(TAG, "setGearVisible: Called appDelegate.requestRender()");
-                                            result.success(null);
-                                        } else {
-                                            Log.e(TAG, "setGearVisible: Live2D view is not ready");
-                                            result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
-                                        }
-                                    } else {
-                                        Log.e(TAG, "setGearVisible: Live2D app delegate is not ready");
-                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
-                                    }
-                                } else {
+                                
+                                if (visible == null) {
                                     Log.e(TAG, "setGearVisible: Visible argument is null");
                                     result.error("INVALID_ARGUMENT", "Visible argument is null", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    Log.d(TAG, "setGearVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
+                                    if (appDelegate == null) {
+                                        Log.e(TAG, "setGearVisible: Live2D app delegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
+                                    LAppView appView = appDelegate.getView();
+                                    Log.d(TAG, "setGearVisible: appView=" + (appView != null ? "not null" : "null"));
+                                    if (appView == null) {
+                                        Log.e(TAG, "setGearVisible: Live2D view is not ready");
+                                        result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        return;
+                                    }
+                                    
+                                    // 设置指定实例的齿轮按钮可见性
+                                    appView.setGearVisible(visible);
+                                    Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ") for instance: " + instanceId);
+                                    
+                                    // 强制刷新视图
+                                    appDelegate.requestRender();
+                                    Log.d(TAG, "setGearVisible: Called appDelegate.requestRender() for instance: " + instanceId);
+                                    
+                                    result.success(null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in setGearVisible for instance: " + instanceId, e);
+                                    result.error("GEAR_VISIBLE_ERROR", "Failed to set gear visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("setPowerVisible")) {
                                 Boolean visible = call.argument("visible");
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "setPowerVisible called: visible=" + visible + ", instanceId=" + instanceId);
-                                if (visible != null) {
-                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
-                                    Log.d(TAG, "setPowerVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
-                                    if (appDelegate != null) {
-                                        LAppView appView = appDelegate.getView();
-                                        Log.d(TAG, "setPowerVisible: appView=" + (appView != null ? "not null" : "null"));
-                                        if (appView != null) {
-                                            appView.setPowerVisible(visible);
-                                            Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ")");
-                                            // 强制刷新视图
-                                            appDelegate.requestRender();
-                                            Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender()");
-                                            result.success(null);
-                                        } else {
-                                            Log.e(TAG, "setPowerVisible: Live2D view is not ready");
-                                            result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
-                                        }
-                                    } else {
-                                        Log.e(TAG, "setPowerVisible: Live2D app delegate is not ready");
-                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
-                                    }
-                                } else {
+                                
+                                if (visible == null) {
                                     Log.e(TAG, "setPowerVisible: Visible argument is null");
                                     result.error("INVALID_ARGUMENT", "Visible argument is null", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    Log.d(TAG, "setPowerVisible: appDelegate=" + (appDelegate != null ? "not null" : "null"));
+                                    if (appDelegate == null) {
+                                        Log.e(TAG, "setPowerVisible: Live2D app delegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
+                                    LAppView appView = appDelegate.getView();
+                                    Log.d(TAG, "setPowerVisible: appView=" + (appView != null ? "not null" : "null"));
+                                    if (appView == null) {
+                                        Log.e(TAG, "setPowerVisible: Live2D view is not ready");
+                                        result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        return;
+                                    }
+                                    
+                                    // 设置指定实例的电源按钮可见性
+                                    appView.setPowerVisible(visible);
+                                    Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ") for instance: " + instanceId);
+                                    
+                                    // 强制刷新视图
+                                    appDelegate.requestRender();
+                                    Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender() for instance: " + instanceId);
+                                    
+                                    result.success(null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in setPowerVisible for instance: " + instanceId, e);
+                                    result.error("POWER_VISIBLE_ERROR", "Failed to set power visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("isGearVisible")) {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "isGearVisible called: instanceId=" + instanceId);
-                                LAppDelegate appDelegate = LAppDelegate.getInstance();
-                                if (appDelegate != null) {
+                                
+                                try {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate == null) {
+                                        Log.e(TAG, "isGearVisible: Live2D app delegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
                                     LAppView appView = appDelegate.getView();
-                                    if (appView != null) {
-                                        boolean visible = appView.isGearVisible();
-                                        Log.d(TAG, "isGearVisible returning: " + visible);
-                                        result.success(visible);
-                                    } else {
+                                    if (appView == null) {
                                         Log.e(TAG, "isGearVisible: Live2D view is not ready");
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        return;
                                     }
-                                } else {
-                                    Log.e(TAG, "isGearVisible: Live2D app delegate is not ready");
-                                    result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                    
+                                    boolean visible = appView.isGearVisible();
+                                    Log.d(TAG, "isGearVisible returning: " + visible + " for instance: " + instanceId);
+                                    result.success(visible);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in isGearVisible for instance: " + instanceId, e);
+                                    result.error("GEAR_VISIBLE_QUERY_ERROR", "Failed to query gear visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("isPowerVisible")) {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "isPowerVisible called: instanceId=" + instanceId);
-                                LAppDelegate appDelegate = LAppDelegate.getInstance();
-                                if (appDelegate != null) {
+                                
+                                try {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate == null) {
+                                        Log.e(TAG, "isPowerVisible: Live2D app delegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
                                     LAppView appView = appDelegate.getView();
-                                    if (appView != null) {
-                                        boolean visible = appView.isPowerVisible();
-                                        Log.d(TAG, "isPowerVisible returning: " + visible);
-                                        result.success(visible);
-                                    } else {
+                                    if (appView == null) {
                                         Log.e(TAG, "isPowerVisible: Live2D view is not ready");
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
+                                        return;
                                     }
-                                } else {
-                                    Log.e(TAG, "isPowerVisible: Live2D app delegate is not ready");
-                                    result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                    
+                                    boolean visible = appView.isPowerVisible();
+                                    Log.d(TAG, "isPowerVisible returning: " + visible + " for instance: " + instanceId);
+                                    result.success(visible);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in isPowerVisible for instance: " + instanceId, e);
+                                    result.error("POWER_VISIBLE_QUERY_ERROR", "Failed to query power visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("refreshView")) {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "refreshView called: instanceId=" + instanceId);
-                                LAppDelegate appDelegate = LAppDelegate.getInstance();
-                                Log.d(TAG, "refreshView: appDelegate=" + (appDelegate != null ? "not null" : "null"));
-                                if (appDelegate != null) {
+                                
+                                try {
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    Log.d(TAG, "refreshView: appDelegate=" + (appDelegate != null ? "not null" : "null"));
+                                    if (appDelegate == null) {
+                                        Log.e(TAG, "refreshView: Live2D app delegate is not ready");
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
                                     // 请求重新渲染视图
                                     appDelegate.requestRender();
-                                    Log.d(TAG, "refreshView: Called appDelegate.requestRender()");
+                                    Log.d(TAG, "refreshView: Called appDelegate.requestRender() for instance: " + instanceId);
                                     result.success(null);
-                                } else {
-                                    Log.e(TAG, "refreshView: Live2D app delegate is not ready");
-                                    result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in refreshView for instance: " + instanceId, e);
+                                    result.error("REFRESH_ERROR", "Failed to refresh view: " + e.getMessage(), null);
                                 }
                             } else {
                                 Log.w(TAG, "Unknown method called: " + call.method);
@@ -199,5 +327,82 @@ public class MainActivity extends FlutterActivity {
                         }
                 );
         Log.d(TAG, "configureFlutterEngine: Configuration completed");
+    }
+
+    /**
+     * 处理实例激活请求
+     *
+     * @param call MethodCall对象
+     * @param result 结果回调
+     */
+    private void handleActivateInstance(MethodCall call, MethodChannel.Result result) {
+        String instanceId = call.argument("instanceId");
+        String modelPath = call.argument("modelPath");
+        
+        Log.d(TAG, "activateInstance called: instanceId=" + instanceId + ", modelPath=" + modelPath);
+        
+        if (instanceId == null) {
+            result.error("INVALID_ARGUMENT", "Instance ID is null", null);
+            return;
+        }
+        
+        try {
+            // 确保实例映射存在
+            if (!instanceMap.containsKey(instanceId)) {
+                instanceMap.put(instanceId, nextModelIndex++);
+            }
+            
+            // 如果提供了模型路径，初始化模型
+            if (modelPath != null && !modelPath.isEmpty()) {
+                // TODO: 实现模型初始化逻辑
+                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                // live2DManager.loadModelForInstance(instanceMap.get(instanceId), modelPath);
+            }
+            
+            Log.d(TAG, "Instance activated: " + instanceId + " -> modelIndex: " + instanceMap.get(instanceId));
+            result.success(instanceMap.get(instanceId));
+        } catch (Exception e) {
+            Log.e(TAG, "Error in activateInstance for: " + instanceId, e);
+            result.error("ACTIVATE_INSTANCE_ERROR", "Failed to activate instance: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * 处理实例停用请求
+     *
+     * @param call MethodCall对象
+     * @param result 结果回调
+     */
+    private void handleDeactivateInstance(MethodCall call, MethodChannel.Result result) {
+        String instanceId = call.argument("instanceId");
+        
+        Log.d(TAG, "deactivateInstance called: instanceId=" + instanceId);
+        
+        if (instanceId == null) {
+            result.error("INVALID_ARGUMENT", "Instance ID is null", null);
+            return;
+        }
+        
+        try {
+            if (instanceMap.containsKey(instanceId)) {
+                int modelIndex = instanceMap.get(instanceId);
+                
+                // 释放模型资源
+                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                if (live2DManager.getModel(modelIndex) != null) {
+                    live2DManager.getModel(modelIndex).deleteModel();
+                }
+                
+                // 从映射中移除
+                instanceMap.remove(instanceId);
+                
+                Log.d(TAG, "Instance deactivated: " + instanceId);
+            }
+            
+            result.success(null);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in deactivateInstance for: " + instanceId, e);
+            result.error("DEACTIVATE_INSTANCE_ERROR", "Failed to deactivate instance: " + e.getMessage(), null);
+        }
     }
 }
