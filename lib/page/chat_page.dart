@@ -97,6 +97,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (kDebugMode) {
       print('ChatPage: _toggleGearVisible called, current value: $_isGearVisible');
     }
+    
     setState(() {
       _isGearVisible = !_isGearVisible;
       if (kDebugMode) {
@@ -110,10 +111,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         print('ChatPage: Calling Live2D setGearVisible with value: $_isGearVisible');
       }
       (_live2DKey.currentWidget as Live2DWidget).setGearVisible(_isGearVisible);
+      if (kDebugMode) {
+        print('ChatPage: Live2D setGearVisible call completed');
+      }
     } else {
       if (kDebugMode) {
         print('ChatPage: Live2D widget is null, cannot set gear visible');
       }
+    }
+    
+    if (kDebugMode) {
+      print('ChatPage: _toggleGearVisible function completed');
     }
   }
   
@@ -122,6 +130,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (kDebugMode) {
       print('ChatPage: _togglePowerVisible called, current value: $_isPowerVisible');
     }
+    
     setState(() {
       _isPowerVisible = !_isPowerVisible;
       if (kDebugMode) {
@@ -135,10 +144,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         print('ChatPage: Calling Live2D setPowerVisible with value: $_isPowerVisible');
       }
       (_live2DKey.currentWidget as Live2DWidget).setPowerVisible(_isPowerVisible);
+      if (kDebugMode) {
+        print('ChatPage: Live2D setPowerVisible call completed');
+      }
     } else {
       if (kDebugMode) {
         print('ChatPage: Live2D widget is null, cannot set power visible');
       }
+    }
+    
+    if (kDebugMode) {
+      print('ChatPage: _togglePowerVisible function completed');
     }
   }
 
@@ -382,9 +398,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     }
                     switch (result) {
                       case 'toggle_gear':
+                        if (kDebugMode) {
+                          print('ChatPage: toggle_gear menu item tapped');
+                        }
                         _toggleGearVisible();
                         break;
                       case 'toggle_power':
+                        if (kDebugMode) {
+                          print('ChatPage: toggle_power menu item tapped');
+                        }
                         _togglePowerVisible();
                         break;
                       default:
