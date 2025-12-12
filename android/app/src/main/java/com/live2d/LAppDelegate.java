@@ -127,8 +127,8 @@ public class LAppDelegate {
         // 時間更新
         LAppPal.updateTime();
 
-        // 画面初期化
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        // 画面初期化 - 改为透明背景，让Live2D模型可见
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // 改为完全透明
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearDepthf(1.0f);
 
