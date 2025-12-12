@@ -110,6 +110,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('ChatPage: Calling Live2D setGearVisible with value: $_isGearVisible');
       }
+      // 通过Widget的公共方法调用
       (_live2DKey.currentWidget as Live2DWidget).setGearVisible(_isGearVisible);
       if (kDebugMode) {
         print('ChatPage: Live2D setGearVisible call completed');
@@ -143,6 +144,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('ChatPage: Calling Live2D setPowerVisible with value: $_isPowerVisible');
       }
+      // 通过Widget的公共方法调用
       (_live2DKey.currentWidget as Live2DWidget).setPowerVisible(_isPowerVisible);
       if (kDebugMode) {
         print('ChatPage: Live2D setPowerVisible call completed');
@@ -357,6 +359,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 if (kDebugMode) {
                   print('ChatPage: Triggering Live2D expression');
                 }
+                // 通过Widget的公共方法调用
                 (_live2DKey.currentWidget as Live2DWidget).triggerExpression('Happy');
               } else {
                 if (kDebugMode) {

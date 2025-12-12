@@ -21,40 +21,67 @@ class Live2DWidget extends StatefulWidget {
   @override
   State<Live2DWidget> createState() => _Live2DWidgetState();
   
+  // 静态方法映射表，用于从Widget访问State方法
+  static final Map<Live2DWidget, _Live2DWidgetState> _stateMap = {};
+  
   // 添加公共方法供外部调用
-  Future<void> activate() {
-    // 这些方法将在页面中通过key.currentWidget直接调用
-    // 实现留在State类中
-    return Future.value();
+  Future<void> activate() async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.activate();
+    }
   }
   
-  Future<void> deactivate() {
-    return Future.value();
+  Future<void> deactivate() async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.deactivate();
+    }
   }
   
-  Future<void> playMotion(String motionGroup, [int priority = 1]) {
-    return Future.value();
+  Future<void> playMotion(String motionGroup, [int priority = 1]) async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.playMotion(motionGroup, priority);
+    }
   }
   
-  Future<void> triggerExpression(String expressionName) {
-    return Future.value();
+  Future<void> triggerExpression(String expressionName) async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.triggerExpression(expressionName);
+    }
   }
   
   // 添加控制按钮可见性的方法
-  Future<void> setGearVisible(bool visible) {
-    return Future.value();
+  Future<void> setGearVisible(bool visible) async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.setGearVisible(visible);
+    }
   }
   
-  Future<void> setPowerVisible(bool visible) {
-    return Future.value();
+  Future<void> setPowerVisible(bool visible) async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.setPowerVisible(visible);
+    }
   }
   
-  Future<bool?> isGearVisible() {
-    return Future.value(null);
+  Future<bool?> isGearVisible() async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.isGearVisible();
+    }
+    return null;
   }
   
-  Future<bool?> isPowerVisible() {
-    return Future.value(null);
+  Future<bool?> isPowerVisible() async {
+    final state = _stateMap[this];
+    if (state != null) {
+      return state.isPowerVisible();
+    }
+    return null;
   }
 }
 
@@ -69,6 +96,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   @override
   void initState() {
     super.initState();
+    // 建立Widget和State的映射关系
+    Live2DWidget._stateMap[widget] = this;
+    
     // 如果没有提供instanceId，则使用widget的hashCode作为唯一标识
     _actualInstanceId = widget.instanceId ?? 'live2d_${widget.hashCode}';
     if (kDebugMode) {
@@ -442,6 +472,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if (kDebugMode) {
       print("Live2DWidget: Disposing widget for instance: $_actualInstanceId");
     }
+    
+    // 清理Widget和State的映射关系
+    Live2DWidget._stateMap.remove(widget);
     
     _isDisposed = true;
     _cleanup();

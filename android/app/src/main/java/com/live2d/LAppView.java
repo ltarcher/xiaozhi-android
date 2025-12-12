@@ -517,6 +517,15 @@ public class LAppView implements AutoCloseable {
     public void setGearVisible(boolean visible) {
         Log.d(TAG, "setGearVisible: Setting gear visible to " + visible);
         this.isGearVisible = visible;
+        
+        // 同时更新精灵的可见性
+        if (gearSprite != null) {
+            gearSprite.setIsVisible(visible);
+            Log.d(TAG, "setGearVisible: Updated gear sprite visibility to " + visible);
+        } else {
+            Log.w(TAG, "setGearVisible: gearSprite is null, cannot update visibility");
+        }
+        
         // 强制下次渲染时更新显示
         requestRender();
     }
@@ -529,6 +538,15 @@ public class LAppView implements AutoCloseable {
     public void setPowerVisible(boolean visible) {
         Log.d(TAG, "setPowerVisible: Setting power visible to " + visible);
         this.isPowerVisible = visible;
+        
+        // 同时更新精灵的可见性
+        if (powerSprite != null) {
+            powerSprite.setIsVisible(visible);
+            Log.d(TAG, "setPowerVisible: Updated power sprite visibility to " + visible);
+        } else {
+            Log.w(TAG, "setPowerVisible: powerSprite is null, cannot update visibility");
+        }
+        
         // 强制下次渲染时更新显示
         requestRender();
     }

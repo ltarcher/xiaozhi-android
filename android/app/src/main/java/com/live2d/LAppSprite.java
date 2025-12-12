@@ -18,6 +18,11 @@ import static android.opengl.GLES20.*;
 
 public class LAppSprite {
     private static final String TAG = "LAppSprite";
+    
+    /**
+     * 精灵可见性标志，默认为true（可见）
+     */
+    private boolean isVisible = true;
 
     public LAppSprite(
         float x,
@@ -49,6 +54,12 @@ public class LAppSprite {
     }
 
     public void render() {
+        // 检查精灵是否可见，如果不可见则直接返回
+        if (!isVisible) {
+            Log.v(TAG, "render: Sprite is not visible, skipping render");
+            return;
+        }
+        
         // Log.v(TAG, "render: Rendering sprite");
         // Set the camera position (View matrix)
         uvVertex[0] = 1.0f;
@@ -113,6 +124,12 @@ public class LAppSprite {
      * @param uvVertex uv顶点坐标
      */
     public void renderImmediate(int textureId, final float[] uvVertex) {
+        // 检查精灵是否可见，如果不可见则直接返回
+        if (!isVisible) {
+            Log.v(TAG, "renderImmediate: Sprite is not visible, skipping render");
+            return;
+        }
+        
         Log.v(TAG, "renderImmediate: Rendering sprite with textureId=" + textureId);
         // 启用attribute属性
         GLES20.glEnableVertexAttribArray(positionLocation);
@@ -191,6 +208,26 @@ public class LAppSprite {
         spriteColor[1] = g;
         spriteColor[2] = b;
         spriteColor[3] = a;
+    }
+    
+    /**
+     * 设置精灵的可见性
+     *
+     * @param visible true表示显示，false表示隐藏
+     */
+    public void setIsVisible(boolean visible) {
+        Log.d(TAG, "setIsVisible: Setting sprite visible to " + visible);
+        this.isVisible = visible;
+    }
+    
+    /**
+     * 获取精灵的可见性状态
+     *
+     * @return true表示显示，false表示隐藏
+     */
+    public boolean getIsVisible() {
+        Log.v(TAG, "getIsVisible: Returning " + isVisible);
+        return isVisible;
     }
 
     /**
