@@ -450,105 +450,115 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         builder: (context, constraints) {
                           return Stack(
                             children: [
-                              // Live2D模型作为消息列表背景
+                              // Live2D模型作为背景铺满整个区域
                               Positioned.fill(
-                                child: Live2DWidget(
-                                  key: _live2DKey, // 添加key以便访问widget状态
-                                  modelPath: "assets/live2d/Haru/Haru.model3.json",
-                                  // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
-                                  width: constraints.maxWidth,
-                                  height: constraints.maxHeight,
-                                  instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
+                                child: Container(
+                                  color: Colors.transparent,
+                                  child: Live2DWidget(
+                                    key: _live2DKey, // 添加key以便访问widget状态
+                                    modelPath: "assets/live2d/Haru/Haru.model3.json",
+                                    // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
+                                    width: constraints.maxWidth,
+                                    height: constraints.maxHeight,
+                                    instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
+                                  ),
                                 ),
                               ),
-                              SmartRefresher(
-                                enablePullDown: false,
-                                enablePullUp: true,
-                                controller: _refreshController,
-                                footer: CustomFooter(
-                                  builder: (BuildContext context, LoadStatus? mode) {
-                                    String text;
-                                    switch (mode) {
-                                      case LoadStatus.loading:
-                                        text = AppLocalizations.of(context)!.loading;
-                                        break;
-                                      default:
-                                        text = AppLocalizations.of(context)!.noMoreData;
-                                    }
-                                    return Center(
-                                      child: Text(
-                                        text,
-                                        style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onPrimaryContainer
-                                              .withValues(alpha: 0.5),
+                              // SmartRefresher占据大部分区域，但为Live2D按钮留出空间
+                              Positioned(
+                                top: 80, // 为顶部按钮留出足够空间
+                                left: 0,
+                                right: 80, // 为右上角按钮留出足够空间
+                                bottom: 0,
+                                child: SmartRefresher(
+                                  enablePullDown: false,
+                                  enablePullUp: true,
+                                  controller: _refreshController,
+                                  footer: CustomFooter(
+                                    builder: (BuildContext context, LoadStatus? mode) {
+                                      String text;
+                                      switch (mode) {
+                                        case LoadStatus.loading:
+                                          text = AppLocalizations.of(context)!.loading;
+                                          break;
+                                        default:
+                                          text = AppLocalizations.of(context)!.noMoreData;
+                                      }
+                                      return Center(
+                                        child: Text(
+                                          text,
+                                          style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onPrimaryContainer
+                                                .withValues(alpha: 0.5),
+                                          ),
                                         ),
-                                      ),
-                                    );
+                                      );
+                                    },
+                                  ),
+                                  onLoading: () {
+                                    if (kDebugMode) {
+                                      print('ChatPage: Loading more messages');
+                                    }
+                                    chatBloc.add(ChatLoadMoreEvent());
                                   },
-                                ),
-                                onLoading: () {
-                                  if (kDebugMode) {
-                                    print('ChatPage: Loading more messages');
-                                  }
-                                  chatBloc.add(ChatLoadMoreEvent());
-                                },
-                                child: ListView(
-                                  reverse: true,
-                                  padding: EdgeInsets.all(XConst.spacer),
-                                  children:
-                                      chatState.messageList
-                                          .map(
-                                            (e) => Row(
-                                              mainAxisAlignment:
-                                                  e.sendByMe
-                                                      ? MainAxisAlignment.end
-                                                      : MainAxisAlignment.start,
-                                              children: [
-                                                Container(
-                                                  constraints: BoxConstraints(
-                                                    maxWidth:
-                                                        mediaQuery.size.width * 0.75,
-                                                  ),
-                                                  margin: EdgeInsets.only(
-                                                    top: XConst.spacer,
-                                                  ),
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: XConst.spacer * 0.8,
-                                                    horizontal: XConst.spacer,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(
-                                                      XConst.spacer * 1.5,
+                                  child: ListView(
+                                    reverse: true,
+                                    padding: EdgeInsets.all(XConst.spacer),
+                                    children:
+                                        chatState.messageList
+                                            .map(
+                                              (e) => Row(
+                                                mainAxisAlignment:
+                                                    e.sendByMe
+                                                        ? MainAxisAlignment.end
+                                                        : MainAxisAlignment.start,
+                                                children: [
+                                                  Container(
+                                                    constraints: BoxConstraints(
+                                                      maxWidth:
+                                                          mediaQuery.size.width * 0.75,
                                                     ),
-                                                    color:
-                                                        e.sendByMe
-                                                            ? Theme.of(context)
-                                                                .colorScheme
-                                                                .primaryContainer
-                                                            : Theme.of(context)
-                                                                .colorScheme
-                                                                .tertiaryContainer,
-                                                  ),
-                                                  child: Text(
-                                                    e.text,
-                                                    style: TextStyle(
+                                                    margin: EdgeInsets.only(
+                                                      top: XConst.spacer,
+                                                    ),
+                                                    padding: EdgeInsets.symmetric(
+                                                      vertical: XConst.spacer * 0.8,
+                                                      horizontal: XConst.spacer,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(
+                                                        XConst.spacer * 1.5,
+                                                      ),
                                                       color:
                                                           e.sendByMe
                                                               ? Theme.of(context)
                                                                   .colorScheme
-                                                                  .onPrimaryContainer
+                                                                  .primaryContainer
                                                               : Theme.of(context)
                                                                   .colorScheme
-                                                                  .onTertiaryContainer,
+                                                                  .tertiaryContainer,
+                                                    ),
+                                                    child: Text(
+                                                      e.text,
+                                                      style: TextStyle(
+                                                        color:
+                                                            e.sendByMe
+                                                                ? Theme.of(context)
+                                                                    .colorScheme
+                                                                    .onPrimaryContainer
+                                                                : Theme.of(context)
+                                                                    .colorScheme
+                                                                    .onTertiaryContainer,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                          )
-                                          .toList(),
+                                                ],
+                                              ),
+                                            )
+                                            .toList(),
+                                  ),
                                 ),
                               ),
                             ],
