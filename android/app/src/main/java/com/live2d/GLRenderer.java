@@ -52,8 +52,21 @@ public class GLRenderer implements GLSurfaceView.Renderer {
         }
         
         try {
-            LAppDelegate.getInstance().run();
+            LAppDelegate appDelegate = LAppDelegate.getInstance();
+            if (appDelegate != null) {
+                if (frameCount % 60 == 0) {
+                    Log.d(TAG, "onDrawFrame: Calling LAppDelegate.run()");
+                }
+                appDelegate.run();
+                if (frameCount % 60 == 0) {
+                    Log.d(TAG, "onDrawFrame: LAppDelegate.run() completed");
+                }
+            } else {
+                Log.e(TAG, "onDrawFrame: LAppDelegate.getInstance() returned null");
+            }
         } catch (Exception e) {
+            Log.e(TAG, "onDrawFrame: Error during LAppDelegate.run(): " + e.getMessage(), e);
+        } catch (Error e) {
             Log.e(TAG, "onDrawFrame: Error during LAppDelegate.run(): " + e.getMessage(), e);
         }
     }

@@ -367,6 +367,7 @@ public class LAppModel extends CubismUserModel {
 
     public void draw(CubismMatrix44 matrix) {
         if (model == null) {
+            Log.w(TAG, "draw: Model is null, skipping drawing");
             return;
         }
 
@@ -377,6 +378,20 @@ public class LAppModel extends CubismUserModel {
             return;
         }
 
+        // 检查模型是否已初始化
+        if (!isInitialized) {
+            Log.w(TAG, "draw: Model is not initialized, skipping drawing");
+            return;
+        }
+
+        // 检查模型透明度
+        if (opacity <= 0.0f) {
+            Log.w(TAG, "draw: Model opacity is " + opacity + ", skipping drawing");
+            return;
+        }
+
+        Log.d(TAG, "draw: Starting model draw - opacity=" + opacity + ", isInitialized=" + isInitialized);
+        
         // 为避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
         CubismMatrix44.multiply(
             modelMatrix.getArray(),
@@ -384,8 +399,12 @@ public class LAppModel extends CubismUserModel {
             matrix.getArray()
         );
 
+        Log.d(TAG, "draw: Matrix multiplication completed, setting MVP matrix");
         renderer.setMvpMatrix(matrix);
+        
+        Log.d(TAG, "draw: Calling renderer.drawModel()");
         renderer.drawModel();
+        Log.d(TAG, "draw: renderer.drawModel() completed");
     }
 
     /**

@@ -116,6 +116,9 @@ public class LAppDelegate {
         CubismFramework.initialize();
         Log.d(TAG, "onSurfaceCreated: CubismFramework initialized");
         
+        // 请求清除帧缓冲区，确保新表面干净
+        requestClear();
+        
         // 通知MainActivity处理延迟的模型加载
         try {
             // 获取MainActivity实例并处理延迟的模型加载
@@ -142,6 +145,9 @@ public class LAppDelegate {
         view.initializeSprite();
         Log.d(TAG, "onSurfaceChanged: Sprites initialized");
 
+        // 请求清除帧缓冲区，确保尺寸变化后画面干净
+        requestClear();
+
         // 恢复模型
         if (LAppLive2DManager.getInstance().getCurrentModel() != currentModel) {
             Log.d(TAG, "onSurfaceChanged: Restoring model to index: " + currentModel);
@@ -154,13 +160,15 @@ public class LAppDelegate {
         Log.d(TAG, "onSurfaceChanged: Surface changed completed");
     }
 
+    private boolean needsClear = true; // 添加清除标志
+    
     public void run() {
         // 時間更新
         LAppPal.updateTime();
 
         // 添加OpenGL状态检查
         if (frameCounter % 60 == 0) {
-            Log.d(TAG, "run: Frame #" + frameCounter + ", isActive=" + isActive);
+            Log.d(TAG, "run: Frame #" + frameCounter + ", isActive=" + isActive + ", needsClear=" + needsClear);
             
             // 检查OpenGL状态
             int[] viewport = new int[4];
@@ -174,10 +182,14 @@ public class LAppDelegate {
         }
         frameCounter++;
 
-        // 画面初期化 - 改为透明背景，让Live2D模型可见
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // 改为完全透明
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearDepthf(1.0f);
+        // 只在需要时清除画面，避免每帧清除导致模型不可见
+        if (needsClear) {
+            Log.d(TAG, "run: Clearing framebuffer (needsClear=true)");
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // 透明背景
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClearDepthf(1.0f);
+            needsClear = false; // 清除后重置标志
+        }
 
         if (view != null) {
             if (frameCounter % 60 == 0) {
@@ -194,6 +206,15 @@ public class LAppDelegate {
                 activity.finishAndRemoveTask();
             }
         }
+    }
+    
+    /**
+     * 请求清除帧缓冲区
+     * 在表面创建或尺寸变化时调用
+     */
+    public void requestClear() {
+        Log.d(TAG, "requestClear: Requesting framebuffer clear");
+        needsClear = true;
     }
 
 
