@@ -24,7 +24,11 @@ public class MainActivity extends FlutterActivity {
     
     // 添加实例映射管理
     private java.util.Map<String, Integer> instanceMap = new java.util.HashMap<>();
+    private java.util.Map<String, String> instanceModelPaths = new java.util.HashMap<>(); // 保存实例对应的模型路径
     private int nextModelIndex = 0;
+    
+    // 延迟模型加载队列
+    private java.util.List<DelayedModelLoad> delayedModelLoads = new java.util.ArrayList<>();
 
     /**
      * 获取模型索引的辅助方法
@@ -66,17 +70,45 @@ public class MainActivity extends FlutterActivity {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "initLive2D called: modelPath=" + modelPath + ", instanceId=" + instanceId);
                                 
+                                if (modelPath == null || modelPath.isEmpty()) {
+                                    result.error("INVALID_ARGUMENT", "Model path is null or empty", null);
+                                    return;
+                                }
+                                
                                 try {
                                     // 确保实例映射存在
                                     int modelIndex = getModelIndex(instanceId);
                                     Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                     
-                                    // TODO: 实现具体的模型初始化逻辑
-                                    // 这里可以根据modelPath加载特定的模型
-                                    result.success(modelIndex);
+                                    // 保存模型路径
+                                    instanceModelPaths.put(instanceId, modelPath);
+                                    Log.d(TAG, "initLive2D: Saved model path for instance " + instanceId + ": " + modelPath);
+                                    
+                                    // 初始化Live2D框架（如果还没有初始化）
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate == null) {
+                                        result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
+                                        return;
+                                    }
+                                    
+                                    // 确保Live2D已启动
+                                    if (!appDelegate.isInitialized()) {
+                                        Log.d(TAG, "Live2D not initialized, starting now");
+                                        appDelegate.onStart(this);
+                                    }
+                                    
+                                    // 检查CubismFramework是否已经初始化
+                                    if (!isCubismFrameworkReady()) {
+                                        Log.d(TAG, "CubismFramework not ready, delaying model load");
+                                        delayedModelLoads.add(new DelayedModelLoad(instanceId, modelPath, result));
+                                        return; // 不要立即返回成功，等待框架初始化完成
+                                    }
+                                    
+                                    // 执行模型加载
+                                    performModelLoad(instanceId, modelPath, result);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in initLive2D for instance: " + instanceId, e);
-                                    result.error("INIT_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
+                                    result.error("INIT_LIVE2D_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("onTap")) {
                                 Double x = call.argument("x");
@@ -380,6 +412,16 @@ public class MainActivity extends FlutterActivity {
                 instanceMap.put(instanceId, nextModelIndex++);
             }
             
+            // 保存或更新模型路径
+            if (modelPath != null && !modelPath.isEmpty()) {
+                instanceModelPaths.put(instanceId, modelPath);
+                Log.d(TAG, "activateInstance: Saved model path for instance " + instanceId + ": " + modelPath);
+            } else {
+                // 如果没有提供modelPath，尝试从保存的路径中获取
+                modelPath = instanceModelPaths.get(instanceId);
+                Log.d(TAG, "activateInstance: Retrieved saved model path for instance " + instanceId + ": " + modelPath);
+            }
+           
             // 平衡的激活逻辑：确保必要初始化但避免过度操作
             try {
                 Log.d(TAG, "activateInstance: Activating instance with safe initialization: " + instanceId);
@@ -402,25 +444,49 @@ public class MainActivity extends FlutterActivity {
                         }
                     }
                     
-                    // 检查是否有模型加载，如果没有则安全加载
+                    // 检查模型状态并确保正确的模型被加载
                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
                     if (live2DManager != null) {
                         int modelCount = live2DManager.getModelNum();
-                        Log.d(TAG, "activateInstance: Current model count: " + modelCount);
+                        int modelIndex = instanceMap.get(instanceId);
+                        Log.d(TAG, "activateInstance: Current model count: " + modelCount + ", modelIndex: " + modelIndex);
                         
-                        if (modelCount == 0) {
-                            Log.d(TAG, "activateInstance: No models loaded, safely loading models");
-                            // 安全地加载模型（不强制释放现有资源）
+                        // 检查指定索引的模型是否存在
+                        boolean modelExists = live2DManager.getModel(modelIndex) != null;
+                        Log.d(TAG, "activateInstance: Model exists at index " + modelIndex + ": " + modelExists);
+                        
+                        // 如果模型不存在，则需要重新加载
+                        if (!modelExists) {
                             try {
-                                live2DManager.setUpModel();
-                                Log.d(TAG, "activateInstance: Model directories set up");
-                                
-                                // 尝试加载第一个模型
-                                live2DManager.nextScene();
-                                Log.d(TAG, "activateInstance: First model loaded safely");
+                                if (modelPath != null && !modelPath.isEmpty()) {
+                                    Log.d(TAG, "activateInstance: Model not exists, loading specific model from path: " + modelPath);
+                                    // 使用新的loadModelFromPath方法加载指定模型
+                                    live2DManager.loadModelFromPath(modelPath);
+                                    Log.d(TAG, "activateInstance: Specific model loaded safely from: " + modelPath);
+                                } else {
+                                    Log.d(TAG, "activateInstance: Model not exists and no modelPath provided, loading default model");
+                                    // 如果没有指定模型路径，确保至少有一个模型被加载
+                                    if (modelCount == 0) {
+                                        Log.d(TAG, "activateInstance: No models exist, loading default model");
+                                        live2DManager.setUpModel();
+                                        live2DManager.nextScene();
+                                        Log.d(TAG, "activateInstance: Default model loaded safely");
+                                    }
+                                }
                             } catch (Exception e) {
-                                Log.e(TAG, "activateInstance: Error during safe model loading", e);
+                                Log.e(TAG, "activateInstance: Error during model loading", e);
+                                // 如果加载失败，尝试加载默认模型
+                                try {
+                                    Log.d(TAG, "activateInstance: Attempting to load default model as fallback");
+                                    live2DManager.setUpModel();
+                                    live2DManager.nextScene();
+                                    Log.d(TAG, "activateInstance: Fallback model loaded");
+                                } catch (Exception fallbackException) {
+                                    Log.e(TAG, "activateInstance: Even fallback model loading failed", fallbackException);
+                                }
                             }
+                        } else {
+                            Log.d(TAG, "activateInstance: Model already exists and no new path provided, skipping reload");
                         }
                     }
                     
@@ -464,22 +530,121 @@ public class MainActivity extends FlutterActivity {
             if (instanceMap.containsKey(instanceId)) {
                 int modelIndex = instanceMap.get(instanceId);
                 
-                // 释放模型资源
+                // 释放模型资源 - 使用更安全的方式
                 LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                if (live2DManager.getModel(modelIndex) != null) {
-                    live2DManager.getModel(modelIndex).deleteModel();
+                if (live2DManager != null && live2DManager.getModel(modelIndex) != null) {
+                    try {
+                        live2DManager.getModel(modelIndex).deleteModel();
+                        Log.d(TAG, "deactivateInstance: Model deleted for index " + modelIndex);
+                    } catch (Exception e) {
+                        Log.w(TAG, "deactivateInstance: Error deleting model, continuing anyway", e);
+                    }
                 }
                 
-                // 从映射中移除
-                instanceMap.remove(instanceId);
+                // 保留实例映射，不要删除，这样重新激活时可以复用同一个索引
+                // instanceMap.remove(instanceId); // 注释掉这行，保留映射
                 
-                Log.d(TAG, "Instance deactivated: " + instanceId);
+                Log.d(TAG, "Instance deactivated (model released): " + instanceId + " -> modelIndex: " + modelIndex);
+            } else {
+                Log.d(TAG, "deactivateInstance: Instance not found in map: " + instanceId);
             }
             
             result.success(null);
         } catch (Exception e) {
             Log.e(TAG, "Error in deactivateInstance for: " + instanceId, e);
             result.error("DEACTIVATE_INSTANCE_ERROR", "Failed to deactivate instance: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 检查CubismFramework是否已经准备好
+     */
+    private boolean isCubismFrameworkReady() {
+        try {
+            // 尝试访问CubismFramework.getIdManager()来检查框架是否已初始化
+            com.live2d.sdk.cubism.framework.id.CubismIdManager idManager =
+                com.live2d.sdk.cubism.framework.CubismFramework.getIdManager();
+            
+            // 进一步检查IdManager是否真正可用
+            if (idManager == null) {
+                Log.d(TAG, "CubismIdManager is null");
+                return false;
+            }
+            
+            // 尝试创建一个测试ID来验证IdManager功能
+            com.live2d.sdk.cubism.framework.id.CubismId testId = idManager.getId("Test");
+            if (testId == null) {
+                Log.d(TAG, "CubismIdManager returned null for test ID");
+                return false;
+            }
+            
+            Log.d(TAG, "CubismFramework is fully ready");
+            return true;
+        } catch (Exception e) {
+            Log.d(TAG, "CubismFramework not ready: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 执行实际的模型加载
+     */
+    private void performModelLoad(String instanceId, String modelPath, MethodChannel.Result result) {
+        try {
+            int modelIndex = instanceMap.get(instanceId);
+            
+            // 加载指定的模型
+            LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+            if (live2DManager != null) {
+                Log.d(TAG, "Loading model from path: " + modelPath);
+                // 使用新的loadModelFromPath方法加载指定模型
+                live2DManager.loadModelFromPath(modelPath);
+                Log.d(TAG, "Model loaded successfully from: " + modelPath);
+                
+                Log.d(TAG, "Live2D initialized successfully for instance: " + instanceId);
+                result.success(modelIndex);
+            } else {
+                Log.e(TAG, "LAppLive2DManager is null");
+                result.error("MANAGER_NOT_READY", "Live2D manager is not ready", null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in performModelLoad for: " + instanceId, e);
+            result.error("MODEL_LOAD_ERROR", "Failed to load model: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 处理延迟的模型加载
+     * 当CubismFramework准备好时调用
+     */
+    public void processDelayedModelLoads() {
+        if (delayedModelLoads.isEmpty()) {
+            return;
+        }
+        
+        Log.d(TAG, "Processing " + delayedModelLoads.size() + " delayed model loads");
+        
+        // 复制列表以避免并发修改
+        java.util.List<DelayedModelLoad> loadsToProcess = new java.util.ArrayList<>(delayedModelLoads);
+        delayedModelLoads.clear();
+        
+        for (DelayedModelLoad delayedLoad : loadsToProcess) {
+            performModelLoad(delayedLoad.instanceId, delayedLoad.modelPath, delayedLoad.result);
+        }
+    }
+    
+    /**
+     * 延迟模型加载的数据结构
+     */
+    private static class DelayedModelLoad {
+        final String instanceId;
+        final String modelPath;
+        final MethodChannel.Result result;
+        
+        DelayedModelLoad(String instanceId, String modelPath, MethodChannel.Result result) {
+            this.instanceId = instanceId;
+            this.modelPath = modelPath;
+            this.result = result;
         }
     }
 }

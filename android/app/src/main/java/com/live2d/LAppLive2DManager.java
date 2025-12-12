@@ -49,10 +49,16 @@ public class LAppLive2DManager {
      */
     public void releaseAllModel() {
         Log.d(TAG, "releaseAllModel: 释放所有模型, 数量=" + models.size());
-        for (LAppModel model : models) {
-            model.deleteModel();
+        synchronized (models) {
+            for (LAppModel model : models) {
+                try {
+                    model.deleteModel();
+                } catch (Exception e) {
+                    Log.w(TAG, "releaseAllModel: 删除模型时发生异常", e);
+                }
+            }
+            models.clear();
         }
-        models.clear();
     }
 
     /**
@@ -114,39 +120,66 @@ public class LAppLive2DManager {
     public void onUpdate() {
         int width = LAppDelegate.getInstance().getWindowWidth();
         int height = LAppDelegate.getInstance().getWindowHeight();
+        
+        Log.d(TAG, "onUpdate: 窗口尺寸 - width=" + width + ", height=" + height + ", 模型数量=" + models.size());
 
-        for (int i = 0; i < models.size(); i++) {
-            LAppModel model = models.get(i);
-
-            if (model.getModel() == null) {
-                LAppPal.printLog("模型获取失败");
-                continue;
-            }
-
-            projection.loadIdentity();
-
-            if (model.getModel().getCanvasWidth() > 1.0f && width < height) {
-                // 在纵向窗口中显示横向较长的模型时，根据模型的横向尺寸计算缩放比例
-                model.getModelMatrix().setWidth(2.0f);
-                projection.scale(1.0f, (float) width / (float) height);
+        // 如果没有模型，尝试加载默认模型
+        if (models.isEmpty()) {
+            Log.d(TAG, "onUpdate: 没有模型，尝试加载默认模型");
+            if (!modelDir.isEmpty()) {
+                Log.d(TAG, "onUpdate: 加载默认场景0");
+                changeScene(0);
             } else {
-                projection.scale((float) height / (float) width, 1.0f);
+                Log.w(TAG, "onUpdate: 没有可用的模型目录");
+                return;
             }
+        }
 
-            // 如有必要在此处相乘
-            if (viewMatrix != null) {
-                viewMatrix.multiplyByMatrix(projection);
+        // 使用线程安全的迭代方式
+        synchronized (models) {
+            for (int i = 0; i < models.size(); i++) {
+                LAppModel model = models.get(i);
+
+                if (model.getModel() == null) {
+                    LAppPal.printLog("模型获取失败");
+                    continue;
+                }
+
+                Log.d(TAG, "onUpdate: 渲染模型 " + i + " - canvasWidth=" + model.getModel().getCanvasWidth());
+                
+                projection.loadIdentity();
+
+                if (model.getModel().getCanvasWidth() > 1.0f && width < height) {
+                    // 在纵向窗口中显示横向较长的模型时，根据模型的横向尺寸计算缩放比例
+                    Log.d(TAG, "onUpdate: 使用横向缩放模式 - width < height");
+                    model.getModelMatrix().setWidth(2.0f);
+                    float scaleY = (float) width / (float) height;
+                    projection.scale(1.0f, scaleY);
+                    Log.d(TAG, "onUpdate: 缩放比例 - scaleX=1.0, scaleY=" + scaleY);
+                } else {
+                    Log.d(TAG, "onUpdate: 使用纵向缩放模式");
+                    float scaleX = (float) height / (float) width;
+                    projection.scale(scaleX, 1.0f);
+                    Log.d(TAG, "onUpdate: 缩放比例 - scaleX=" + scaleX + ", scaleY=1.0");
+                }
+
+                // 如有必要在此处相乘
+                if (viewMatrix != null) {
+                    viewMatrix.multiplyByMatrix(projection);
+                }
+
+                // 单个模型绘制前调用
+                LAppDelegate.getInstance().getView().preModelDraw(model);
+
+                model.update();
+
+                Log.d(TAG, "onUpdate: 开始绘制模型 " + i);
+                model.draw(projection);     // 由于是引用传递，projection会发生变化
+                Log.d(TAG, "onUpdate: 模型 " + i + " 绘制完成");
+
+                // 单个模型绘制后调用
+                LAppDelegate.getInstance().getView().postModelDraw(model);
             }
-
-            // 单个模型绘制前调用
-            LAppDelegate.getInstance().getView().preModelDraw(model);
-
-            model.update();
-
-            model.draw(projection);     // 由于是引用传递，projection会发生变化
-
-            // 单个模型绘制后调用
-            LAppDelegate.getInstance().getView().postModelDraw(model);
         }
     }
 
@@ -276,16 +309,81 @@ public class LAppLive2DManager {
     }
 
     /**
+     * 根据指定的模型路径加载模型
+     * @param modelPath 模型路径，例如 "assets/live2d/Haru/Haru.model3.json"
+     */
+    public void loadModelFromPath(String modelPath) {
+        Log.d(TAG, "loadModelFromPath: 尝试加载模型 - " + modelPath);
+        
+        if (modelPath == null || modelPath.isEmpty()) {
+            Log.e(TAG, "loadModelFromPath: 模型路径为空");
+            return;
+        }
+        
+        // 解析模型路径
+        String fullPath = modelPath;
+        
+        // 如果路径以 "assets/live2d/" 开头，则转换为 "flutter_assets/assets/live2d/"
+        if (modelPath.startsWith("assets/live2d/")) {
+            fullPath = "flutter_assets/" + modelPath;
+        }
+        
+        Log.d(TAG, "loadModelFromPath: 转换后的完整路径 - " + fullPath);
+        
+        // 从路径中提取目录名和文件名
+        int lastSlashIndex = fullPath.lastIndexOf('/');
+        if (lastSlashIndex == -1) {
+            Log.e(TAG, "loadModelFromPath: 无效的模型路径格式");
+            return;
+        }
+        
+        String directoryPath = fullPath.substring(0, lastSlashIndex + 1);
+        String fileName = fullPath.substring(lastSlashIndex + 1);
+        
+        Log.d(TAG, "loadModelFromPath: 目录路径 - " + directoryPath);
+        Log.d(TAG, "loadModelFromPath: 文件名 - " + fileName);
+        
+        // 清理现有模型
+        releaseAllModel();
+        
+        synchronized (models) {
+            try {
+                // 创建并加载新模型
+                LAppModel model = new LAppModel();
+                models.add(model);
+                
+                Log.d(TAG, "loadModelFromPath: 开始加载模型资源");
+                // 加载模型资源
+                model.loadAssets(directoryPath, fileName);
+                
+                Log.d(TAG, "loadModelFromPath: 模型加载完成，当前模型数量: " + models.size());
+                
+                // 设置渲染目标为默认（无离屏渲染）
+                LAppDelegate.getInstance().getView().switchRenderingTarget(LAppView.RenderingTarget.NONE);
+                
+                // 请求渲染更新
+                LAppDelegate.getInstance().requestRender();
+            } catch (Exception e) {
+                Log.e(TAG, "loadModelFromPath: 加载模型时发生异常", e);
+                // 清理可能的部分加载状态
+                models.clear();
+            }
+        }
+    }
+
+    /**
      * 返回当前场景持有的模型
      *
      * @param number 模型列表的索引值
      * @return 返回模型实例。如果索引值超出范围则返回null
      */
     public LAppModel getModel(int number) {
-        if (number < models.size()) {
-            return models.get(number);
+        synchronized (models) {
+            if (number < models.size()) {
+                return models.get(number);
+            }
+            return null;
         }
-        return null;
     }
 
     /**
@@ -303,10 +401,12 @@ public class LAppLive2DManager {
      * @return 此LAppLive2DManager实例拥有的模型数量。如果模型列表为null，则返回0
      */
     public int getModelNum() {
-        if (models == null) {
-            return 0;
+        synchronized (models) {
+            if (models == null) {
+                return 0;
+            }
+            return models.size();
         }
-        return models.size();
     }
 
     /**
@@ -356,6 +456,11 @@ public class LAppLive2DManager {
      * 显示场景的索引值
      */
     private int currentModel;
+    
+    /**
+     * 帧计数器，用于调试
+     */
+    private int frameCounter = 0;
 
     /**
      * 模型目录名称

@@ -88,6 +88,9 @@ public class Live2DPlatformView implements PlatformView {
             initializeWithParams(this.modelPath, this.instanceId);
         }
         
+        // 恢复Live2D状态（如果是页面切换后的重建）
+        restoreLive2DState();
+        
         // 设置触摸事件处理
         glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
             @Override
@@ -155,17 +158,17 @@ public class Live2DPlatformView implements PlatformView {
     @Override
     public void dispose() {
         Log.d(TAG, "dispose() called");
-        // 清理资源
+        // 只暂停GLSurfaceView，不释放Live2D资源
         if (glSurfaceView != null) {
             glSurfaceView.onPause();
             Log.d(TAG, "GLSurfaceView paused");
         }
+        // 只暂停Live2D，不停止和释放
         if (LAppDelegate.getInstance() != null) {
             LAppDelegate.getInstance().onPause();
-            LAppDelegate.getInstance().onStop();
-            Log.d(TAG, "LAppDelegate paused and stopped");
+            Log.d(TAG, "LAppDelegate paused only (not stopped)");
         }
-        Log.d(TAG, "dispose() completed");
+        Log.d(TAG, "dispose() completed - Live2D resources preserved");
     }
     
     /**
@@ -225,5 +228,36 @@ public class Live2DPlatformView implements PlatformView {
      */
     public String getModelPath() {
         return modelPath;
+    }
+    
+    /**
+     * 恢复Live2D状态（用于页面切换后的重建）
+     */
+    private void restoreLive2DState() {
+        Log.d(TAG, "restoreLive2DState: Starting restoration process");
+        
+        LAppDelegate appDelegate = LAppDelegate.getInstance();
+        if (appDelegate == null) {
+            Log.e(TAG, "restoreLive2DState: LAppDelegate is null");
+            return;
+        }
+        
+        // 检查是否已有Live2D资源可以恢复
+        if (appDelegate.getView() != null && appDelegate.getTextureManager() != null) {
+            Log.d(TAG, "restoreLive2DState: Live2D resources available, attempting restoration");
+            
+            // 请求重新渲染以恢复显示
+            glSurfaceView.queueEvent(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d(TAG, "restoreLive2DState: Requesting render in GL thread");
+                    if (glSurfaceView != null) {
+                        glSurfaceView.requestRender();
+                    }
+                }
+            });
+        } else {
+            Log.d(TAG, "restoreLive2DState: Live2D resources not available, will wait for initialization");
+        }
     }
 }

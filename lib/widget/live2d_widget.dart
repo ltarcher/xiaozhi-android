@@ -121,10 +121,10 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         print("Activating Live2D instance: $_actualInstanceId");
       }
       
-      // 简化的激活逻辑，只请求渲染，不强制重新加载模型
+      // 激活逻辑，传递modelPath以确保正确的模型被加载
       await _channel.invokeMethod('activateInstance', {
         'instanceId': _actualInstanceId,
-        // 移除modelPath参数以避免强制重新加载导致的崩溃
+        'modelPath': widget.modelPath, // 重新添加modelPath参数
       });
       
       // 简单的延迟，确保激活完成

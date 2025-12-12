@@ -55,10 +55,21 @@ public class LAppDelegate {
             Log.d(TAG, "onStart: Activity reference updated");
         }
         
-        textureManager = new LAppTextureManager();
-        Log.d(TAG, "onStart: Created LAppTextureManager");
-        view = new LAppView();
-        Log.d(TAG, "onStart: Created LAppView");
+        // 只有在textureManager为null时才创建新的
+        if (textureManager == null) {
+            textureManager = new LAppTextureManager();
+            Log.d(TAG, "onStart: Created new LAppTextureManager");
+        } else {
+            Log.d(TAG, "onStart: Reusing existing LAppTextureManager");
+        }
+        
+        // 只有在view为null时才创建新的
+        if (view == null) {
+            view = new LAppView();
+            Log.d(TAG, "onStart: Created new LAppView");
+        } else {
+            Log.d(TAG, "onStart: Reusing existing LAppView");
+        }
 
         LAppPal.updateTime();
         Log.d(TAG, "onStart: Updated time");
@@ -66,19 +77,24 @@ public class LAppDelegate {
 
     public void onPause() {
         Log.d(TAG, "onPause: Pausing LAppDelegate");
+        // 保存当前模型索引
         currentModel = LAppLive2DManager.getInstance().getCurrentModel();
+        Log.d(TAG, "onPause: Saved current model index: " + currentModel);
     }
 
     public void onStop() {
         Log.d(TAG, "onStop: Stopping LAppDelegate");
+        // 只关闭视图，不释放资源
         if (view != null) {
             view.close();
         }
-        textureManager = null;
+        // 保留textureManager，不释放
+        // textureManager = null;
 
-        LAppLive2DManager.releaseInstance();
-        CubismFramework.dispose();
-        Log.d(TAG, "onStop: Released resources");
+        // 不释放Live2DManager和CubismFramework，保持资源
+        // LAppLive2DManager.releaseInstance();
+        // CubismFramework.dispose();
+        Log.d(TAG, "onStop: View closed, resources preserved");
     }
 
     public void onDestroy() {
@@ -99,6 +115,18 @@ public class LAppDelegate {
         // Initialize Cubism SDK framework
         CubismFramework.initialize();
         Log.d(TAG, "onSurfaceCreated: CubismFramework initialized");
+        
+        // 通知MainActivity处理延迟的模型加载
+        try {
+            // 获取MainActivity实例并处理延迟的模型加载
+            if (activity != null && activity instanceof io.flutter.app.MainActivity) {
+                io.flutter.app.MainActivity mainActivity = (io.flutter.app.MainActivity) activity;
+                mainActivity.processDelayedModelLoads();
+                Log.d(TAG, "onSurfaceCreated: Processed delayed model loads");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "onSurfaceCreated: Error processing delayed model loads", e);
+        }
     }
 
     public void onSurfaceChanged(int width, int height) {
@@ -114,9 +142,12 @@ public class LAppDelegate {
         view.initializeSprite();
         Log.d(TAG, "onSurfaceChanged: Sprites initialized");
 
-        // load models
+        // 恢复模型
         if (LAppLive2DManager.getInstance().getCurrentModel() != currentModel) {
+            Log.d(TAG, "onSurfaceChanged: Restoring model to index: " + currentModel);
             LAppLive2DManager.getInstance().changeScene(currentModel);
+        } else {
+            Log.d(TAG, "onSurfaceChanged: Model already at correct index: " + currentModel);
         }
 
         isActive = true;
@@ -127,13 +158,34 @@ public class LAppDelegate {
         // 時間更新
         LAppPal.updateTime();
 
+        // 添加OpenGL状态检查
+        if (frameCounter % 60 == 0) {
+            Log.d(TAG, "run: Frame #" + frameCounter + ", isActive=" + isActive);
+            
+            // 检查OpenGL状态
+            int[] viewport = new int[4];
+            glGetIntegerv(GL_VIEWPORT, viewport, 0);
+            Log.d(TAG, "run: Viewport [" + viewport[0] + "," + viewport[1] + "," + viewport[2] + "," + viewport[3] + "]");
+            
+            // 检查混合和深度状态
+            boolean blendEnabled = glIsEnabled(GL_BLEND);
+            boolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+            Log.d(TAG, "run: Blend=" + blendEnabled + ", Depth=" + depthEnabled);
+        }
+        frameCounter++;
+
         // 画面初期化 - 改为透明背景，让Live2D模型可见
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // 改为完全透明
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearDepthf(1.0f);
 
         if (view != null) {
+            if (frameCounter % 60 == 0) {
+                Log.d(TAG, "run: Calling view.render()");
+            }
             view.render();
+        } else {
+            Log.w(TAG, "run: view is null, cannot render");
         }
 
         // アプリケーションを非アクティブにする
@@ -295,4 +347,9 @@ public class LAppDelegate {
      * 鼠标的Y坐标
      */
     private float mouseY;
+    
+    /**
+     * 帧计数器，用于调试
+     */
+    private int frameCounter = 0;
 }

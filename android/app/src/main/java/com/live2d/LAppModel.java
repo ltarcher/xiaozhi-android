@@ -54,22 +54,66 @@ public class LAppModel extends CubismUserModel {
             debugMode = true;
         }
         
-        CubismIdManager idManager = CubismFramework.getIdManager();
-
-        idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
-        idParamAngleY = idManager.getId(ParameterId.ANGLE_Y.getId());
-        idParamAngleZ = idManager.getId(ParameterId.ANGLE_Z.getId());
-        idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
-        idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
-        idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
-
+        // 延迟初始化参数ID，等到CubismFramework完全初始化后再设置
+        initializeParameterIds();
+        
         Log.d(TAG, "LAppModel constructor completed");
+    }
+    
+    /**
+     * 初始化参数ID，确保CubismFramework已经完全初始化
+     */
+    private void initializeParameterIds() {
+        try {
+            CubismIdManager idManager = CubismFramework.getIdManager();
+            if (idManager != null) {
+                Log.d(TAG, "initializeParameterIds: CubismIdManager is available, initializing parameter IDs");
+                idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
+                idParamAngleY = idManager.getId(ParameterId.ANGLE_Y.getId());
+                idParamAngleZ = idManager.getId(ParameterId.ANGLE_Z.getId());
+                idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
+                idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
+                idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
+                Log.d(TAG, "initializeParameterIds: Parameter IDs initialized successfully");
+            } else {
+                Log.w(TAG, "initializeParameterIds: CubismIdManager is null, parameter IDs will be initialized later");
+                // 设置为null，在loadAssets中重新初始化
+                idParamAngleX = null;
+                idParamAngleY = null;
+                idParamAngleZ = null;
+                idParamBodyAngleX = null;
+                idParamEyeBallX = null;
+                idParamEyeBallY = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "initializeParameterIds: Error initializing parameter IDs", e);
+            // 设置为null，在loadAssets中重新初始化
+            idParamAngleX = null;
+            idParamAngleY = null;
+            idParamAngleZ = null;
+            idParamBodyAngleX = null;
+            idParamEyeBallX = null;
+            idParamEyeBallY = null;
+        }
+    }
+    
+    /**
+     * 确保参数ID已正确初始化，在loadAssets中调用
+     */
+    private void ensureParameterIdsInitialized() {
+        if (idParamAngleX == null) {
+            Log.d(TAG, "ensureParameterIdsInitialized: Parameter IDs are null, reinitializing");
+            initializeParameterIds();
+        }
     }
 
     public void loadAssets(final String dir, final String fileName) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
             LAppPal.printLog("load model setting: " + fileName);
         }
+
+        // 确保参数ID已正确初始化
+        ensureParameterIdsInitialized();
 
         modelHomeDirectory = dir;
         String filePath = modelHomeDirectory + fileName;
@@ -90,6 +134,9 @@ public class LAppModel extends CubismUserModel {
         // Setup renderer.
         CubismRenderer renderer = CubismRendererAndroid.create();
         setupRenderer(renderer);
+        
+        Log.d(TAG, "loadAssets: Renderer setup completed, null=" + (renderer == null));
+        Log.d(TAG, "loadAssets: getRenderer() null=" + (getRenderer() == null));
 
         setupTextures();
     }
@@ -147,17 +194,23 @@ public class LAppModel extends CubismUserModel {
         }
 
         // 拖拽跟随功能
-        // 通过拖拽调整面部朝向
-        model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
-        model.addParameterValue(idParamAngleY, dragY * 30);
-        model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
+        // 确保参数ID已初始化
+        if (idParamAngleX != null && idParamAngleY != null && idParamAngleZ != null &&
+            idParamBodyAngleX != null && idParamEyeBallX != null && idParamEyeBallY != null) {
+            // 通过拖拽调整面部朝向
+            model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
+            model.addParameterValue(idParamAngleY, dragY * 30);
+            model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
 
-        // 通过拖拽调整身体朝向
-        model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
+            // 通过拖拽调整身体朝向
+            model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
 
-        // 通过拖拽调整眼部朝向
-        model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
-        model.addParameterValue(idParamEyeBallY, dragY);
+            // 通过拖拽调整眼部朝向
+            model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
+            model.addParameterValue(idParamEyeBallY, dragY);
+        } else {
+            Log.w(TAG, "update: Some parameter IDs are null, skipping parameter updates");
+        }
 
         // Breath Function
         if (breath != null) {
@@ -317,6 +370,13 @@ public class LAppModel extends CubismUserModel {
             return;
         }
 
+        // 检查渲染器是否可用
+        CubismRendererAndroid renderer = this.<CubismRendererAndroid>getRenderer();
+        if (renderer == null) {
+            Log.w(TAG, "draw: Renderer is null, skipping drawing");
+            return;
+        }
+
         // 为避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
         CubismMatrix44.multiply(
             modelMatrix.getArray(),
@@ -324,8 +384,8 @@ public class LAppModel extends CubismUserModel {
             matrix.getArray()
         );
 
-        this.<CubismRendererAndroid>getRenderer().setMvpMatrix(matrix);
-        this.<CubismRendererAndroid>getRenderer().drawModel();
+        renderer.setMvpMatrix(matrix);
+        renderer.drawModel();
     }
 
     /**
@@ -545,11 +605,26 @@ public class LAppModel extends CubismUserModel {
         breath = CubismBreath.create();
         List<CubismBreath.BreathParameterData> breathParameters = new ArrayList<CubismBreath.BreathParameterData>();
 
-        breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleX, 0.0f, 15.0f, 6.5345f, 0.5f));
-        breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleY, 0.0f, 8.0f, 3.5345f, 0.5f));
-        breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleZ, 0.0f, 10.0f, 5.5345f, 0.5f));
-        breathParameters.add(new CubismBreath.BreathParameterData(idParamBodyAngleX, 0.0f, 4.0f, 15.5345f, 0.5f));
-        breathParameters.add(new CubismBreath.BreathParameterData(CubismFramework.getIdManager().getId(ParameterId.BREATH.getId()), 0.5f, 0.5f, 3.2345f, 0.5f));
+        // 确保参数ID已初始化
+        ensureParameterIdsInitialized();
+        
+        // 检查参数ID是否可用
+        if (idParamAngleX != null && idParamAngleY != null && idParamAngleZ != null && idParamBodyAngleX != null) {
+            breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleX, 0.0f, 15.0f, 6.5345f, 0.5f));
+            breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleY, 0.0f, 8.0f, 3.5345f, 0.5f));
+            breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleZ, 0.0f, 10.0f, 5.5345f, 0.5f));
+            breathParameters.add(new CubismBreath.BreathParameterData(idParamBodyAngleX, 0.0f, 4.0f, 15.5345f, 0.5f));
+        } else {
+            Log.w(TAG, "setupModel: Some parameter IDs are null, skipping breath parameter setup");
+        }
+        
+        // 获取呼吸参数ID
+        try {
+            CubismId breathId = CubismFramework.getIdManager().getId(ParameterId.BREATH.getId());
+            breathParameters.add(new CubismBreath.BreathParameterData(breathId, 0.5f, 0.5f, 3.2345f, 0.5f));
+        } catch (Exception e) {
+            Log.w(TAG, "setupModel: Failed to get breath parameter ID", e);
+        }
 
         breath.setParameters(breathParameters);
 
@@ -655,6 +730,12 @@ public class LAppModel extends CubismUserModel {
      * 将纹理加载到OpenGL的纹理单元
      */
     private void setupTextures() {
+        CubismRendererAndroid renderer = this.<CubismRendererAndroid>getRenderer();
+        if (renderer == null) {
+            Log.e(TAG, "setupTextures: Renderer is null, cannot setup textures");
+            return;
+        }
+
         for (int modelTextureNumber = 0; modelTextureNumber < modelSetting.getTextureCount(); modelTextureNumber++) {
             // 如果纹理名称为空字符串，则跳过加载和绑定处理
             if (modelSetting.getTextureFileName(modelTextureNumber).equals("")) {
@@ -671,12 +752,12 @@ public class LAppModel extends CubismUserModel {
                             .createTextureFromPngFile(texturePath);
             final int glTextureNumber = texture.id;
 
-            this.<CubismRendererAndroid>getRenderer().bindTexture(modelTextureNumber, glTextureNumber);
+            renderer.bindTexture(modelTextureNumber, glTextureNumber);
 
             if (LAppDefine.PREMULTIPLIED_ALPHA_ENABLE) {
-                this.<CubismRendererAndroid>getRenderer().isPremultipliedAlpha(true);
+                renderer.isPremultipliedAlpha(true);
             } else {
-                this.<CubismRendererAndroid>getRenderer().isPremultipliedAlpha(false);
+                renderer.isPremultipliedAlpha(false);
             }
         }
     }
@@ -711,27 +792,27 @@ public class LAppModel extends CubismUserModel {
     /**
      * 参数ID: ParamAngleX
      */
-    private final CubismId idParamAngleX;
+    private CubismId idParamAngleX;
     /**
      * 参数ID: ParamAngleY
      */
-    private final CubismId idParamAngleY;
+    private CubismId idParamAngleY;
     /**
      * 参数ID: ParamAngleZ
      */
-    private final CubismId idParamAngleZ;
+    private CubismId idParamAngleZ;
     /**
      * 参数ID: ParamBodyAngleX
      */
-    private final CubismId idParamBodyAngleX;
+    private CubismId idParamBodyAngleX;
     /**
      * 参数ID: ParamEyeBallX
      */
-    private final CubismId idParamEyeBallX;
+    private CubismId idParamEyeBallX;
     /**
      * 参数ID: ParamEyeBallY
      */
-    private final CubismId idParamEyeBallY;
+    private CubismId idParamEyeBallY;
 
     /**
      * 帧缓冲区以外的绘制目标

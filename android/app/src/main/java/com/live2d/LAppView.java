@@ -33,10 +33,11 @@ public class LAppView implements AutoCloseable {
 
     public LAppView() {
         Log.d(TAG, "LAppView constructor called");
-        clearColor[0] = 1.0f;
-        clearColor[1] = 1.0f;
-        clearColor[2] = 1.0f;
-        clearColor[3] = 0.0f;
+        // 设置背景清除颜色为透明黑色，确保模型可见
+        clearColor[0] = 0.0f;  // R
+        clearColor[1] = 0.0f;  // G
+        clearColor[2] = 0.0f;  // B
+        clearColor[3] = 0.0f;  // A (透明)
     }
 
     @Override
@@ -205,6 +206,8 @@ public class LAppView implements AutoCloseable {
         // 获取屏幕尺寸
         int maxWidth = LAppDelegate.getInstance().getWindowWidth();
         int maxHeight = LAppDelegate.getInstance().getWindowHeight();
+        
+        Log.d(TAG, "render: Starting render cycle, window size: " + maxWidth + "x" + maxHeight);
 
         // 添加空值检查，防止NullPointerException
         if (backSprite != null) {
@@ -225,22 +228,28 @@ public class LAppView implements AutoCloseable {
             Log.w(TAG, "render: powerSprite is null");
         }
 
-        // UI与背景的绘制
-        // 注释掉下面这段代码来移除背景图片，使背景变为透明
+        // 检查当前OpenGL状态
+        int[] currentViewport = new int[4];
+        GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, currentViewport, 0);
+        Log.d(TAG, "render: Current viewport: [" + currentViewport[0] + "," + currentViewport[1] + "," + currentViewport[2] + "," + currentViewport[3] + "]");
+
+        // UI与背景的绘制 - 恢复原来的顺序
+        Log.d(TAG, "render: Drawing background and UI sprites");
         if (backSprite != null) {
             backSprite.render();
+            Log.d(TAG, "render: Background sprite rendered");
         }
         // 根据显示标志决定是否渲染齿轮按钮
         if (gearSprite != null && isGearVisible) {
-            //Log.d(TAG, "render: Rendering gear sprite, visible=" + isGearVisible);
             gearSprite.render();
+            Log.d(TAG, "render: Gear sprite rendered");
         } else {
             Log.d(TAG, "render: Not rendering gear sprite, gearSprite=" + gearSprite + ", isGearVisible=" + isGearVisible);
         }
         // 根据显示标志决定是否渲染关闭按钮
         if (powerSprite != null && isPowerVisible) {
-            //Log.d(TAG, "render: Rendering power sprite, visible=" + isPowerVisible);
             powerSprite.render();
+            Log.d(TAG, "render: Power sprite rendered");
         } else {
             Log.d(TAG, "render: Not rendering power sprite, powerSprite=" + powerSprite + ", isPowerVisible=" + isPowerVisible);
         }
@@ -250,12 +259,29 @@ public class LAppView implements AutoCloseable {
             LAppLive2DManager.getInstance().nextScene();
         }
 
-        // 模型绘制
+        // 模型绘制 - 恢复原来的位置
+        Log.d(TAG, "render: Starting model rendering");
         LAppLive2DManager live2dManager = LAppLive2DManager.getInstance();
+        
+        // 检查模型状态
+        int modelCount = live2dManager.getModelNum();
+        Log.d(TAG, "render: Live2D manager has " + modelCount + " models");
+        
+        for (int i = 0; i < modelCount; i++) {
+            LAppModel model = live2dManager.getModel(i);
+            if (model != null) {
+                Log.d(TAG, "render: Model " + i + " - opacity=" + model.getOpacity());
+            } else {
+                Log.w(TAG, "render: Model " + i + " is null");
+            }
+        }
+        
         live2dManager.onUpdate();
+        Log.d(TAG, "render: Model onUpdate completed");
 
         // 当各模型持有纹理作为绘制目标时
         if (renderingTarget == RenderingTarget.MODEL_FRAME_BUFFER && renderingSprite != null) {
+            Log.d(TAG, "render: Rendering to MODEL_FRAME_BUFFER");
             final float[] uvVertex = {
                 1.0f, 1.0f,
                 0.0f, 1.0f,
@@ -272,9 +298,14 @@ public class LAppView implements AutoCloseable {
                 if (model != null && renderingSprite != null) {
                     renderingSprite.setWindowSize(maxWidth, maxHeight);
                     renderingSprite.renderImmediate(model.getRenderingBuffer().getColorBuffer()[0], uvVertex);
+                    Log.d(TAG, "render: Model " + i + " rendered to framebuffer");
                 }
             }
+        } else {
+            Log.d(TAG, "render: RenderingTarget=" + renderingTarget + ", renderingSprite=" + renderingSprite);
         }
+        
+        Log.d(TAG, "render: Render cycle completed");
     }
 
     /**
@@ -286,8 +317,28 @@ public class LAppView implements AutoCloseable {
         // 用于在其他渲染目标上绘制的离屏表面
         CubismOffscreenSurfaceAndroid useTarget;
 
-        // 透明度设置
-        GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        // 关键修复：禁用深度测试，确保模型始终显示在最前面
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+        
+        // 设置正确的混合模式，确保模型透明度正确显示
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // 添加详细的OpenGL状态调试日志
+        int[] viewport = new int[4];
+        GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, viewport, 0);
+        Log.d(TAG, "preModelDraw: OpenGL state - viewport[" + viewport[0] + "," + viewport[1] + "," + viewport[2] + "," + viewport[3] + "]");
+        
+        // 检查当前绑定的帧缓冲区
+        Log.d(TAG, "preModelDraw: Checking OpenGL state before model draw");
+        
+        // 检查混合状态
+        boolean blendEnabled = GLES20.glIsEnabled(GLES20.GL_BLEND);
+        Log.d(TAG, "preModelDraw: Blend enabled: " + blendEnabled);
+        
+        // 检查深度测试状态
+        boolean depthEnabled = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
+        Log.d(TAG, "preModelDraw: Depth test enabled: " + depthEnabled);
 
         // 当在其他渲染目标上绘制时
         if (renderingTarget != RenderingTarget.NONE) {
