@@ -542,6 +542,21 @@ public class LAppView implements AutoCloseable {
         if (appDelegate != null) {
             appDelegate.requestRender();
             Log.d(TAG, "requestRender: Render requested");
+            
+            // 额外的同步渲染请求，确保立即更新
+            if (appDelegate.getActivity() != null) {
+                // 在主线程中强制刷新
+                appDelegate.getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        // 再次请求渲染以确保UI更新
+                        appDelegate.requestRender();
+                        Log.d(TAG, "requestRender: Additional render request from UI thread");
+                    }
+                });
+            }
+        } else {
+            Log.w(TAG, "requestRender: LAppDelegate is null");
         }
     }
 
