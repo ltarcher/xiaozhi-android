@@ -11,8 +11,8 @@ class Live2DTestPage extends StatefulWidget {
 }
 
 class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObserver {
-  // 默认使用的模型路径
-  String _selectedModel = 'assets/live2d/Haru/Haru.model3.json';
+  // 当前选择的模型路径
+  late String _selectedModel;
   
   // 可选的模型列表
   final List<Map<String, String>> _models = [
@@ -24,41 +24,96 @@ class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObse
   ];
 
   final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
+  bool _isPageActive = false;
 
   @override
   void initState() {
-    WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
     super.initState();
+    if (kDebugMode) {
+      print('Live2DTestPage: initState called');
+    }
+    _selectedModel = _models[0]['path']!;
+    _isPageActive = true;
+    WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
+    
+    // 初始化完成后激活Live2D实例
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (kDebugMode) {
+        print('Live2DTestPage: Post frame callback - activating Live2D instance');
+      }
+      _activateLive2DInstance();
+    });
   }
 
   @override
   void dispose() {
+    if (kDebugMode) {
+      print('Live2DTestPage: dispose called');
+    }
+    _isPageActive = false;
     WidgetsBinding.instance.removeObserver(this); // 移除观察者
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (kDebugMode) {
+      print('Live2DTestPage: didChangeAppLifecycleState called with state: $state');
+    }
     // 应用生命周期变化时处理Live2D实例
-    if (_live2DKey.currentState != null) {
+    if (_live2DKey.currentWidget != null && _isPageActive) {
       if (state == AppLifecycleState.resumed) {
+        if (kDebugMode) {
+          print('Live2DTestPage: App resumed - activating Live2D instance');
+        }
         // 使用新的公开方法
-        (_live2DKey.currentState as Live2DWidget).activate();
-      } else {
+        (_live2DKey.currentWidget as Live2DWidget).activate();
+      } else if (state == AppLifecycleState.paused) {
+        if (kDebugMode) {
+          print('Live2DTestPage: App paused - deactivating Live2D instance');
+        }
         // 使用新的公开方法
-        (_live2DKey.currentState as Live2DWidget).deactivate();
+        (_live2DKey.currentWidget as Live2DWidget).deactivate();
+      }
+    }
+  }
+  
+  // 激活Live2D实例的辅助方法
+  void _activateLive2DInstance() {
+    if (kDebugMode) {
+      print('Live2DTestPage: _activateLive2DInstance called, pageActive: $_isPageActive');
+      print('Live2DTestPage: Current widget is ${_live2DKey.currentWidget}');
+    }
+    
+    if (_live2DKey.currentWidget != null && _isPageActive) {
+      if (kDebugMode) {
+        print('Live2DTestPage: Calling activate on Live2DWidget');
+      }
+      (_live2DKey.currentWidget as Live2DWidget).activate();
+    } else {
+      if (kDebugMode) {
+        print('Live2DTestPage: Live2DWidget is null or page not active, cannot activate');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (kDebugMode) {
+      print('Live2DTestPage: build called with selected model: $_selectedModel');
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live2D Test'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (kDebugMode) {
+              print('Live2DTestPage: Back button pressed');
+            }
+            Navigator.of(context).pop();
+          },
         ),
       ),
       body: Column(
@@ -73,14 +128,28 @@ class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObse
               ),
               value: _selectedModel,
               items: _models.map((model) {
+                if (kDebugMode) {
+                  print('Live2DTestPage: Adding model option: ${model['name']} -> ${model['path']}');
+                }
                 return DropdownMenuItem<String>(
                   value: model['path'],
                   child: Text(model['name']!),
                 );
               }).toList(),
               onChanged: (value) {
+                if (kDebugMode) {
+                  print('Live2DTestPage: Model selection changed to: $value');
+                }
                 setState(() {
                   _selectedModel = value!;
+                  
+                  // 模型路径改变后激活实例
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (kDebugMode) {
+                      print('Live2DTestPage: Post frame callback after model change');
+                    }
+                    _activateLive2DInstance();
+                  });
                 });
               },
             ),
@@ -114,27 +183,57 @@ class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObse
               children: [
                 ElevatedButton(
                   onPressed: () {
+                    if (kDebugMode) {
+                      print('Live2DTestPage: Action 1 button pressed');
+                    }
                     // 触发特定动作，使用新的公开方法
-                    if (_live2DKey.currentWidget != null) {
+                    if (_live2DKey.currentWidget != null && _isPageActive) {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Calling playMotion(tap_body)');
+                      }
                       (_live2DKey.currentWidget as Live2DWidget).playMotion('tap_body');
+                    } else {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Live2DWidget is null or page not active, cannot play motion');
+                      }
                     }
                   },
                   child: const Text('Action 1'),
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    if (kDebugMode) {
+                      print('Live2DTestPage: Expression 1 button pressed');
+                    }
                     // 触发特定表情，使用新的公开方法
-                    if (_live2DKey.currentWidget != null) {
+                    if (_live2DKey.currentWidget != null && _isPageActive) {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Calling triggerExpression(Happy)');
+                      }
                       (_live2DKey.currentWidget as Live2DWidget).triggerExpression('Happy');
+                    } else {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Live2DWidget is null or page not active, cannot trigger expression');
+                      }
                     }
                   },
                   child: const Text('Expression 1'),
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    if (kDebugMode) {
+                      print('Live2DTestPage: Random button pressed');
+                    }
                     // 触发随机动作，使用新的公开方法
-                    if (_live2DKey.currentWidget != null) {
+                    if (_live2DKey.currentWidget != null && _isPageActive) {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Calling playMotion(shake)');
+                      }
                       (_live2DKey.currentWidget as Live2DWidget).playMotion('shake');
+                    } else {
+                      if (kDebugMode) {
+                        print('Live2DTestPage: Live2DWidget is null or page not active, cannot play motion');
+                      }
                     }
                   },
                   child: const Text('Random'),

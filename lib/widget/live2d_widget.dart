@@ -61,6 +61,10 @@ class Live2DWidget extends StatefulWidget {
 class _Live2DWidgetState extends State<Live2DWidget> {
   static const MethodChannel _channel = MethodChannel('live2d_channel');
   String? _actualInstanceId; // 实际使用的实例ID
+  int? _viewId; // 用于存储平台视图的ID
+  bool _isActive = false; // 标记当前实例是否处于激活状态
+  bool _isDisposed = false; // 标记当前组件是否已被销毁
+  bool _needsRebuild = false; // 标记是否需要重建PlatformView
 
   @override
   void initState() {
@@ -104,42 +108,103 @@ class _Live2DWidgetState extends State<Live2DWidget> {
 
   /// 激活当前实例（当页面变为可见时调用）
   Future<void> _activate() async {
-    try {
+    if (_isDisposed) {
       if (kDebugMode) {
-        print("Live2DWidget: Activating Live2D instance: $_actualInstanceId");
+        print("Live2D activation skipped - widget disposed");
       }
+      return;
+    }
+    
+    if (_isActive) {
+      if (kDebugMode) {
+        print("Live2D activation skipped - already active");
+      }
+      // 即使已经激活，也重新初始化确保状态正确
+      await _initLive2D();
+      return;
+    }
+    
+    try {
+      _isActive = true;
+      if (kDebugMode) {
+        print("Activating Live2D instance: $_actualInstanceId");
+      }
+      
+      // 重新初始化Live2D，因为PlatformView可能已被销毁
+      await _initLive2D();
       
       await _channel.invokeMethod('activateInstance', {
         'instanceId': _actualInstanceId,
       });
+      
+      // 强制刷新UI
+      if (mounted) {
+        if (kDebugMode) {
+          print("Refreshing UI for Live2D instance: $_actualInstanceId");
+        }
+        // 标记需要重建PlatformView
+        _needsRebuild = true;
+        setState(() {});
+      }
+      
+      if (kDebugMode) {
+        print("Live2D instance activated successfully: $_actualInstanceId");
+      }
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Live2DWidget: Failed to activate Live2D instance: ${e.message}");
+        print("Failed to activate Live2D instance: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to activate Live2D instance - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Live2DWidget: Unexpected error activating Live2D instance: $e");
+        print("Unexpected error activating Live2D instance: $e");
       }
     }
   }
 
   /// 停用当前实例（当页面变为不可见时调用）
   Future<void> _deactivate() async {
-    try {
+    if (_isDisposed) {
       if (kDebugMode) {
-        print("Live2DWidget: Deactivating Live2D instance: $_actualInstanceId");
+        print("Live2D deactivation skipped - widget disposed");
+      }
+      return;
+    }
+    
+    if (!_isActive) {
+      if (kDebugMode) {
+        print("Live2D deactivation skipped - already inactive");
+      }
+      return;
+    }
+    
+    try {
+      _isActive = false;
+      if (kDebugMode) {
+        print("Deactivating Live2D instance: $_actualInstanceId");
       }
       
       await _channel.invokeMethod('deactivateInstance', {
         'instanceId': _actualInstanceId,
       });
+      
+      if (kDebugMode) {
+        print("Live2D instance deactivated successfully: $_actualInstanceId");
+      }
     } on PlatformException catch (e) {
       if (kDebugMode) {
-        print("Live2DWidget: Failed to deactivate Live2D instance: ${e.message}");
+        print("Failed to deactivate Live2D instance: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Failed to deactivate Live2D instance - Missing plugin: ${e.message}");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Live2DWidget: Unexpected error deactivating Live2D instance: $e");
+        print("Unexpected error deactivating Live2D instance: $e");
       }
     }
   }
@@ -368,6 +433,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if (kDebugMode) {
       print("Live2DWidget: Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
     }
+    _viewId = id;
   }
 
   @override
@@ -376,25 +442,65 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if (kDebugMode) {
       print("Live2DWidget: Disposing widget for instance: $_actualInstanceId");
     }
+    
+    _isDisposed = true;
     _cleanup();
     super.dispose();
   }
 
   Future<void> _cleanup() async {
+    if (_viewId == null) {
+      if (kDebugMode) {
+        print("Skipping cleanup - no viewId for instance: $_actualInstanceId");
+      }
+      return;
+    }
+    
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Cleaning up Live2D instance: $_actualInstanceId");
+        print("Cleaning up Live2D instance: $_actualInstanceId with viewId: $_viewId");
       }
       
-      // 删除不存在的cleanupInstance调用
-      /*
-      await _channel.invokeMethod('cleanupInstance', {
-        'instanceId': _actualInstanceId,
-      });
-      */
+      // 只有在插件可用时才调用cleanupInstance
+      try {
+        await _channel.invokeMethod('cleanupInstance', {
+          'instanceId': _actualInstanceId,
+          'viewId': _viewId,
+        });
+      } catch (e) {
+        // 忽略清理过程中的错误，因为可能是平台视图已经被销毁
+        if (kDebugMode) {
+          print("Warning: Error during cleanupInstance call: $e");
+        }
+      }
+      
+      if (kDebugMode) {
+        print("Live2D instance cleanup call completed: $_actualInstanceId");
+      }
     } catch (e) {
       if (kDebugMode) {
-        print("Live2DWidget: Error cleaning up Live2D instance: $e");
+        print("Error cleaning up Live2D instance: $e");
+      }
+    }
+  }
+  
+  // 添加一个新的方法用于强制刷新视图
+  Future<void> refresh() async {
+    try {
+      if (kDebugMode) {
+        print("Refreshing Live2D instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('refreshView', {
+        'instanceId': _actualInstanceId,
+      });
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Failed to refresh Live2D instance: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Unexpected error refreshing Live2D instance: $e");
       }
     }
   }
@@ -414,7 +520,29 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     // 在Android平台上使用AndroidView来嵌入原生视图
     if (defaultTargetPlatform == TargetPlatform.android) {
       if (kDebugMode) {
-        print("Live2DWidget: Building Live2D AndroidView with params: ${widget.modelPath}, instanceId: $_actualInstanceId");
+        print("Live2DWidget: Building Live2D AndroidView with params: ${widget.modelPath}, instanceId: $_actualInstanceId, needsRebuild: $_needsRebuild");
+      }
+      
+      // 如果需要重建，先返回一个空容器然后在下一帧重建
+      if (_needsRebuild) {
+        _needsRebuild = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            if (kDebugMode) {
+              print("Live2DWidget: Rebuilding after delay for instance: $_actualInstanceId");
+            }
+            setState(() {});
+          }
+        });
+        
+        // 返回一个占位容器
+        return SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: Container(
+            color: Colors.transparent,
+          ),
+        );
       }
       
       return SizedBox(
