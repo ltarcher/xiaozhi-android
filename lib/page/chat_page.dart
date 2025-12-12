@@ -30,7 +30,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isPressing = false;
   late ChatBloc chatBloc;
   late Live2DWidget live2DWidget;
-  final GlobalKey _live2DKey = GlobalKey(); // 使用不带泛型参数的GlobalKey
+  final GlobalKey _live2DKey = GlobalKey(); // 使用动态类型访问State方法
   
   // 添加控制按钮可见性的状态变量
   bool _isGearVisible = true;
@@ -67,14 +67,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         if (kDebugMode) {
           print('ChatPage: Activating Live2D widget');
         }
-        // 使用新的公开方法
-        (_live2DKey.currentWidget as Live2DWidget).activate();
+        // 直接通过GlobalKey访问State方法
+        (_live2DKey.currentState as dynamic).activate();
       } else {
         if (kDebugMode) {
           print('ChatPage: Deactivating Live2D widget');
         }
-        // 使用新的公开方法
-        (_live2DKey.currentWidget as Live2DWidget).deactivate();
+        // 直接通过GlobalKey访问State方法
+        (_live2DKey.currentState as dynamic).deactivate();
       }
     }
   }
@@ -106,18 +106,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
     
     // 更新Live2D中的齿轮按钮可见性
-    if (_live2DKey.currentWidget != null) {
+    if (_live2DKey.currentState != null) {
       if (kDebugMode) {
         print('ChatPage: Calling Live2D setGearVisible with value: $_isGearVisible');
       }
-      // 通过Widget的公共方法调用
-      (_live2DKey.currentWidget as Live2DWidget).setGearVisible(_isGearVisible);
+      // 直接通过GlobalKey访问State方法
+      (_live2DKey.currentState as dynamic).setGearVisible(_isGearVisible);
       if (kDebugMode) {
         print('ChatPage: Live2D setGearVisible call completed');
       }
     } else {
       if (kDebugMode) {
-        print('ChatPage: Live2D widget is null, cannot set gear visible');
+        print('ChatPage: Live2D widget state is null, cannot set gear visible');
       }
     }
     
@@ -140,18 +140,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     });
     
     // 更新Live2D中的电源按钮可见性
-    if (_live2DKey.currentWidget != null) {
+    if (_live2DKey.currentState != null) {
       if (kDebugMode) {
         print('ChatPage: Calling Live2D setPowerVisible with value: $_isPowerVisible');
       }
-      // 通过Widget的公共方法调用
-      (_live2DKey.currentWidget as Live2DWidget).setPowerVisible(_isPowerVisible);
+      // 直接通过GlobalKey访问State方法
+      (_live2DKey.currentState as dynamic).setPowerVisible(_isPowerVisible);
       if (kDebugMode) {
         print('ChatPage: Live2D setPowerVisible call completed');
       }
     } else {
       if (kDebugMode) {
-        print('ChatPage: Live2D widget is null, cannot set power visible');
+        print('ChatPage: Live2D widget state is null, cannot set power visible');
       }
     }
     
@@ -354,16 +354,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             
             // 当收到新消息时，触发Live2D模型的随机表情
             if (chatState.messageList.isNotEmpty) {
-              // 使用新的公开方法触发表情
-              if (_live2DKey.currentWidget != null) {
+              // 使用GlobalKey直接访问State方法触发表情
+              if (_live2DKey.currentState != null) {
                 if (kDebugMode) {
                   print('ChatPage: Triggering Live2D expression');
                 }
-                // 通过Widget的公共方法调用
-                (_live2DKey.currentWidget as Live2DWidget).triggerExpression('Happy');
+                // 直接通过GlobalKey访问State方法
+                (_live2DKey.currentState as dynamic).triggerExpression('Happy');
               } else {
                 if (kDebugMode) {
-                  print('ChatPage: Live2D widget not available for triggering expression');
+                  print('ChatPage: Live2D widget state not available for triggering expression');
                 }
               }
             }

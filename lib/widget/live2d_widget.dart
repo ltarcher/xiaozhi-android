@@ -21,67 +21,39 @@ class Live2DWidget extends StatefulWidget {
   @override
   State<Live2DWidget> createState() => _Live2DWidgetState();
   
-  // 静态方法映射表，用于从Widget访问State方法
-  static final Map<Live2DWidget, _Live2DWidgetState> _stateMap = {};
-  
-  // 添加公共方法供外部调用
+  // 添加公共方法供外部调用 - 直接返回Future，让外部通过GlobalKey调用State方法
   Future<void> activate() async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.activate();
-    }
+    // 这个方法将在State中实现
+    return Future.value();
   }
   
   Future<void> deactivate() async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.deactivate();
-    }
+    return Future.value();
   }
   
   Future<void> playMotion(String motionGroup, [int priority = 1]) async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.playMotion(motionGroup, priority);
-    }
+    return Future.value();
   }
   
   Future<void> triggerExpression(String expressionName) async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.triggerExpression(expressionName);
-    }
+    return Future.value();
   }
   
   // 添加控制按钮可见性的方法
   Future<void> setGearVisible(bool visible) async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.setGearVisible(visible);
-    }
+    return Future.value();
   }
   
   Future<void> setPowerVisible(bool visible) async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.setPowerVisible(visible);
-    }
+    return Future.value();
   }
   
   Future<bool?> isGearVisible() async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.isGearVisible();
-    }
-    return null;
+    return Future.value(null);
   }
   
   Future<bool?> isPowerVisible() async {
-    final state = _stateMap[this];
-    if (state != null) {
-      return state.isPowerVisible();
-    }
-    return null;
+    return Future.value(null);
   }
 }
 
@@ -96,8 +68,6 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   @override
   void initState() {
     super.initState();
-    // 建立Widget和State的映射关系
-    Live2DWidget._stateMap[widget] = this;
     
     // 如果没有提供instanceId，则使用widget的hashCode作为唯一标识
     _actualInstanceId = widget.instanceId ?? 'live2d_${widget.hashCode}';
@@ -472,9 +442,6 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if (kDebugMode) {
       print("Live2DWidget: Disposing widget for instance: $_actualInstanceId");
     }
-    
-    // 清理Widget和State的映射关系
-    Live2DWidget._stateMap.remove(widget);
     
     _isDisposed = true;
     _cleanup();
