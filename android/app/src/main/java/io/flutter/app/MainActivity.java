@@ -380,27 +380,55 @@ public class MainActivity extends FlutterActivity {
                 instanceMap.put(instanceId, nextModelIndex++);
             }
             
-            // 简化的激活逻辑，避免强制重新加载导致的崩溃
+            // 平衡的激活逻辑：确保必要初始化但避免过度操作
             try {
-                Log.d(TAG, "activateInstance: Activating instance without force reload: " + instanceId);
+                Log.d(TAG, "activateInstance: Activating instance with safe initialization: " + instanceId);
                 
-                // 只请求渲染，不强制重新加载模型
                 LAppDelegate appDelegate = LAppDelegate.getInstance();
                 if (appDelegate != null) {
-                    appDelegate.requestRender();
-                    Log.d(TAG, "activateInstance: Requested render for instance: " + instanceId);
-                }
-                
-                // 如果确实需要重新加载模型，使用更安全的方式
-                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                if (live2DManager != null && live2DManager.getModelNum() == 0) {
-                    Log.d(TAG, "activateInstance: No models loaded, safely loading first model");
-                    try {
-                        live2DManager.nextScene();
-                        Log.d(TAG, "activateInstance: Safely loaded first model");
-                    } catch (Exception e) {
-                        Log.e(TAG, "activateInstance: Error loading first model", e);
+                    // 首先确保Live2D系统已正确初始化
+                    if (!appDelegate.isInitialized()) {
+                        Log.d(TAG, "activateInstance: LAppDelegate not initialized, attempting to reinitialize");
+                        // 尝试重新初始化Live2D系统（但不强制重新加载模型）
+                        try {
+                            if (appDelegate.getActivity() != null) {
+                                appDelegate.onStart(appDelegate.getActivity());
+                                Log.d(TAG, "activateInstance: LAppDelegate reinitialized successfully");
+                            } else {
+                                Log.w(TAG, "activateInstance: Activity is null, cannot reinitialize LAppDelegate");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "activateInstance: Error reinitializing LAppDelegate", e);
+                        }
                     }
+                    
+                    // 检查是否有模型加载，如果没有则安全加载
+                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                    if (live2DManager != null) {
+                        int modelCount = live2DManager.getModelNum();
+                        Log.d(TAG, "activateInstance: Current model count: " + modelCount);
+                        
+                        if (modelCount == 0) {
+                            Log.d(TAG, "activateInstance: No models loaded, safely loading models");
+                            // 安全地加载模型（不强制释放现有资源）
+                            try {
+                                live2DManager.setUpModel();
+                                Log.d(TAG, "activateInstance: Model directories set up");
+                                
+                                // 尝试加载第一个模型
+                                live2DManager.nextScene();
+                                Log.d(TAG, "activateInstance: First model loaded safely");
+                            } catch (Exception e) {
+                                Log.e(TAG, "activateInstance: Error during safe model loading", e);
+                            }
+                        }
+                    }
+                    
+                    // 请求渲染以确保显示
+                    appDelegate.requestRender();
+                    Log.d(TAG, "activateInstance: Render requested for instance: " + instanceId);
+                } else {
+                    Log.w(TAG, "activateInstance: LAppDelegate is null, cannot initialize");
                 }
                 
             } catch (Exception e) {

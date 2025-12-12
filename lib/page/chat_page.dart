@@ -475,26 +475,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         builder: (context, constraints) {
                           return Stack(
                             children: [
-                              // Live2D模型作为背景铺满整个区域
-                              Positioned.fill(
-                                child: Container(
-                                  color: Colors.transparent,
-                                  child: Live2DWidget(
-                                    key: _live2DKey, // 添加key以便访问widget状态
-                                    modelPath: "assets/live2d/Haru/Haru.model3.json",
-                                    // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
-                                    width: constraints.maxWidth,
-                                    height: constraints.maxHeight,
-                                    instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
-                                  ),
+                              // Live2D模型作为背景，确保在最底层
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Live2DWidget(
+                                  key: _live2DKey, // 添加key以便访问widget状态
+                                  modelPath: "assets/live2d/Haru/Haru.model3.json",
+                                  // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxHeight,
+                                  instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
                                 ),
                               ),
-                              // SmartRefresher占据大部分区域，但为Live2D按钮留出空间
+                              // 消息列表区域，确保透明且不遮挡Live2D
                               Positioned(
                                 top: 80, // 为顶部按钮留出足够空间
                                 left: 0,
                                 right: 80, // 为右上角按钮留出足够空间
-                                bottom: 0,
+                                bottom: 100, // 为底部按钮留出空间
                                 child: SmartRefresher(
                                   enablePullDown: false,
                                   enablePullUp: true,
@@ -531,6 +532,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   child: ListView(
                                     reverse: true,
                                     padding: EdgeInsets.all(XConst.spacer),
+                                    // 确保ListView本身不阻挡触摸事件
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    // 使用透明装饰器确保ListView背景透明
                                     children:
                                         chatState.messageList
                                             .map(
