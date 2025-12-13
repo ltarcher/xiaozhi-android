@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -20,6 +22,9 @@ class _SettingPageState extends State<SettingPage> {
   // Live2D按钮可见性状态
   bool _isGearVisible = true;
   bool _isPowerVisible = false;
+  
+  // Live2D控制通道
+  static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
 
   @override
   void initState() {
@@ -70,6 +75,42 @@ class _SettingPageState extends State<SettingPage> {
           _isGearVisible = true;
           _isPowerVisible = false;
         });
+      }
+    }
+  }
+  
+  // 立即应用Live2D按钮状态的方法
+  Future<void> _applyLive2DButtonStates() async {
+    try {
+      if (kDebugMode) {
+        print("SettingPage: Applying Live2D button states - gear: $_isGearVisible, power: $_isPowerVisible");
+      }
+      
+      // 直接通过MethodChannel控制所有Live2D实例的按钮可见性
+      await _live2dChannel.invokeMethod('setGearVisible', {
+        'visible': _isGearVisible,
+        'instanceId': null, // null表示应用到所有实例
+      });
+      
+      await _live2dChannel.invokeMethod('setPowerVisible', {
+        'visible': _isPowerVisible,
+        'instanceId': null, // null表示应用到所有实例
+      });
+      
+      if (kDebugMode) {
+        print("SettingPage: Live2D button states applied successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply Live2D button states due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply Live2D button states - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Unexpected error applying Live2D button states: $e");
       }
     }
   }
@@ -195,10 +236,26 @@ class _SettingPageState extends State<SettingPage> {
               subtitle: Text('控制是否显示Live2D界面的齿轮按钮'),
               trailing: Switch(
                 value: _isGearVisible,
-                onChanged: (bool value) {
+                onChanged: (bool value) async {
                   setState(() {
                     _isGearVisible = value;
                   });
+                  
+                  // 立即应用设置到Live2D实例
+                  await _applyLive2DButtonStates();
+                  
+                  // 同时保存到持久化存储
+                  try {
+                    SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+                    await prefsUtil.setLive2DGearVisible(_isGearVisible);
+                    if (kDebugMode) {
+                      print("SettingPage: Gear visibility saved to preferences: $_isGearVisible");
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print("SettingPage: Error saving gear visibility to preferences: $e");
+                    }
+                  }
                 },
                 activeColor: primaryColor,
               ),
@@ -219,10 +276,26 @@ class _SettingPageState extends State<SettingPage> {
               subtitle: Text('控制是否显示Live2D界面的电源按钮'),
               trailing: Switch(
                 value: _isPowerVisible,
-                onChanged: (bool value) {
+                onChanged: (bool value) async {
                   setState(() {
                     _isPowerVisible = value;
                   });
+                  
+                  // 立即应用设置到Live2D实例
+                  await _applyLive2DButtonStates();
+                  
+                  // 同时保存到持久化存储
+                  try {
+                    SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+                    await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
+                    if (kDebugMode) {
+                      print("SettingPage: Power visibility saved to preferences: $_isPowerVisible");
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print("SettingPage: Error saving power visibility to preferences: $e");
+                    }
+                  }
                 },
                 activeColor: primaryColor,
               ),
@@ -250,7 +323,7 @@ class _SettingPageState extends State<SettingPage> {
                   Text(
                     '• 齿轮按钮：用于切换Live2D模型\n'
                     '• 电源按钮：关闭应用程序\n'
-                    '• 设置会自动保存并在下次启动时生效',
+                    '• 设置会立即生效并自动保存',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
