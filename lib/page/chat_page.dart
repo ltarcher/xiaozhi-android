@@ -8,6 +8,7 @@ import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
+import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 
@@ -43,7 +44,47 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
     _refreshController = RefreshController();
     WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
+    
+    // 从持久化存储恢复按钮可见性状态
+    _restoreButtonStates();
+    
     super.initState();
+  }
+
+  // 从持久化存储恢复按钮状态
+  Future<void> _restoreButtonStates() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      
+      bool? gearVisible = await prefsUtil.getLive2DGearVisible();
+      bool? powerVisible = await prefsUtil.getLive2DPowerVisible();
+      
+      if (kDebugMode) {
+        print('ChatPage: Restored button states - gearVisible: $gearVisible, powerVisible: $powerVisible');
+      }
+      
+      if (mounted) {
+        setState(() {
+          _isGearVisible = gearVisible ?? true; // 默认可见
+          _isPowerVisible = powerVisible ?? false; // 默认不可见
+        });
+        
+        // 延迟设置Live2D按钮状态，确保Widget已完全初始化
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _live2DKey.currentState != null) {
+            (_live2DKey.currentState as dynamic).setGearVisible(_isGearVisible);
+            (_live2DKey.currentState as dynamic).setPowerVisible(_isPowerVisible);
+            if (kDebugMode) {
+              print('ChatPage: Applied restored states to Live2D widget');
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error restoring button states: $e');
+      }
+    }
   }
 
   @override
@@ -93,7 +134,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
   
   // 控制齿轮按钮可见性的方法
-  void _toggleGearVisible() {
+  void _toggleGearVisible() async {
     if (kDebugMode) {
       print('ChatPage: _toggleGearVisible called, current value: $_isGearVisible');
     }
@@ -104,6 +145,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         print('ChatPage: _isGearVisible updated to: $_isGearVisible');
       }
     });
+    
+    // 保存状态到持久化存储
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      await prefsUtil.setLive2DGearVisible(_isGearVisible);
+      if (kDebugMode) {
+        print('ChatPage: Saved gear visibility to persistent storage: $_isGearVisible');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error saving gear visibility: $e');
+      }
+    }
     
     // 更新Live2D中的齿轮按钮可见性
     if (_live2DKey.currentState != null) {
@@ -127,7 +181,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
   
   // 控制电源按钮可见性的方法
-  void _togglePowerVisible() {
+  void _togglePowerVisible() async {
     if (kDebugMode) {
       print('ChatPage: _togglePowerVisible called, current value: $_isPowerVisible');
     }
@@ -138,6 +192,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         print('ChatPage: _isPowerVisible updated to: $_isPowerVisible');
       }
     });
+    
+    // 保存状态到持久化存储
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
+      if (kDebugMode) {
+        print('ChatPage: Saved power visibility to persistent storage: $_isPowerVisible');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error saving power visibility: $e');
+      }
+    }
     
     // 更新Live2D中的电源按钮可见性
     if (_live2DKey.currentState != null) {

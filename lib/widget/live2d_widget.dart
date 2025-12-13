@@ -84,7 +84,50 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if (kDebugMode) {
       print("Live2DWidget: initState called with instanceId: $_actualInstanceId, gearVisible: $_gearVisible, powerVisible: $_powerVisible");
     }
-    _initLive2D();
+    
+    // 延迟初始化，确保Widget完全构建后再初始化Live2D
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initLive2D();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(Live2DWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // 检查按钮可见性状态是否发生变化
+    if (oldWidget.gearVisible != widget.gearVisible ||
+        oldWidget.powerVisible != widget.powerVisible) {
+      if (kDebugMode) {
+        print("Live2DWidget: Widget visibility changed - gear: ${oldWidget.gearVisible} -> ${widget.gearVisible}, power: ${oldWidget.powerVisible} -> ${widget.powerVisible}");
+      }
+      
+      // 更新内部状态
+      _gearVisible = widget.gearVisible;
+      _powerVisible = widget.powerVisible;
+      
+      // 应用新的可见性状态
+      _applyVisibilityStates();
+    }
+  }
+  
+  // 应用可见性状态的辅助方法
+  Future<void> _applyVisibilityStates() async {
+    if (_isActive && !_isDisposed) {
+      try {
+        await _setGearVisible(_gearVisible);
+        await _setPowerVisible(_powerVisible);
+        if (kDebugMode) {
+          print("Live2DWidget: Applied updated visibility states for instance: $_actualInstanceId");
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Live2DWidget: Error applying visibility states: $e");
+        }
+      }
+    }
   }
 
   Future<void> _initLive2D() async {
@@ -98,9 +141,22 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         'instanceId': _actualInstanceId,
       });
       
-      // 初始化后设置按钮可见性状态
-      await _setGearVisible(_gearVisible);
-      await _setPowerVisible(_powerVisible);
+      // 等待一小段时间确保原生日志流完成
+      await Future.delayed(Duration(milliseconds: 200));
+      
+      // 强制应用当前按钮可见性状态，无论_isActive状态如何
+      try {
+        await _setGearVisible(_gearVisible);
+        await _setPowerVisible(_powerVisible);
+        
+        if (kDebugMode) {
+          print("Live2DWidget: Successfully applied visibility states - gear: $_gearVisible, power: $_powerVisible");
+        }
+      } catch (stateError) {
+        if (kDebugMode) {
+          print("Live2DWidget: Error applying visibility states: $stateError");
+        }
+      }
       
       if (kDebugMode) {
         print("Live2DWidget: Live2D initialized successfully for instance: $_actualInstanceId");
@@ -129,27 +185,22 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       return;
     }
     
-    if (_isActive) {
-      if (kDebugMode) {
-        print("Live2D activation skipped - already active");
-      }
-      // 即使已经激活，也重新初始化确保状态正确
-      await _initLive2D();
-      return;
-    }
-    
     try {
       _isActive = true;
       if (kDebugMode) {
-        print("Activating Live2D instance: $_actualInstanceId");
+        print("Activating Live2D instance: $_actualInstanceId with gear: $_gearVisible, power: $_powerVisible");
       }
       
       // 重新初始化Live2D，因为PlatformView可能已被销毁
       await _initLive2D();
       
+      // 激活实例
       await _channel.invokeMethod('activateInstance', {
         'instanceId': _actualInstanceId,
       });
+      
+      // 应用当前的按钮可见性状态
+      await _applyVisibilityStates();
       
       // 强制刷新UI
       if (mounted) {

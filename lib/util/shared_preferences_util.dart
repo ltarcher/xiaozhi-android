@@ -18,6 +18,10 @@ class SharedPreferencesUtil {
 
   final String _keyMacAddress = 'MAC_ADDRESS';
 
+  final String _keyLive2DGearVisible = 'LIVE2D_GEAR_VISIBLE';
+
+  final String _keyLive2DPowerVisible = 'LIVE2D_POWER_VISIBLE';
+
   Future<void> init() async {
     String? otaUrl = await getOtaUrl();
     if (null == otaUrl) {
@@ -32,6 +36,17 @@ class SharedPreferencesUtil {
     String? macAddress = await getMacAddress();
     if (null == macAddress) {
       await setMacAddress(CommonUtils.generateUnicastMacAddress());
+    }
+
+    // 初始化Live2D按钮可见性默认值
+    bool? gearVisible = await getLive2DGearVisible();
+    if (gearVisible == null) {
+      await setLive2DGearVisible(true); // 默认齿轮按钮可见
+    }
+
+    bool? powerVisible = await getLive2DPowerVisible();
+    if (powerVisible == null) {
+      await setLive2DPowerVisible(false); // 默认电源按钮不可见
     }
   }
 
@@ -63,5 +78,21 @@ class SharedPreferencesUtil {
       _keyMacAddress,
       value,
     );
+  }
+
+  Future<bool?> getLive2DGearVisible() async {
+    return (await SharedPreferences.getInstance()).getBool(_keyLive2DGearVisible);
+  }
+
+  Future<bool> setLive2DGearVisible(bool value) async {
+    return (await SharedPreferences.getInstance()).setBool(_keyLive2DGearVisible, value);
+  }
+
+  Future<bool?> getLive2DPowerVisible() async {
+    return (await SharedPreferences.getInstance()).getBool(_keyLive2DPowerVisible);
+  }
+
+  Future<bool> setLive2DPowerVisible(bool value) async {
+    return (await SharedPreferences.getInstance()).setBool(_keyLive2DPowerVisible, value);
   }
 }
