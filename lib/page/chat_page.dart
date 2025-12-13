@@ -35,7 +35,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final GlobalKey _live2DKey = GlobalKey(); // 使用动态类型访问State方法
   
   // 添加控制按钮可见性的状态变量
-  bool _isGearVisible = true;
+  bool _isGearVisible = false;
   bool _isPowerVisible = false;
   
   // 添加口型同步控制器

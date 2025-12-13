@@ -642,12 +642,12 @@ public class LAppView implements AutoCloseable {
     /**
      * 齿轮按钮可见性标志，默认为true（可见）
      */
-    private boolean isGearVisible = true;
+    private boolean isGearVisible = false;
 
     /**
      * 电源按钮可见性标志，默认为true（可见）
      */
-    private boolean isPowerVisible = true;
+    private boolean isPowerVisible = false;
 
     private final TouchManager touchManager = new TouchManager();
 
