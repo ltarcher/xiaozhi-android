@@ -11,6 +11,7 @@ import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
+import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -36,6 +37,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 添加控制按钮可见性的状态变量
   bool _isGearVisible = true;
   bool _isPowerVisible = false;
+  
+  // 添加口型同步控制器
+  late LipSyncController _lipSyncController;
 
   @override
   void initState() {
@@ -48,7 +52,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 从持久化存储恢复按钮可见性状态
     _restoreButtonStates();
     
+    // 初始化口型同步控制器
+    _lipSyncController = LipSyncController(
+      onLipSyncUpdate: _onLipSyncUpdate,
+    );
+    
     super.initState();
+  }
+
+  // 口型同步更新回调
+  void _onLipSyncUpdate(double lipSyncValue) {
+    if (kDebugMode) {
+      print('ChatPage: LipSync value updated: $lipSyncValue');
+    }
+    
+    // 更新Live2D模型的口型同步值
+    if (_live2DKey.currentState != null) {
+      try {
+        (_live2DKey.currentState as dynamic).setLipSyncValue(lipSyncValue);
+      } catch (e) {
+        if (kDebugMode) {
+          print('ChatPage: Error setting lip sync value: $e');
+        }
+      }
+    }
   }
 
   // 从持久化存储恢复按钮状态
@@ -94,6 +121,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.removeObserver(this); // 移除观察者
     _refreshController.dispose();
+    _lipSyncController.stop(); // 停止口型同步控制器
     super.dispose();
   }
 
@@ -110,12 +138,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         // 直接通过GlobalKey访问State方法
         (_live2DKey.currentState as dynamic).activate();
+        
+        // 恢复口型同步（如果正在录音）
+        if (_isPressing) {
+          _lipSyncController.start();
+        }
       } else {
         if (kDebugMode) {
           print('ChatPage: Deactivating Live2D widget');
         }
         // 直接通过GlobalKey访问State方法
         (_live2DKey.currentState as dynamic).deactivate();
+        
+        // 暂停口型同步
+        _lipSyncController.stop();
       }
     }
   }
@@ -131,6 +167,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _isPressing = false;
       });
     }
+    
+    // 停止口型同步
+    _lipSyncController.stop();
   }
   
   // 控制齿轮按钮可见性的方法
@@ -675,6 +714,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               _isPressing = true;
                             });
                           }
+                          
+                          // 开始口型同步
+                          _lipSyncController.start();
                         },
                         onTapUp: (_) {
                           if (kDebugMode) {
@@ -701,6 +743,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             });
                           }
                           chatBloc.add(ChatStartListenEvent());
+                          
+                          // 开始口型同步
+                          _lipSyncController.start();
                         },
                         onLongPressEnd: (detail) async {
                           if (kDebugMode) {

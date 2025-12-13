@@ -105,17 +105,17 @@ public class LAppModel extends CubismUserModel {
      * 模型的更新处理。根据模型的参数决定绘制状态
      */
     public void update() {
-        final float deltaTimeSeconds = LAppPal.getDeltaTime();
+        final float deltaTimeSeconds = (float)LAppPal.getDeltaTime();
         userTimeSeconds += deltaTimeSeconds;
-
+        
         dragManager.update(deltaTimeSeconds);
         dragX = dragManager.getX();
         dragY = dragManager.getY();
-
+        
         // 是否有通过动作更新参数
         boolean isMotionUpdated = false;
 
-//         加载上次保存的状态
+        // 加载上次保存的状态
         model.loadParameters();
 
         // 如果没有播放动作，则从待机动作中随机播放
@@ -172,7 +172,7 @@ public class LAppModel extends CubismUserModel {
         // Lip Sync Setting
         if (lipSync) {
             // 实时进行唇形同步时，从系统获取音量并在0~1范围内输入值
-            float value = 0.0f;
+            float value = lipSyncValue;
 
             for (int i = 0; i < lipSyncIds.size(); i++) {
                 CubismId lipSyncId = lipSyncIds.get(i);
@@ -709,6 +709,16 @@ public class LAppModel extends CubismUserModel {
     private final Map<String, ACubismMotion> expressions = new HashMap<String, ACubismMotion>();
 
     /**
+     * 是否启用口型同步功能
+     */
+    private boolean lipSync = true;
+    
+    /**
+     * 当前口型同步值 (0.0 - 1.0)
+     */
+    private float lipSyncValue = 0.0f;
+
+    /**
      * 参数ID: ParamAngleX
      */
     private final CubismId idParamAngleX;
@@ -737,4 +747,41 @@ public class LAppModel extends CubismUserModel {
      * 帧缓冲区以外的绘制目标
      */
     private final CubismOffscreenSurfaceAndroid renderingBuffer = new CubismOffscreenSurfaceAndroid();
+
+    /**
+     * 设置口型同步值
+     *
+     * @param value 口型同步值 (0.0 - 1.0)
+     */
+    public void setLipSyncValue(float value) {
+        // 确保值在有效范围内
+        lipSyncValue = Math.max(0.0f, Math.min(1.0f, value));
+        
+        // 如果启用了口型同步，则立即更新相关参数
+        if (lipSync && model != null) {
+            for (int i = 0; i < lipSyncIds.size(); i++) {
+                CubismId lipSyncId = lipSyncIds.get(i);
+                // 使用较大的权重(0.8f)来确保口型同步效果明显
+                model.addParameterValue(lipSyncId, lipSyncValue, 0.8f);
+            }
+        }
+    }
+    
+    /**
+     * 启用或禁用口型同步功能
+     *
+     * @param enable true表示启用，false表示禁用
+     */
+    public void enableLipSync(boolean enable) {
+        lipSync = enable;
+    }
+    
+    /**
+     * 获取当前口型同步值
+     *
+     * @return 当前口型同步值
+     */
+    public float getLipSyncValue() {
+        return lipSyncValue;
+    }
 }

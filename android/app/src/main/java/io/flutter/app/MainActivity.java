@@ -320,6 +320,35 @@ public class MainActivity extends FlutterActivity {
                                     Log.e(TAG, "Error in refreshView for instance: " + instanceId, e);
                                     result.error("REFRESH_ERROR", "Failed to refresh view: " + e.getMessage(), null);
                                 }
+                            } else if (call.method.equals("setLipSyncValue")) {
+                                Double value = call.argument("value");
+                                String instanceId = call.argument("instanceId");
+                                Log.d(TAG, "setLipSyncValue called: value=" + value + ", instanceId=" + instanceId);
+                                
+                                if (value == null) {
+                                    Log.e(TAG, "setLipSyncValue: Value argument is null");
+                                    result.error("INVALID_ARGUMENT", "Value argument is null", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    // 获取当前模型并设置口型同步值，使用多实例管理
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    int modelIndex = getModelIndex(instanceId);
+                                    Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    
+                                    if (live2DManager.getModel(modelIndex) != null) {
+                                        // 限制value在0.0-1.0范围内
+                                        float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
+                                        live2DManager.getModel(modelIndex).setLipSyncValue(lipSyncValue);
+                                        result.success(null);
+                                    } else {
+                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in setLipSyncValue for instance: " + instanceId, e);
+                                    result.error("LIPSYNC_ERROR", "Failed to set lip sync value: " + e.getMessage(), null);
+                                }
                             } else {
                                 Log.w(TAG, "Unknown method called: " + call.method);
                                 result.notImplemented();

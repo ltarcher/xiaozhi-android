@@ -1,5 +1,13 @@
 # 小智集成Live2d计划任务清单
 
+## 第一阶段：准备工作
+- [x] 在Flutter Android项目中创建libs/live2d目录
+- [x] 将Live2DCubismSdkForJava-5-r.4.1/Core/android/Live2DCubismCore.aar文件拷贝到libs/live2d目录
+- [x] 将所有Live2D模型资源文件（包括Haru、Hiyori等）复制到Flutter项目的assets/live2d目录下
+
+## 第二阶段：学习研究
+- [x] 分析live2d的sdk中示例Sample的实现原理、架构、实现流程图、使用live2d sdk的方法，详细学习分析后保存到.codespec/live2d_sample学习.md中
+
 ## 1. 项目现状分析
 
 ### 当前页面结构
@@ -36,10 +44,10 @@
   - [x] 实现简单的动作播放控制
 
 ### 第三阶段：高级功能实现
-- [ ] 实现口型同步
-  - [ ] 在语音播放时，根据语音内容驱动模型口型变化
-  - [ ] 实现音频输入检测和分析
-  - [ ] 将音频特征参数传递给Live2D模型
+- [x] 实现口型同步
+  - [x] 在语音播放时，根据语音内容驱动模型口型变化
+  - [x] 实现音频输入检测和分析
+  - [x] 将音频特征参数传递给Live2D模型
 - [ ] 实现更多交互功能
   - [ ] 根据用户触摸位置产生相应反应
   - [ ] 实现场景切换功能

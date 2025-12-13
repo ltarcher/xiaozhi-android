@@ -350,6 +350,36 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     }
   }
   
+  // 添加设置口型同步值的方法
+  Future<void> _setLipSyncValue(double value) async {
+    try {
+      if (kDebugMode) {
+        print("Live2DWidget: Setting lip sync value to: $value for instance: $_actualInstanceId");
+      }
+      
+      await _channel.invokeMethod('setLipSyncValue', {
+        'value': value,
+        'instanceId': _actualInstanceId,
+      });
+      
+      if (kDebugMode) {
+        print("Live2DWidget: Lip sync value set successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to set lip sync value due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to set lip sync value - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Unexpected error setting lip sync value: $e");
+      }
+    }
+  }
+  
   // 添加控制按钮可见性的私有方法
   Future<void> _setGearVisible(bool visible) async {
     try {
@@ -581,6 +611,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> deactivate() => _deactivate();
   Future<void> playMotion(String motionGroup, [int priority = 1]) => _playMotion(motionGroup, priority);
   Future<void> triggerExpression(String expressionName) => _triggerExpression(expressionName);
+  Future<void> setLipSyncValue(double value) => _setLipSyncValue(value);
   Future<void> setGearVisible(bool visible) => _setGearVisible(visible);
   Future<void> setPowerVisible(bool visible) => _setPowerVisible(visible);
   Future<bool?> isGearVisible() => _isGearVisible();
