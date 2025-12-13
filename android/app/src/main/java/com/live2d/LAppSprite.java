@@ -41,7 +41,7 @@ public class LAppSprite {
 
         this.textureId = textureId;
 
-        // 何番目のattribute変数か
+        // 获取attribute变量的位置
         positionLocation = GLES20.glGetAttribLocation(programId, "position");
         uvLocation = GLES20.glGetAttribLocation(programId, "uv");
         textureLocation = GLES20.glGetUniformLocation(programId, "texture");
@@ -61,7 +61,7 @@ public class LAppSprite {
         }
         
         // Log.v(TAG, "render: Rendering sprite");
-        // Set the camera position (View matrix)
+        // 设置相机位置（视图矩阵）
         uvVertex[0] = 1.0f;
         uvVertex[1] = 0.0f;
         uvVertex[2] = 0.0f;
@@ -71,7 +71,7 @@ public class LAppSprite {
         uvVertex[6] = 1.0f;
         uvVertex[7] = 1.0f;
 
-        // 透過設定
+        // 透明度设置
         GLES20.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         GLES20.glEnableVertexAttribArray(positionLocation);
@@ -79,7 +79,7 @@ public class LAppSprite {
 
         GLES20.glUniform1i(textureLocation, 0);
 
-        // 頂点データ
+        // 顶点数据
         positionVertex[0] = (rect.right - maxWidth * 0.5f) / (maxWidth * 0.5f);
         positionVertex[1] = (rect.up - maxHeight * 0.5f) / (maxHeight * 0.5f);
         positionVertex[2] = (rect.left - maxWidth * 0.5f) / (maxWidth * 0.5f);
@@ -118,7 +118,7 @@ public class LAppSprite {
     private FloatBuffer uvVertexFloatBuffer;
 
     /**
-     * 指定纹理ID进行绘制
+     * 使用指定纹理ID立即渲染
      *
      * @param textureId 纹理ID
      * @param uvVertex uv顶点坐标
@@ -168,7 +168,7 @@ public class LAppSprite {
 
         GLES20.glUniform4f(colorLocation, spriteColor[0], spriteColor[1], spriteColor[2], spriteColor[3]);
 
-        // 模型绘制
+        // 绘制模型
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
     }
@@ -184,14 +184,14 @@ public class LAppSprite {
     }
 
     /**
-     * 画像との当たり判定を行う
+     * 检测与图像的碰撞
      *
-     * @param pointX タッチした点のx座標
-     * @param pointY タッチした点のy座標
-     * @return 当たっていればtrue
+     * @param pointX 触摸点的x坐标
+     * @param pointY 触摸点的y坐标
+     * @return 如果碰撞则返回true
      */
     public boolean isHit(float pointX, float pointY) {
-        // y座標は変換する必要あり
+        // y坐标需要转换
         float y = maxHeight - pointY;
         Log.v(TAG, "isHit: pointX=" + pointX + ", pointY=" + pointY + ", convertedY=" + y + 
               ", rect.left=" + rect.left + ", rect.right=" + rect.right + 
@@ -231,35 +231,35 @@ public class LAppSprite {
     }
 
     /**
-     * ウィンドウサイズを設定する。
+     * 设置窗口尺寸
      *
-     * @param width 横幅
-     * @param height 高さ
+     * @param width 宽度
+     * @param height 高度
      */
     public void setWindowSize(int width, int height) {
-        Log.v(TAG, "setWindowSize: width=" + width + ", height=" + height);
+        //Log.v(TAG, "setWindowSize: width=" + width + ", height=" + height);
         maxWidth = width;
         maxHeight = height;
     }
 
     /**
-     * Rectクラス
+     * 矩形类
      */
     private static class Rect {
         /**
-         * 左辺
+         * 左边
          */
         public float left;
         /**
-         * 右辺
+         * 右边
          */
         public float right;
         /**
-         * 上辺
+         * 上边
          */
         public float up;
         /**
-         * 下辺
+         * 下边
          */
         public float down;
     }
@@ -268,12 +268,12 @@ public class LAppSprite {
     private final Rect rect = new Rect();
     private final int textureId;
 
-    private final int positionLocation;  // 位置アトリビュート
-    private final int uvLocation; // UVアトリビュート
-    private final int textureLocation;   // テクスチャアトリビュート
-    private final int colorLocation;     // カラーアトリビュート
-    private final float[] spriteColor = new float[4];   // 表示カラー
+    private final int positionLocation;  // 位置属性
+    private final int uvLocation; // UV属性
+    private final int textureLocation;   // 纹理属性
+    private final int colorLocation;     // 颜色属性
+    private final float[] spriteColor = new float[4];   // 显示颜色
 
-    private int maxWidth;   // ウィンドウ幅
-    private int maxHeight;  // ウィンドウ高さ
+    private int maxWidth;   // 窗口宽度
+    private int maxHeight;  // 窗口高度
 }

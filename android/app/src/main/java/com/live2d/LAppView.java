@@ -241,14 +241,14 @@ public class LAppView implements AutoCloseable {
             //Log.d(TAG, "render: Rendering gear sprite, visible=" + isGearVisible);
             gearSprite.render();
         } else {
-            Log.d(TAG, "render: Not rendering gear sprite, gearSprite=" + gearSprite + ", isGearVisible=" + isGearVisible);
+            //Log.d(TAG, "render: Not rendering gear sprite, gearSprite=" + gearSprite + ", isGearVisible=" + isGearVisible);
         }
         // 根据显示标志决定是否渲染关闭按钮
         if (powerSprite != null && isPowerVisible) {
             //Log.d(TAG, "render: Rendering power sprite, visible=" + isPowerVisible);
             powerSprite.render();
         } else {
-            Log.d(TAG, "render: Not rendering power sprite, powerSprite=" + powerSprite + ", isPowerVisible=" + isPowerVisible);
+            //Log.d(TAG, "render: Not rendering power sprite, powerSprite=" + powerSprite + ", isPowerVisible=" + isPowerVisible);
         }
 
         if (isChangedModel) {
