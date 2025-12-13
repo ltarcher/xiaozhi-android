@@ -34,7 +34,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加控制按钮可见性的状态变量
   bool _isGearVisible = true;
-  bool _isPowerVisible = true;
+  bool _isPowerVisible = false;
 
   @override
   void initState() {
@@ -486,6 +486,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     width: constraints.maxWidth,
                                     height: constraints.maxHeight,
                                     instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
+                                    gearVisible: _isGearVisible,    // 传递齿轮按钮可见性状态
+                                    powerVisible: _isPowerVisible,  // 传递电源按钮可见性状态
                                   ),
                                 ),
                               ),

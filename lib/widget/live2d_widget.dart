@@ -9,6 +9,8 @@ class Live2DWidget extends StatefulWidget {
   final double width;
   final double height;
   final String? instanceId; // 新增：实例ID，用于区分不同页面的Live2D实例
+  final bool gearVisible;   // 齿轮按钮可见性
+  final bool powerVisible;  // 电源按钮可见性
 
   const Live2DWidget({
     super.key,
@@ -16,6 +18,8 @@ class Live2DWidget extends StatefulWidget {
     required this.width,
     required this.height,
     this.instanceId, // 可选的实例ID参数
+    this.gearVisible = true,  // 默认可见
+    this.powerVisible = true, // 默认可见
   });
 
   @override
@@ -64,15 +68,21 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   bool _isActive = false; // 标记当前实例是否处于激活状态
   bool _isDisposed = false; // 标记当前组件是否已被销毁
   bool _needsRebuild = false; // 标记是否需要重建PlatformView
+  bool _gearVisible = true; // 跟踪齿轮按钮可见性状态
+  bool _powerVisible = false; // 跟踪电源按钮可见性状态
 
   @override
   void initState() {
     super.initState();
     
+    // 初始化按钮可见性状态
+    _gearVisible = widget.gearVisible;
+    _powerVisible = widget.powerVisible;
+    
     // 如果没有提供instanceId，则使用widget的hashCode作为唯一标识
     _actualInstanceId = widget.instanceId ?? 'live2d_${widget.hashCode}';
     if (kDebugMode) {
-      print("Live2DWidget: initState called with instanceId: $_actualInstanceId");
+      print("Live2DWidget: initState called with instanceId: $_actualInstanceId, gearVisible: $_gearVisible, powerVisible: $_powerVisible");
     }
     _initLive2D();
   }
@@ -87,6 +97,10 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         'modelPath': widget.modelPath,
         'instanceId': _actualInstanceId,
       });
+      
+      // 初始化后设置按钮可见性状态
+      await _setGearVisible(_gearVisible);
+      await _setPowerVisible(_powerVisible);
       
       if (kDebugMode) {
         print("Live2DWidget: Live2D initialized successfully for instance: $_actualInstanceId");
@@ -292,6 +306,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         print("Live2DWidget: Setting gear visible to: $visible for instance: $_actualInstanceId");
       }
       
+      // 更新内部状态
+      _gearVisible = visible;
+      
       await _channel.invokeMethod('setGearVisible', {
         'visible': visible,
         'instanceId': _actualInstanceId,
@@ -320,6 +337,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       if (kDebugMode) {
         print("Live2DWidget: Setting power visible to: $visible for instance: $_actualInstanceId");
       }
+      
+      // 更新内部状态
+      _powerVisible = visible;
       
       await _channel.invokeMethod('setPowerVisible', {
         'visible': visible,
