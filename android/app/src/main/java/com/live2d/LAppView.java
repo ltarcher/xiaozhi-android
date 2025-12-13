@@ -156,10 +156,13 @@ public class LAppView implements AutoCloseable {
 
             if (gearSprite == null) {
                 gearSprite = new LAppSprite(x, y, fWidth, fHeight, gearTexture.id, programId);
-                Log.d(TAG, "initializeSprite: Created new gear sprite");
+                // 设置齿轮精灵的初始可见性状态
+                gearSprite.setIsVisible(isGearVisible);
+                Log.d(TAG, "initializeSprite: Created new gear sprite with visibility: " + isGearVisible);
             } else {
                 gearSprite.resize(x, y, fWidth, fHeight);
-                Log.d(TAG, "initializeSprite: Resized existing gear sprite");
+                gearSprite.setIsVisible(isGearVisible);
+                Log.d(TAG, "initializeSprite: Resized existing gear sprite with visibility: " + isGearVisible);
             }
         }
 
@@ -181,10 +184,13 @@ public class LAppView implements AutoCloseable {
 
             if (powerSprite == null) {
                 powerSprite = new LAppSprite(x, y, fWidth, fHeight, powerTexture.id, programId);
-                Log.d(TAG, "initializeSprite: Created new power sprite");
+                // 设置电源精灵的初始可见性状态
+                powerSprite.setIsVisible(isPowerVisible);
+                Log.d(TAG, "initializeSprite: Created new power sprite with visibility: " + isPowerVisible);
             } else {
                 powerSprite.resize(x, y, fWidth, fHeight);
-                Log.d(TAG, "initializeSprite: Resized existing power sprite");
+                powerSprite.setIsVisible(isPowerVisible);
+                Log.d(TAG, "initializeSprite: Resized existing power sprite with visibility: " + isPowerVisible);
             }
         }
         
