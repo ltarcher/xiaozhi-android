@@ -22,6 +22,7 @@ import 'package:xiaozhi/util/common_utils.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
+import 'package:xiaozhi/util/audio_processor.dart';
 
 part 'chat_event.dart';
 part 'chat_state.dart';
@@ -72,6 +73,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   
   // 添加OtaBloc引用，用于在重连时检查授权状态
   final OtaBloc _otaBloc;
+  
+  // 添加口型同步控制器
+  late LipSyncController _lipSyncController;
 
   @override
   Future<void> close() {
@@ -360,6 +364,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     conversationStatus: ConversationStatus.idle, // 默认设置为休闲状态
   )) {
     _logger = Logger();
+    
+    // 初始化口型同步控制器
+    _lipSyncController = LipSyncController(
+      onLipSyncUpdate: (lipSyncValue) {
+        // 通过事件更新口型同步值
+        add(ChatLipSyncUpdateEvent(lipSyncValue: lipSyncValue));
+      },
+    );
     on<ChatEvent>((event, emit) async {
       if (event is ChatInitialEvent) {
         try {
@@ -494,6 +506,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           return;
         }
         
+        if (kDebugMode) {
+          print('ChatBloc: Starting audio recorder with config:');
+          print('  - Encoder: PCM16bits');
+          print('  - Sample Rate: $_audioSampleRate');
+          print('  - Channels: $_audioChannels');
+          print('  - Echo Cancel: true');
+          print('  - Noise Suppress: true');
+        }
+        
         _audioRecorderStream = (await _audioRecorder!.startStream(
           RecordConfig(
             encoder: AudioEncoder.pcm16bits,
@@ -503,6 +524,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             sampleRate: _audioSampleRate,
           ),
         ));
+        
+        if (kDebugMode) {
+          print('ChatBloc: Audio recorder started successfully');
+        }
 
         if (null != _audioRecorderSubscription) {
           _audioRecorderSubscription!.cancel();
@@ -516,10 +541,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             
             _totalFrameCount++;
             
-            // 添加音频质量检测
-            if (_isAudioDataValid(data)) {
-              _silentFrameCount = 0; // 重置静音计数器
-              
+            // 临时调试：直接发送前几个音频帧，无论是否有效
+            if (_totalFrameCount <= 5) {
+              if (kDebugMode) {
+                print('ChatBloc: DEBUG - Sending frame $_totalFrameCount regardless of validity');
+              }
               Uint8List? opusData = await CommonUtils.pcmToOpus(
                 pcmData: data,
                 sampleRate: _audioSampleRate,
@@ -531,14 +557,37 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                   _websocketChannel!.sink.add(opusData);
                 }
               }
-            } else {
-              _silentFrameCount++;
-              _logger.w('___WARNING Audio data is too quiet or empty, skipping (silent frames: $_silentFrameCount/$_totalFrameCount)');
               
-              // 如果连续静音帧过多，可能是录音问题
-              if (_silentFrameCount >= _maxSilentFrames) {
-                _logger.w('___WARNING Too many silent frames detected, possible recording issue');
-                // 可以在这里添加重新初始化录音的逻辑
+              // 处理口型同步
+              _processLipSync(data);
+            } else {
+              // 正常的音频质量检测
+              if (_isAudioDataValid(data)) {
+                _silentFrameCount = 0; // 重置静音计数器
+                
+                Uint8List? opusData = await CommonUtils.pcmToOpus(
+                  pcmData: data,
+                  sampleRate: _audioSampleRate,
+                  frameDuration: _audioFrameDuration,
+                );
+                if (null != opusData) {
+                  // 再次检查 _websocketChannel 不为 null
+                  if (_websocketChannel != null) {
+                    _websocketChannel!.sink.add(opusData);
+                  }
+                }
+                
+                // 处理口型同步
+                _processLipSync(data);
+              } else {
+                _silentFrameCount++;
+                _logger.w('___WARNING Audio data is too quiet or empty, skipping (silent frames: $_silentFrameCount/$_totalFrameCount)');
+                
+                // 如果连续静音帧过多，可能是录音问题
+                if (_silentFrameCount >= _maxSilentFrames) {
+                  _logger.w('___WARNING Too many silent frames detected, possible recording issue');
+                  // 可以在这里添加重新初始化录音的逻辑
+                }
               }
             }
           }
@@ -586,6 +635,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (null != _audioRecorder && (await _audioRecorder!.isRecording())) {
           await _audioRecorder!.stop();
         }
+        // 停止口型同步
+        _lipSyncController.stop();
         // 录音停止，更新录音状态为初始化
         add(ChatRecordingInitializedEvent());
         // 对话状态更新为等待中
@@ -791,12 +842,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   /// 检查音频数据是否有效（不是静音）
   bool _isAudioDataValid(Uint8List pcmData) {
-    if (pcmData.isEmpty) return false;
+    if (pcmData.isEmpty) {
+      if (kDebugMode) {
+        print('ChatBloc: Audio data is empty');
+      }
+      return false;
+    }
     
     // 计算音频能量
     double sum = 0.0;
     int sampleCount = 0;
     int peakValue = 0;
+    int nonZeroSamples = 0;
     
     for (int i = 0; i < pcmData.length - 1; i += 2) {
       // 小端序转换
@@ -808,6 +865,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       sum += normalizedSample * normalizedSample;
       sampleCount++;
       
+      // 记录非零样本数
+      if (sample != 0) {
+        nonZeroSamples++;
+      }
+      
       // 记录峰值
       if (sample.abs() > peakValue) {
         peakValue = sample.abs();
@@ -817,16 +879,48 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (sampleCount == 0) return false;
     
     double rms = sum / sampleCount;
-    // 降低阈值，提高灵敏度
-    bool isValid = rms > 0.00005 || peakValue > 500;
+    double nonZeroRatio = nonZeroSamples / sampleCount;
     
-    // 添加调试信息
+    // 进一步降低阈值，提高灵敏度，并考虑非零样本比例
+    bool isValid = rms > 0.00001 || peakValue > 100 || nonZeroRatio > 0.01;
+    
+    // 添加更详细的调试信息
     if (kDebugMode) {
-      if (!isValid && _totalFrameCount % 50 == 0) {
-        print('ChatBloc: Audio quality check - RMS: $rms, Peak: $peakValue, Valid: $isValid');
+      if (_totalFrameCount % 10 == 0 || !isValid) {
+        print('ChatBloc: Audio quality check - RMS: $rms, Peak: $peakValue, NonZeroRatio: $nonZeroRatio, Valid: $isValid');
+        print('ChatBloc: PCM data length: ${pcmData.length}, SampleCount: $sampleCount, NonZeroSamples: $nonZeroSamples');
+        
+        // 打印前几个样本值以便调试
+        if (pcmData.length >= 4) {
+          int sample1 = (pcmData[1] << 8) | (pcmData[0] & 0xff);
+          int sample2 = (pcmData[3] << 8) | (pcmData[2] & 0xff);
+          if (sample1 > 32767) sample1 -= 65536;
+          if (sample2 > 32767) sample2 -= 65536;
+          print('ChatBloc: First few samples: [$sample1, $sample2]');
+        }
       }
     }
     
     return isValid;
+  }
+  
+  /// 处理口型同步
+  void _processLipSync(Uint8List audioData) {
+    if (audioData.isEmpty) return;
+    
+    // 将Uint8List转换为List<double>
+    List<double> audioSamples = [];
+    for (int i = 0; i < audioData.length - 1; i += 2) {
+      // 将两个字节组合成16位样本
+      int sample = (audioData[i + 1] << 8) | (audioData[i] & 0xff);
+      // 转换为有符号16位整数
+      if (sample > 32767) sample -= 65536;
+      // 归一化到-1.0到1.0范围
+      double normalizedSample = sample / 32768.0;
+      audioSamples.add(normalizedSample);
+    }
+    
+    // 处理音频数据
+    _lipSyncController.processAudioData(audioSamples);
   }
 }

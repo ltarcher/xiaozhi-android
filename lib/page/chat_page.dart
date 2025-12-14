@@ -38,8 +38,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isGearVisible = false;
   bool _isPowerVisible = false;
   
-  // 添加口型同步控制器
-  late LipSyncController _lipSyncController;
+  // 移除本地口型同步控制器，使用ChatBloc中的
+  // late LipSyncController _lipSyncController;
   
   // 添加控制授权对话框显示的状态变量
   bool _showActivationDialog = false;
@@ -60,10 +60,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 从持久化存储恢复按钮可见性状态
     _restoreButtonStates();
     
-    // 初始化口型同步控制器
-    _lipSyncController = LipSyncController(
-      onLipSyncUpdate: _onLipSyncUpdate,
-    );
+    // 不再需要初始化本地口型同步控制器
+    // _lipSyncController = LipSyncController(
+    //   onLipSyncUpdate: _onLipSyncUpdate,
+    // );
     
     super.initState();
   }
@@ -147,7 +147,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.removeObserver(this); // 移除观察者
     _refreshController.dispose();
-    _lipSyncController.stop(); // 停止口型同步控制器
+    // 不再需要停止本地口型同步控制器
+    // _lipSyncController.stop(); // 停止口型同步控制器
     super.dispose();
   }
 
@@ -165,10 +166,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         // 直接通过GlobalKey访问State方法
         (_live2DKey.currentState as dynamic).activate();
         
+        // 不再需要启动本地口型同步控制器
         // 恢复口型同步（如果正在录音）
-        if (_isPressing) {
-          _lipSyncController.start();
-        }
+        // if (_isPressing) {
+        //   _lipSyncController.start();
+        // }
       } else {
         if (kDebugMode) {
           print('ChatPage: Deactivating Live2D widget');
@@ -176,8 +178,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         // 直接通过GlobalKey访问State方法
         (_live2DKey.currentState as dynamic).deactivate();
         
+        // 不再需要暂停本地口型同步控制器
         // 暂停口型同步
-        _lipSyncController.stop();
+        // _lipSyncController.stop();
       }
     }
   }
@@ -194,8 +197,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       });
     }
     
+    // 不再需要停止本地口型同步控制器
     // 停止口型同步
-    _lipSyncController.stop();
+    // _lipSyncController.stop();
   }
   
   // 控制齿轮按钮可见性的方法
@@ -741,8 +745,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             });
                           }
                           
+                          // 不再需要启动本地口型同步控制器
                           // 开始口型同步
-                          _lipSyncController.start();
+                          // _lipSyncController.start();
                         },
                         onTapUp: (_) {
                           if (kDebugMode) {
@@ -770,8 +775,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           }
                           chatBloc.add(ChatStartListenEvent());
                           
+                          // 不再需要启动本地口型同步控制器
                           // 开始口型同步
-                          _lipSyncController.start();
+                          // _lipSyncController.start();
                         },
                         onLongPressEnd: (detail) async {
                           if (kDebugMode) {

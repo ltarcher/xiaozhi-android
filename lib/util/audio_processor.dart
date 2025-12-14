@@ -18,8 +18,8 @@ class AudioProcessor {
   final int _sampleRate;
 
   AudioProcessor({
-    double energyThreshold = 0.005, // 降低阈值，提高灵敏度
-    double smoothingFactor = 0.2, // 降低平滑因子，使响应更快
+    double energyThreshold = 0.00001, // 大幅降低阈值，匹配ChatBloc中的阈值
+    double smoothingFactor = 0.3, // 适当提高平滑因子，避免过度敏感
     int sampleRate = 16000,
   })  : _energyThreshold = energyThreshold,
         _smoothingFactor = smoothingFactor,
@@ -62,10 +62,11 @@ class AudioProcessor {
 
     // 将能量映射到 0.0 - 1.0 范围
     // 使用对数函数使低音量变化更敏感
-    double normalizedEnergy = min(1.0, energy / 0.3); // 降低分母，提高灵敏度
+    // 根据实际音频数据调整分母
+    double normalizedEnergy = min(1.0, energy / 0.001); // 大幅降低分母，提高灵敏度
     double logEnergy = log(normalizedEnergy + 1) / log(2);
     // 增加放大系数，使口型变化更明显
-    return min(1.0, max(0.0, logEnergy * 1.5));
+    return min(1.0, max(0.0, logEnergy * 2.0)); // 提高放大系数
   }
 
   /// 平滑口型同步值，避免剧烈变化
@@ -199,8 +200,17 @@ class LipSyncController {
   /// 处理真实的音频数据
   void processAudioData(List<double> audioData) {
     if (!_isRunning) return;
+    
+    if (kDebugMode) {
+      print('$TAG: Processing audio data with ${audioData.length} samples');
+    }
 
     double lipSyncValue = _audioProcessor.processAudio(audioData);
+    
+    if (kDebugMode) {
+      print('$TAG: Calculated lip sync value: $lipSyncValue');
+    }
+    
     _onLipSyncUpdate?.call(lipSyncValue);
   }
 }
