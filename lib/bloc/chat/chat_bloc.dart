@@ -58,6 +58,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectDelay = Duration(seconds: 3);
+  
+  // 添加连接确认超时机制
+  Timer? _connectionTimeoutTimer;
+  static const Duration _connectionTimeout = Duration(seconds: 10);
 
   @override
   Future<void> close() {
@@ -73,6 +77,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _reconnectTimer!.cancel();
       _reconnectTimer = null;
     }
+    if (null != _connectionTimeoutTimer) {
+      _connectionTimeoutTimer!.cancel();
+      _connectionTimeoutTimer = null;
+    }
     if (null != _websocketChannel) {
       _websocketChannel!.sink.close();
       _websocketChannel = null;
@@ -80,6 +88,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     return super.close();
   }
 
+  // 添加一个标志，用于跟踪是否已经收到服务器的第一个响应
+  bool _hasReceivedFirstResponse = false;
+  
   void _initWebsocketListener() {
     // 确保 _websocketChannel 不为 null
     if (_websocketChannel == null) {
@@ -87,9 +98,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       return;
     }
     
+    // 重置首次响应标志
+    _hasReceivedFirstResponse = false;
+    
     _websocketStreamSubscription = _websocketChannel!.stream.listen(
       (data) async {
         try {
+          // 如果是第一次收到服务器的响应，则确认连接真正建立
+          if (!_hasReceivedFirstResponse) {
+            _hasReceivedFirstResponse = true;
+            
+            // 取消连接超时定时器
+            if (_connectionTimeoutTimer != null) {
+              _connectionTimeoutTimer!.cancel();
+              _connectionTimeoutTimer = null;
+            }
+            
+            _reconnectAttempts = 0; // 重置重连计数器
+            add(ChatConnectionConnectedEvent());
+            _logger.i('___INFO WebSocket connection confirmed by server response');
+          }
+          
           if (data is String) {
             final WebsocketMessage message = WebsocketMessage.fromJson(
               jsonDecode(data),
@@ -146,7 +175,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               _logger.e('___ERROR _audioPlayer is null');
               return;
             }
-            
+           
             // 检查播放器是否已打开
             if (!_audioPlayer!.isOpen()) {
               await _audioPlayer!.openPlayer();
@@ -158,7 +187,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               sampleRate: _audioSampleRate,
               channels: _audioChannels,
             );
-            
+           
             // 确保解码成功
             if (pcmData == null) {
               _logger.e('___ERROR Failed to decode Opus data');
@@ -190,6 +219,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         _logger.e('___ERROR Websocket $e');
         // 连接错误，更新状态并尝试重连
         add(ChatConnectionErrorEvent());
+        
+        // 取消连接超时定时器
+        if (_connectionTimeoutTimer != null) {
+          _connectionTimeoutTimer!.cancel();
+          _connectionTimeoutTimer = null;
+        }
+        
         _scheduleReconnect();
       },
       onDone: () {
@@ -198,6 +234,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _websocketStreamSubscription!.cancel();
           _websocketStreamSubscription = null;
         }
+        
+        // 取消连接超时定时器
+        if (_connectionTimeoutTimer != null) {
+          _connectionTimeoutTimer!.cancel();
+          _connectionTimeoutTimer = null;
+        }
+        
         // 连接关闭，更新状态并尝试重连
         add(ChatConnectionDisconnectedEvent());
         _scheduleReconnect();
@@ -238,8 +281,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         },
       );
 
+      // 设置连接超时
+      await _websocketChannel!.ready.timeout(Duration(seconds: 10));
+      
       _initWebsocketListener();
 
+      // 发送hello消息并等待响应，以确认连接真正可用
       _websocketChannel!.sink.add(
         jsonEncode(
           WebsocketMessage(
@@ -255,11 +302,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         ),
       );
       
-      // 连接成功，重置重连计数器并更新状态
-      _reconnectAttempts = 0;
-      add(ChatConnectionConnectedEvent());
+      // 等待服务器响应，确认连接真正可用
+      // 这里不直接设置为connected状态，而是在收到服务器响应后再设置
+      _logger.i('___INFO WebSocket connection initiated, waiting for server response');
       
-      _logger.i('___INFO WebSocket connected successfully');
+      // 设置连接确认超时
+      _connectionTimeoutTimer = Timer(_connectionTimeout, () {
+        _logger.w('___WARNING WebSocket connection timeout, no response from server');
+        add(ChatConnectionErrorEvent());
+        
+        // 取消连接超时定时器
+        if (_connectionTimeoutTimer != null) {
+          _connectionTimeoutTimer!.cancel();
+          _connectionTimeoutTimer = null;
+        }
+        
+        _scheduleReconnect();
+      });
     } catch (e, s) {
       _logger.e('___ERROR Failed to connect WebSocket: $e $s');
       add(ChatConnectionErrorEvent());
@@ -267,7 +326,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  ChatBloc() : super(ChatInitialState()) {
+  ChatBloc() : super(ChatInitialState(
+    connectionStatus: WebSocketConnectionStatus.disconnected,
+    authorizationStatus: AuthorizationStatus.unauthorized, // 默认设置为未授权，直到收到OtaBloc的授权状态
+  )) {
     _logger = Logger();
     on<ChatEvent>((event, emit) async {
       if (event is ChatInitialEvent) {
@@ -290,12 +352,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           emit(ChatInitialState(
             messageList: messageList,
             connectionStatus: state.connectionStatus, // 保持当前连接状态
+            authorizationStatus: state.authorizationStatus, // 保持当前授权状态，不覆盖
           ));
         } catch (e, s) {
           _logger.e('___ERROR ChatInitialEvent $e $s');
           emit(ChatInitialState(
             messageList: [],
             connectionStatus: WebSocketConnectionStatus.error,
+            authorizationStatus: state.authorizationStatus, // 保持当前授权状态，不覆盖
           ));
         }
       }
@@ -304,7 +368,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (!await Permission.microphone.isGranted) {
           if (!event.isRequestMicrophonePermission ||
               !await Permission.microphone.request().isGranted) {
-            emit(ChatNoMicrophonePermissionState());
+            emit(ChatNoMicrophonePermissionState(
+              connectionStatus: state.connectionStatus,
+              authorizationStatus: state.authorizationStatus,
+            ));
           }
           if (!_isOnCall) {
             return;
@@ -378,6 +445,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ChatInitialState(
             messageList: [event.message, ...state.messageList],
             connectionStatus: state.connectionStatus, // 保持当前连接状态
+            authorizationStatus: state.authorizationStatus, // 保持当前授权状态
           ),
         );
       }
@@ -394,6 +462,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             messageList: [...state.messageList, ...messageList],
             hasMore: messageList.length == _messageListPaginatedLimit,
             connectionStatus: state.connectionStatus, // 保持当前连接状态
+            authorizationStatus: state.authorizationStatus, // 保持当前授权状态
           ),
         );
       }
@@ -457,18 +526,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       // 处理授权状态事件
       if (event is ChatUnauthorizedEvent) {
+        _logger.i('___INFO ChatUnauthorizedEvent received, updating authorization status to unauthorized');
         if (state is ChatInitialState) {
-          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.unauthorized));
+          emit((state as ChatInitialState).copyWith(authorizationStatus: AuthorizationStatus.unauthorized));
         } else if (state is ChatNoMicrophonePermissionState) {
-          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.unauthorized));
+          emit((state as ChatNoMicrophonePermissionState).copyWith(authorizationStatus: AuthorizationStatus.unauthorized));
         }
       }
       
       if (event is ChatAuthorizedEvent) {
+        _logger.i('___INFO ChatAuthorizedEvent received, updating authorization status to authorized');
         if (state is ChatInitialState) {
-          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.authorized));
+          emit((state as ChatInitialState).copyWith(authorizationStatus: AuthorizationStatus.authorized));
         } else if (state is ChatNoMicrophonePermissionState) {
-          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.authorized));
+          emit((state as ChatNoMicrophonePermissionState).copyWith(authorizationStatus: AuthorizationStatus.authorized));
         }
       }
     });

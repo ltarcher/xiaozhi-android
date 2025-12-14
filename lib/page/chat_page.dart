@@ -287,6 +287,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         // 处理授权状态变化
         if (otaState is OtaNotActivatedState) {
           // 设备未授权
+          if (kDebugMode) {
+            print('ChatPage: OtaNotActivatedState detected, sending ChatUnauthorizedEvent');
+          }
           chatBloc.add(ChatUnauthorizedEvent());
           
           if (kDebugMode) {
@@ -344,6 +347,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             print('ChatPage: User rejected activation');
                           }
                           Navigator.pop(context);
+                          // 用户拒绝激活后，确保ChatBloc知道设备未授权
+                          if (kDebugMode) {
+                            print('ChatPage: User rejected activation, sending ChatUnauthorizedEvent');
+                          }
+                          chatBloc.add(ChatUnauthorizedEvent());
                         },
                         child: Text(AppLocalizations.of(context)!.reject),
                       ),
@@ -377,6 +385,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           );
         } else if (otaState is OtaActivatedState) {
           // 设备已授权
+          if (kDebugMode) {
+            print('ChatPage: OtaActivatedState detected, sending ChatAuthorizedEvent');
+          }
           chatBloc.add(ChatAuthorizedEvent());
         }
       },
@@ -486,6 +497,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         builder: (context, ChatState chatState) {
           if (kDebugMode) {
             print('ChatPage: Building UI with ${chatState.messageList.length} messages');
+            print('ChatPage: Current state - connectionStatus: ${chatState.connectionStatus}, authorizationStatus: ${chatState.authorizationStatus}');
           }
           return Scaffold(
             appBar: AppBar(
@@ -493,8 +505,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 children: [
                   Text(AppLocalizations.of(context)!.xiaozhi),
                   SizedBox(width: 8),
-                  // 添加连接状态指示器
-                  _buildConnectionStatusIndicator(chatState.connectionStatus),
+                  // 添加连接状态和授权状态指示器
+                  _buildStatusIndicators(chatState.connectionStatus, chatState.authorizationStatus),
                 ],
               ),
               leading: Row(
@@ -815,30 +827,39 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
   
-  // 构建连接状态指示器
-  Widget _buildConnectionStatusIndicator(dynamic status) {
+  // 构建状态指示器（连接状态和授权状态）
+  Widget _buildStatusIndicators(dynamic connectionStatus, dynamic authorizationStatus) {
     // 使用字符串比较而不是枚举比较，以避免直接引用枚举类型
-    String statusString = status.toString();
+    String connectionString = connectionStatus.toString();
+    String authorizationString = authorizationStatus.toString();
     
-    // 分别判断连接状态和授权状态
+    // 添加调试日志
+    if (kDebugMode) {
+      print('ChatPage: _buildStatusIndicators - connectionStatus: $connectionString, authorizationStatus: $authorizationString');
+    }
+    
+    // 构建状态指示器列表
+    List<Widget> indicators = [];
+    
+    // 添加连接状态指示器
     IconData connectionIcon;
     Color connectionColor;
     String connectionTooltip;
     
     // 判断连接状态
-    if (statusString.contains('connected')) {
+    if (connectionString.contains('connected')) {
       connectionIcon = Icons.cloud_done;
       connectionColor = Colors.green;
       connectionTooltip = '已连接到服务器';
-    } else if (statusString.contains('connecting')) {
+    } else if (connectionString.contains('connecting')) {
       connectionIcon = Icons.cloud_sync;
       connectionColor = Colors.orange;
       connectionTooltip = '正在连接服务器...';
-    } else if (statusString.contains('reconnecting')) {
+    } else if (connectionString.contains('reconnecting')) {
       connectionIcon = Icons.cloud_sync;
       connectionColor = Colors.orange;
       connectionTooltip = '正在重连服务器...';
-    } else if (statusString.contains('disconnected')) {
+    } else if (connectionString.contains('disconnected')) {
       connectionIcon = Icons.cloud_off;
       connectionColor = Colors.red;
       connectionTooltip = '未连接到服务器';
@@ -848,13 +869,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       connectionColor = Colors.red;
       connectionTooltip = '连接错误';
     }
-    
-    // 判断授权状态
-    bool isAuthorized = statusString.contains('authorized');
-    bool isUnauthorized = statusString.contains('unauthorized');
-    
-    // 构建状态指示器
-    List<Widget> indicators = [];
     
     // 添加连接状态指示器
     indicators.add(
@@ -869,7 +883,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     
     // 如果正在重连，添加进度指示器
-    if (statusString.contains('reconnecting')) {
+    if (connectionString.contains('reconnecting')) {
       indicators.add(
         Padding(
           padding: EdgeInsets.only(left: 4),
@@ -886,7 +900,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
     
     // 添加授权状态指示器
-    if (isAuthorized) {
+    // 使用更精确的字符串匹配，避免部分匹配问题
+    if (authorizationString.contains('AuthorizationStatus.authorized')) {
+      if (kDebugMode) {
+        print('ChatPage: Adding authorized indicator (green security icon)');
+      }
       indicators.add(
         Padding(
           padding: EdgeInsets.only(left: 4),
@@ -900,7 +918,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ),
       );
-    } else if (isUnauthorized) {
+    } else if (authorizationString.contains('AuthorizationStatus.unauthorized')) {
+      if (kDebugMode) {
+        print('ChatPage: Adding unauthorized indicator (orange security icon)');
+      }
       indicators.add(
         Padding(
           padding: EdgeInsets.only(left: 4),
@@ -914,6 +935,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           ),
         ),
       );
+    } else {
+      if (kDebugMode) {
+        print('ChatPage: Unknown authorization status: $authorizationString');
+      }
     }
     
     return Row(
