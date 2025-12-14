@@ -93,8 +93,8 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
           );
           if (null == response.data['activation']) {
             _logger.i('___INFO Device is now authorized');
-            // 只有在当前状态不是已授权状态时才发出新状态
-            if (state is! OtaActivatedState) {
+            // 如果forceUpdate为true，或者当前状态不是已授权状态时，才发出新状态
+            if (event.forceUpdate || state is! OtaActivatedState) {
               emit(OtaActivatedState());
             }
             // 取消定时检查

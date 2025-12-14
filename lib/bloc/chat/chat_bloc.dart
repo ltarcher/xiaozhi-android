@@ -62,6 +62,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   // 添加连接确认超时机制
   Timer? _connectionTimeoutTimer;
   static const Duration _connectionTimeout = Duration(seconds: 10);
+  
+  // 添加OtaBloc引用，用于在重连时检查授权状态
+  final OtaBloc _otaBloc;
 
   @override
   Future<void> close() {
@@ -261,6 +264,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     // 在重连时，将授权状态重置为未授权状态
     add(ChatUnauthorizedEvent());
     
+    // 触发OtaBloc的授权状态检查，强制更新状态
+    _logger.i('___INFO Triggering authorization check during reconnect with force update');
+    _otaBloc.add(OtaCheckAuthorizationEvent(forceUpdate: true));
+    
     add(ChatConnectionReconnectingEvent());
     
     _reconnectTimer = Timer(_reconnectDelay, () {
@@ -275,6 +282,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       // 在WebSocket连接时，将授权状态重置为未授权状态
       add(ChatUnauthorizedEvent());
+      
+      // 触发OtaBloc的授权状态检查，强制更新状态
+      _logger.i('___INFO Triggering authorization check during WebSocket connection with force update');
+      _otaBloc.add(OtaCheckAuthorizationEvent(forceUpdate: true));
       
       _websocketChannel = IOWebSocketChannel.connect(
         Uri.parse(
@@ -332,7 +343,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
   }
 
-  ChatBloc() : super(ChatInitialState(
+  ChatBloc({required OtaBloc otaBloc}) : _otaBloc = otaBloc, super(ChatInitialState(
     connectionStatus: WebSocketConnectionStatus.disconnected,
     authorizationStatus: AuthorizationStatus.unauthorized, // 默认设置为未授权，直到收到OtaBloc的授权状态
   )) {

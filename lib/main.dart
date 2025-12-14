@@ -38,7 +38,10 @@ void main() async {
           lazy: false,
         ),
         BlocProvider(
-          create: (context) => ChatBloc()..add(ChatInitialEvent()),
+          create: (context) {
+            final otaBloc = BlocProvider.of<OtaBloc>(context);
+            return ChatBloc(otaBloc: otaBloc)..add(ChatInitialEvent());
+          },
           lazy: false,
         ),
       ],
