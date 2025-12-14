@@ -445,7 +445,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   Text(AppLocalizations.of(context)!.xiaozhi),
                   SizedBox(width: 8),
                   // 添加连接状态和授权状态指示器
-                  _buildStatusIndicators(chatState.connectionStatus, chatState.authorizationStatus),
+                  _buildStatusIndicators(chatState.connectionStatus, chatState.authorizationStatus, chatState.recordingStatus, chatState.conversationStatus),
                 ],
               ),
               leading: Row(
@@ -867,15 +867,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
   
-  // 构建状态指示器（连接状态和授权状态）
-  Widget _buildStatusIndicators(dynamic connectionStatus, dynamic authorizationStatus) {
+  // 构建状态指示器（连接状态、授权状态、录音管理状态和对话状态）
+  Widget _buildStatusIndicators(dynamic connectionStatus, dynamic authorizationStatus, dynamic recordingStatus, dynamic conversationStatus) {
     // 使用字符串比较而不是枚举比较，以避免直接引用枚举类型
     String connectionString = connectionStatus.toString();
     String authorizationString = authorizationStatus.toString();
+    String recordingString = recordingStatus.toString();
+    String conversationString = conversationStatus.toString();
     
     // 添加调试日志
     if (kDebugMode) {
-      print('ChatPage: _buildStatusIndicators - connectionStatus: $connectionString, authorizationStatus: $authorizationString');
+      print('ChatPage: _buildStatusIndicators - connectionStatus: $connectionString, authorizationStatus: $authorizationString, recordingStatus: $recordingString, conversationStatus: $conversationString');
     }
     
     // 构建状态指示器列表
@@ -979,6 +981,110 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('ChatPage: Unknown authorization status: $authorizationString');
       }
+    }
+    
+    // 添加录音管理状态指示器
+    if (recordingString.contains('RecordingStatus.initialized')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '录音初始化',
+            child: Icon(
+              Icons.mic_none,
+              color: Colors.blue,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (recordingString.contains('RecordingStatus.recording')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '录音中',
+            child: Icon(
+              Icons.mic,
+              color: Colors.red,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (recordingString.contains('RecordingStatus.error')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '录音出错',
+            child: Icon(
+              Icons.mic_off,
+              color: Colors.red,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // 添加对话状态指示器
+    if (conversationString.contains('ConversationStatus.idle')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '休闲中',
+            child: Icon(
+              Icons.coffee,
+              color: Colors.grey,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (conversationString.contains('ConversationStatus.recording')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '录音中',
+            child: Icon(
+              Icons.record_voice_over,
+              color: Colors.red,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (conversationString.contains('ConversationStatus.playing')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '播放中',
+            child: Icon(
+              Icons.volume_up,
+              color: Colors.green,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (conversationString.contains('ConversationStatus.waiting')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '等待中',
+            child: Icon(
+              Icons.hourglass_empty,
+              color: Colors.orange,
+              size: 16,
+            ),
+          ),
+        ),
+      );
     }
     
     return Row(
