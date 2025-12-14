@@ -42,9 +42,20 @@ class CommonUtils {
       Uint8List encoded;
 
       if (pcmInt16.length < samplesPerFrame) {
+        // 不再使用零填充，而是复制现有数据并应用轻微放大
         final Int16List paddedData = Int16List(samplesPerFrame);
         for (int i = 0; i < pcmInt16.length; i++) {
-          paddedData[i] = pcmInt16[i];
+          // 轻微放大低音量信号
+          int sample = pcmInt16[i];
+          if (sample.abs() < 1000) {
+            sample = (sample * 1.2).round();
+          }
+          paddedData[i] = sample;
+        }
+        // 对于剩余部分，使用循环填充而不是零填充
+        for (int i = pcmInt16.length; i < samplesPerFrame; i++) {
+          int sourceIndex = i % pcmInt16.length;
+          paddedData[i] = paddedData[sourceIndex];
         }
 
         encoded = Uint8List.fromList(

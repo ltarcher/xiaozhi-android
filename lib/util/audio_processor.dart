@@ -18,8 +18,8 @@ class AudioProcessor {
   final int _sampleRate;
 
   AudioProcessor({
-    double energyThreshold = 0.01,
-    double smoothingFactor = 0.3,
+    double energyThreshold = 0.005, // 降低阈值，提高灵敏度
+    double smoothingFactor = 0.2, // 降低平滑因子，使响应更快
     int sampleRate = 16000,
   })  : _energyThreshold = energyThreshold,
         _smoothingFactor = smoothingFactor,
@@ -62,9 +62,10 @@ class AudioProcessor {
 
     // 将能量映射到 0.0 - 1.0 范围
     // 使用对数函数使低音量变化更敏感
-    double normalizedEnergy = min(1.0, energy / 0.5);
+    double normalizedEnergy = min(1.0, energy / 0.3); // 降低分母，提高灵敏度
     double logEnergy = log(normalizedEnergy + 1) / log(2);
-    return min(1.0, max(0.0, logEnergy));
+    // 增加放大系数，使口型变化更明显
+    return min(1.0, max(0.0, logEnergy * 1.5));
   }
 
   /// 平滑口型同步值，避免剧烈变化

@@ -48,6 +48,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   int _audioChannels = AudioParams.channels1;
 
   int _audioFrameDuration = AudioParams.frameDuration60;
+  
+  // 添加录音质量监控变量
+  int _silentFrameCount = 0;
+  int _totalFrameCount = 0;
+  static const int _maxSilentFrames = 10; // 连续静音帧数阈值
 
   final int _messageListPaginatedLimit = 20;
 
@@ -393,18 +398,72 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
 
       if (event is ChatStartListenEvent) {
+        // 添加调试日志
+        if (kDebugMode) {
+          print('ChatBloc: ChatStartListenEvent received, isRequestMicrophonePermission: ${event.isRequestMicrophonePermission}');
+          print('ChatBloc: Current state type: ${state.runtimeType}');
+          print('ChatBloc: Microphone permission granted: ${await Permission.microphone.isGranted}');
+        }
+        
+        // 如果已经是ChatNoMicrophonePermissionState，并且不是在请求权限，则不重复处理
+        if (state is ChatNoMicrophonePermissionState && !event.isRequestMicrophonePermission) {
+          if (kDebugMode) {
+            print('ChatBloc: Already in ChatNoMicrophonePermissionState and not requesting permission, skipping');
+          }
+          return;
+        }
+        
         if (!await Permission.microphone.isGranted) {
           if (!event.isRequestMicrophonePermission ||
               !await Permission.microphone.request().isGranted) {
+            if (kDebugMode) {
+              print('ChatBloc: Microphone permission denied, emitting ChatNoMicrophonePermissionState');
+            }
             emit(ChatNoMicrophonePermissionState(
               connectionStatus: state.connectionStatus,
               authorizationStatus: state.authorizationStatus,
               recordingStatus: state.recordingStatus, // 保持当前录音状态
               conversationStatus: state.conversationStatus, // 保持当前对话状态
             ));
+          } else {
+            if (kDebugMode) {
+              print('ChatBloc: Microphone permission granted after request');
+            }
+            // 权限已授予，确保返回到正常状态
+            if (state is ChatNoMicrophonePermissionState) {
+              if (kDebugMode) {
+                print('ChatBloc: Permission granted, transitioning back to ChatInitialState');
+              }
+              emit(ChatInitialState(
+                messageList: state.messageList,
+                connectionStatus: state.connectionStatus,
+                authorizationStatus: state.authorizationStatus,
+                recordingStatus: state.recordingStatus,
+                conversationStatus: state.conversationStatus,
+                lipSyncValue: state.lipSyncValue,
+              ));
+            }
           }
           if (!_isOnCall) {
             return;
+          }
+        } else {
+          if (kDebugMode) {
+            print('ChatBloc: Microphone permission already granted');
+          }
+          // 如果当前是ChatNoMicrophonePermissionState但权限已授予，则转换回正常状态
+          if (state is ChatNoMicrophonePermissionState) {
+            if (kDebugMode) {
+              print('ChatBloc: Permission already granted, transitioning back to ChatInitialState');
+            }
+            emit(ChatInitialState(
+              messageList: state.messageList,
+              connectionStatus: state.connectionStatus,
+              authorizationStatus: state.authorizationStatus,
+              recordingStatus: state.recordingStatus,
+              conversationStatus: state.conversationStatus,
+              lipSyncValue: state.lipSyncValue,
+            ));
           }
         }
 
@@ -454,15 +513,32 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           if (_websocketChannel != null &&
               data.isNotEmpty &&
               data.length % 2 == 0) {
-            Uint8List? opusData = await CommonUtils.pcmToOpus(
-              pcmData: data,
-              sampleRate: _audioSampleRate,
-              frameDuration: _audioFrameDuration,
-            );
-            if (null != opusData) {
-              // 再次检查 _websocketChannel 不为 null
-              if (_websocketChannel != null) {
-                _websocketChannel!.sink.add(opusData);
+            
+            _totalFrameCount++;
+            
+            // 添加音频质量检测
+            if (_isAudioDataValid(data)) {
+              _silentFrameCount = 0; // 重置静音计数器
+              
+              Uint8List? opusData = await CommonUtils.pcmToOpus(
+                pcmData: data,
+                sampleRate: _audioSampleRate,
+                frameDuration: _audioFrameDuration,
+              );
+              if (null != opusData) {
+                // 再次检查 _websocketChannel 不为 null
+                if (_websocketChannel != null) {
+                  _websocketChannel!.sink.add(opusData);
+                }
+              }
+            } else {
+              _silentFrameCount++;
+              _logger.w('___WARNING Audio data is too quiet or empty, skipping (silent frames: $_silentFrameCount/$_totalFrameCount)');
+              
+              // 如果连续静音帧过多，可能是录音问题
+              if (_silentFrameCount >= _maxSilentFrames) {
+                _logger.w('___WARNING Too many silent frames detected, possible recording issue');
+                // 可以在这里添加重新初始化录音的逻辑
               }
             }
           }
@@ -711,5 +787,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     double logRms = log(rms + 1) / log(2);
     // 限制在0.0-1.0范围内
     return min(1.0, max(0.0, logRms * 2));
+  }
+
+  /// 检查音频数据是否有效（不是静音）
+  bool _isAudioDataValid(Uint8List pcmData) {
+    if (pcmData.isEmpty) return false;
+    
+    // 计算音频能量
+    double sum = 0.0;
+    int sampleCount = 0;
+    int peakValue = 0;
+    
+    for (int i = 0; i < pcmData.length - 1; i += 2) {
+      // 小端序转换
+      int sample = (pcmData[i + 1] << 8) | (pcmData[i] & 0xff);
+      // 转换为有符号16位整数
+      if (sample > 32767) sample -= 65536;
+      
+      double normalizedSample = sample / 32768.0;
+      sum += normalizedSample * normalizedSample;
+      sampleCount++;
+      
+      // 记录峰值
+      if (sample.abs() > peakValue) {
+        peakValue = sample.abs();
+      }
+    }
+    
+    if (sampleCount == 0) return false;
+    
+    double rms = sum / sampleCount;
+    // 降低阈值，提高灵敏度
+    bool isValid = rms > 0.00005 || peakValue > 500;
+    
+    // 添加调试信息
+    if (kDebugMode) {
+      if (!isValid && _totalFrameCount % 50 == 0) {
+        print('ChatBloc: Audio quality check - RMS: $rms, Peak: $peakValue, Valid: $isValid');
+      }
+    }
+    
+    return isValid;
   }
 }

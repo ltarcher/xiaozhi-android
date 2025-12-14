@@ -45,6 +45,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showActivationDialog = false;
   String? _activationCode;
   String? _activationUrl;
+  
+  // 添加控制权限对话框显示的状态变量
+  bool _showingPermissionDialog = false;
 
   @override
   void initState() {
@@ -356,64 +359,98 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           }
           if (chatState is ChatNoMicrophonePermissionState) {
             if (kDebugMode) {
-              print('ChatPage: No microphone permission, showing dialog');
+              print('ChatPage: No microphone permission, checking if dialog should show');
             }
             clearUp();
 
-            showDialog(
-              context: context,
-              builder: (context) {
-                return AlertDialog(
-                  title: Text(AppLocalizations.of(context)!.requestPermission),
-                  content: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Icon(
-                        Icons.mic_rounded,
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        size: 60,
-                      ),
-                      Text(
-                        AppLocalizations.of(
-                          context,
-                        )!.requestPermissionDescription,
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+            // 添加一个标志来防止重复显示对话框
+            if (mounted && !_showingPermissionDialog) {
+              setState(() {
+                _showingPermissionDialog = true;
+              });
+              
+              showDialog(
+                context: context,
+                barrierDismissible: false, // 防止点击外部关闭对话框
+                builder: (context) {
+                  return AlertDialog(
+                    title: Text(AppLocalizations.of(context)!.requestPermission),
+                    content: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        TextButton(
-                          onPressed: () async {
-                            if (kDebugMode) {
-                              print('ChatPage: User rejected microphone permission');
-                            }
-                            Navigator.pop(context);
-                          },
-                          child: Text(AppLocalizations.of(context)!.reject),
+                        Icon(
+                          Icons.mic_rounded,
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          size: 60,
                         ),
-                        SizedBox(width: XConst.spacer),
-                        FilledButton(
-                          onPressed: () async {
-                            if (kDebugMode) {
-                              print('ChatPage: User granted microphone permission');
-                            }
-                            Navigator.pop(context);
-                            chatBloc.add(
-                              ChatStartListenEvent(
-                                isRequestMicrophonePermission: true,
-                              ),
-                            );
-                          },
-                          child: Text(AppLocalizations.of(context)!.agree),
+                        Text(
+                          AppLocalizations.of(
+                            context,
+                          )!.requestPermissionDescription,
                         ),
                       ],
                     ),
-                  ],
-                );
-              },
-            );
+                    actions: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () async {
+                              if (kDebugMode) {
+                                print('ChatPage: User rejected microphone permission');
+                              }
+                              Navigator.pop(context);
+                              // 对话框关闭后重置标志
+                              if (mounted) {
+                                setState(() {
+                                  _showingPermissionDialog = false;
+                                });
+                              }
+                            },
+                            child: Text(AppLocalizations.of(context)!.reject),
+                          ),
+                          SizedBox(width: XConst.spacer),
+                          FilledButton(
+                            onPressed: () async {
+                              if (kDebugMode) {
+                                print('ChatPage: User granted microphone permission');
+                              }
+                              Navigator.pop(context);
+                              // 对话框关闭后重置标志
+                              if (mounted) {
+                                setState(() {
+                                  _showingPermissionDialog = false;
+                                });
+                              }
+                              // 延迟一下再发送事件，确保状态已更新
+                              Future.delayed(Duration(milliseconds: 100), () {
+                                chatBloc.add(
+                                  ChatStartListenEvent(
+                                    isRequestMicrophonePermission: true,
+                                  ),
+                                );
+                              });
+                            },
+                            child: Text(AppLocalizations.of(context)!.agree),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ).then((_) {
+                // 对话框关闭后重置标志
+                if (mounted) {
+                  setState(() {
+                    _showingPermissionDialog = false;
+                  });
+                }
+              });
+            } else {
+              if (kDebugMode) {
+                print('ChatPage: Permission dialog already showing or widget not mounted, skipping');
+              }
+            }
           }
 
           if (chatState is ChatInitialState) {
