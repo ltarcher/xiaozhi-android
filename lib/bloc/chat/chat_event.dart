@@ -35,3 +35,8 @@ class ChatConnectionDisconnectedEvent extends ChatEvent {}
 class ChatConnectionReconnectingEvent extends ChatEvent {}
 
 class ChatConnectionErrorEvent extends ChatEvent {}
+
+// 授权状态事件
+class ChatUnauthorizedEvent extends ChatEvent {}
+
+class ChatAuthorizedEvent extends ChatEvent {}

@@ -2,11 +2,13 @@ part of 'chat_bloc.dart';
 
 // WebSocket连接状态枚举
 enum WebSocketConnectionStatus {
-  disconnected, // 未连接
-  connecting,   // 连接中
-  connected,    // 已连接
-  reconnecting, // 重连中
-  error,        // 连接错误
+  disconnected,   // 未连接
+  connecting,     // 连接中
+  connected,      // 已连接
+  reconnecting,   // 重连中
+  error,          // 连接错误
+  unauthorized,    // 未授权
+  authorized,     // 已授权
 }
 
 @immutable

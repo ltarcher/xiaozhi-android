@@ -19,6 +19,7 @@ import 'package:xiaozhi/model/websocket_message.dart';
 import 'package:xiaozhi/util/common_utils.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
+import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 
 part 'chat_event.dart';
 part 'chat_state.dart';
@@ -452,6 +453,36 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         } else if (state is ChatNoMicrophonePermissionState) {
           emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.error));
         }
+      }
+      
+      // 处理授权状态事件
+      if (event is ChatUnauthorizedEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.unauthorized));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.unauthorized));
+        }
+      }
+      
+      if (event is ChatAuthorizedEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.authorized));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.authorized));
+        }
+      }
+    });
+  }
+  
+  // 监听OtaBloc状态变化的方法
+  void listenToOtaStateChanges(Stream<OtaState> otaStateStream) {
+    otaStateStream.listen((otaState) {
+      if (otaState is OtaNotActivatedState) {
+        // 设备未授权
+        add(ChatUnauthorizedEvent());
+      } else if (otaState is OtaActivatedState) {
+        // 设备已授权
+        add(ChatAuthorizedEvent());
       }
     });
   }

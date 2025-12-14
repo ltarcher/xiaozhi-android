@@ -57,7 +57,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       onLipSyncUpdate: _onLipSyncUpdate,
     );
     
+    // 监听OtaBloc状态变化
+    _setupOtaStateListener();
+    
     super.initState();
+  }
+  
+  // 设置OtaBloc状态监听
+  void _setupOtaStateListener() {
+    final OtaBloc otaBloc = BlocProvider.of<OtaBloc>(context);
+    final ChatBloc chatBloc = BlocProvider.of<ChatBloc>(context);
+    
+    // 使用StreamSubscription监听OtaBloc状态变化
+    otaBloc.stream.listen((otaState) {
+      if (kDebugMode) {
+        print('ChatPage: OtaBloc state changed to: ${otaState.runtimeType}');
+      }
+      
+      if (otaState is OtaNotActivatedState) {
+        // 设备未授权
+        chatBloc.add(ChatUnauthorizedEvent());
+      } else if (otaState is OtaActivatedState) {
+        // 设备已授权
+        chatBloc.add(ChatAuthorizedEvent());
+      }
+    });
   }
 
   // 口型同步更新回调
@@ -816,7 +840,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 使用字符串比较而不是枚举比较，以避免直接引用枚举类型
     String statusString = status.toString();
     
-    if (statusString.contains('connected')) {
+    if (statusString.contains('authorized')) {
+      icon = Icons.verified_user;
+      color = Colors.green;
+      tooltip = '已授权';
+    } else if (statusString.contains('unauthorized')) {
+      icon = Icons.security;
+      color = Colors.orange;
+      tooltip = '未授权';
+    } else if (statusString.contains('connected')) {
       icon = Icons.cloud_done;
       color = Colors.green;
       tooltip = '已连接到服务器';
