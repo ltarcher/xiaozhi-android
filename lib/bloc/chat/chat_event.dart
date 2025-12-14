@@ -56,3 +56,10 @@ class ChatConversationRecordingEvent extends ChatEvent {}
 class ChatConversationPlayingEvent extends ChatEvent {}
 
 class ChatConversationWaitingEvent extends ChatEvent {}
+
+// 口型同步事件
+class ChatLipSyncUpdateEvent extends ChatEvent {
+  final double lipSyncValue;
+
+  ChatLipSyncUpdateEvent({required this.lipSyncValue});
+}

@@ -184,11 +184,8 @@ class LipSyncController {
   void _processLoop() async {
     if (!_isRunning) return;
 
-    // 模拟获取音频数据
-    List<double> dummyAudioData = _generateDummyAudioData();
-
-    // 处理音频数据
-    double lipSyncValue = _audioProcessor.processAudio(dummyAudioData);
+    // 默认情况下，如果没有外部音频数据输入，则使用静音
+    double lipSyncValue = 0.0;
 
     // 触发更新回调
     _onLipSyncUpdate?.call(lipSyncValue);
@@ -196,20 +193,6 @@ class LipSyncController {
     // 延迟后继续处理
     await Future.delayed(Duration(milliseconds: _updateInterval));
     _processLoop();
-  }
-
-  /// 生成模拟音频数据（实际应用中应从麦克风等源获取真实数据）
-  List<double> _generateDummyAudioData() {
-    Random random = Random();
-    List<double> data = [];
-    int sampleCount = 1024; // 模拟1024个采样点
-    
-    for (int i = 0; i < sampleCount; i++) {
-      // 生成随机音频样本（-1.0 到 1.0）
-      data.add((random.nextDouble() * 2.0) - 1.0);
-    }
-    
-    return data;
   }
 
   /// 处理真实的音频数据
