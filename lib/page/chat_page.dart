@@ -817,67 +817,107 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 构建连接状态指示器
   Widget _buildConnectionStatusIndicator(dynamic status) {
-    IconData icon;
-    Color color;
-    String tooltip;
-    
     // 使用字符串比较而不是枚举比较，以避免直接引用枚举类型
     String statusString = status.toString();
     
-    if (statusString.contains('authorized')) {
-      icon = Icons.verified_user;
-      color = Colors.green;
-      tooltip = '已授权';
-    } else if (statusString.contains('unauthorized')) {
-      icon = Icons.security;
-      color = Colors.orange;
-      tooltip = '未授权';
-    } else if (statusString.contains('connected')) {
-      icon = Icons.cloud_done;
-      color = Colors.green;
-      tooltip = '已连接到服务器';
+    // 分别判断连接状态和授权状态
+    IconData connectionIcon;
+    Color connectionColor;
+    String connectionTooltip;
+    
+    // 判断连接状态
+    if (statusString.contains('connected')) {
+      connectionIcon = Icons.cloud_done;
+      connectionColor = Colors.green;
+      connectionTooltip = '已连接到服务器';
     } else if (statusString.contains('connecting')) {
-      icon = Icons.cloud_sync;
-      color = Colors.orange;
-      tooltip = '正在连接服务器...';
+      connectionIcon = Icons.cloud_sync;
+      connectionColor = Colors.orange;
+      connectionTooltip = '正在连接服务器...';
     } else if (statusString.contains('reconnecting')) {
-      icon = Icons.cloud_sync;
-      color = Colors.orange;
-      tooltip = '正在重连服务器...';
+      connectionIcon = Icons.cloud_sync;
+      connectionColor = Colors.orange;
+      connectionTooltip = '正在重连服务器...';
     } else if (statusString.contains('disconnected')) {
-      icon = Icons.cloud_off;
-      color = Colors.red;
-      tooltip = '未连接到服务器';
+      connectionIcon = Icons.cloud_off;
+      connectionColor = Colors.red;
+      connectionTooltip = '未连接到服务器';
     } else {
       // error状态或其他未知状态
-      icon = Icons.error_outline;
-      color = Colors.red;
-      tooltip = '连接错误';
+      connectionIcon = Icons.error_outline;
+      connectionColor = Colors.red;
+      connectionTooltip = '连接错误';
     }
     
-    return Tooltip(
-      message: tooltip,
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 16,
-          ),
-          if (statusString.contains('reconnecting'))
-            Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
-                ),
-              ),
-            ),
-        ],
+    // 判断授权状态
+    bool isAuthorized = statusString.contains('authorized');
+    bool isUnauthorized = statusString.contains('unauthorized');
+    
+    // 构建状态指示器
+    List<Widget> indicators = [];
+    
+    // 添加连接状态指示器
+    indicators.add(
+      Tooltip(
+        message: connectionTooltip,
+        child: Icon(
+          connectionIcon,
+          color: connectionColor,
+          size: 16,
+        ),
       ),
+    );
+    
+    // 如果正在重连，添加进度指示器
+    if (statusString.contains('reconnecting')) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(connectionColor),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // 添加授权状态指示器
+    if (isAuthorized) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '已授权',
+            child: Icon(
+              Icons.verified_user,
+              color: Colors.green,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    } else if (isUnauthorized) {
+      indicators.add(
+        Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Tooltip(
+            message: '未授权',
+            child: Icon(
+              Icons.security,
+              color: Colors.orange,
+              size: 16,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return Row(
+      children: indicators,
     );
   }
 }
