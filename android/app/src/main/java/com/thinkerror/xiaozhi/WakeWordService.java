@@ -11,6 +11,9 @@ import android.util.Log;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.content.Context;
+import android.media.AudioManager;
+import android.media.AudioFocusRequest;
+import android.os.Build;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -31,6 +34,9 @@ public class WakeWordService extends Service implements RecognitionListener {
     private String wakeWord = "你好小清";
     private MethodChannel methodChannel;
     private SharedPreferences sharedPreferences;
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
+    private boolean hasAudioFocus = false;
     
     @Override
     public void onCreate() {
@@ -39,6 +45,9 @@ public class WakeWordService extends Service implements RecognitionListener {
         
         // 初始化SharedPreferences
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        
+        // 初始化AudioManager
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         
         // 初始化语音识别器
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
@@ -64,6 +73,7 @@ public class WakeWordService extends Service implements RecognitionListener {
         
         // 如果唤醒词功能已启用，开始监听
         if (isWakeWordEnabled) {
+            requestAudioFocus();
             startListening();
         }
         
@@ -82,6 +92,9 @@ public class WakeWordService extends Service implements RecognitionListener {
         
         // 停止监听
         stopListening();
+        
+        // 释放音频焦点
+        abandonAudioFocus();
         
         // 销毁语音识别器
         if (speechRecognizer != null) {
@@ -104,7 +117,7 @@ public class WakeWordService extends Service implements RecognitionListener {
      * 开始监听唤醒词
      */
     private void startListening() {
-        if (speechRecognizer != null && !isListening) {
+        if (speechRecognizer != null && !isListening && hasAudioFocus) {
             try {
                 speechRecognizer.startListening(recognizerIntent);
                 isListening = true;
@@ -113,6 +126,8 @@ public class WakeWordService extends Service implements RecognitionListener {
                 Log.e(TAG, "Error starting speech recognition", e);
                 isListening = false;
             }
+        } else if (!hasAudioFocus) {
+            Log.w(TAG, "Cannot start listening: No audio focus");
         }
     }
     
@@ -198,6 +213,103 @@ public class WakeWordService extends Service implements RecognitionListener {
             }
         }, 5000);
     }
+        
+        /**
+         * 请求音频焦点
+         */
+        private void requestAudioFocus() {
+            if (audioManager == null) {
+                Log.e(TAG, "AudioManager is null");
+                return;
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (audioFocusRequest == null) {
+                    audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                            .build();
+                }
+                
+                int result = audioManager.requestAudioFocus(audioFocusRequest);
+                if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    hasAudioFocus = true;
+                    Log.d(TAG, "Audio focus granted");
+                } else {
+                    hasAudioFocus = false;
+                    Log.w(TAG, "Audio focus denied");
+                }
+            } else {
+                // 兼容旧版本Android
+                int result = audioManager.requestAudioFocus(audioFocusChangeListener,
+                        AudioManager.STREAM_MUSIC,
+                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+                if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                    hasAudioFocus = true;
+                    Log.d(TAG, "Audio focus granted (legacy)");
+                } else {
+                    hasAudioFocus = false;
+                    Log.w(TAG, "Audio focus denied (legacy)");
+                }
+            }
+        }
+        
+        /**
+         * 释放音频焦点
+         */
+        private void abandonAudioFocus() {
+            if (audioManager == null) {
+                return;
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+                audioFocusRequest = null;
+            } else {
+                // 兼容旧版本Android
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
+            
+            hasAudioFocus = false;
+            Log.d(TAG, "Audio focus abandoned");
+        }
+        
+        /**
+         * 音频焦点变化监听器
+         */
+        private AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = new AudioManager.OnAudioFocusChangeListener() {
+            @Override
+            public void onAudioFocusChange(int focusChange) {
+                Log.d(TAG, "Audio focus changed: " + focusChange);
+                
+                switch (focusChange) {
+                    case AudioManager.AUDIOFOCUS_GAIN:
+                        hasAudioFocus = true;
+                        Log.d(TAG, "Audio focus gained");
+                        if (isWakeWordEnabled && !isListening) {
+                            startListening();
+                        }
+                        break;
+                        
+                    case AudioManager.AUDIOFOCUS_LOSS:
+                        hasAudioFocus = false;
+                        Log.d(TAG, "Audio focus lost");
+                        stopListening();
+                        break;
+                        
+                    case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                        hasAudioFocus = false;
+                        Log.d(TAG, "Audio focus lost transient");
+                        stopListening();
+                        break;
+                        
+                    case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                        // 可以继续监听，但降低优先级
+                        Log.d(TAG, "Audio focus lost transient can duck");
+                        // 这里可以添加降低监听灵敏度的逻辑
+                        break;
+                }
+            }
+        };
     
     // RecognitionListener接口实现
     @Override
