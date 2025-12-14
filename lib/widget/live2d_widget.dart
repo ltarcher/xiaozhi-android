@@ -202,7 +202,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       // 应用当前的按钮可见性状态
       await _applyVisibilityStates();
       
-      // 强制刷新UI
+      // 强制刷新UI，但只在必要时
       if (mounted) {
         if (kDebugMode) {
           print("Refreshing UI for Live2D instance: $_actualInstanceId");

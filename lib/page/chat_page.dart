@@ -40,6 +40,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加口型同步控制器
   late LipSyncController _lipSyncController;
+  
+  // 添加控制授权对话框显示的状态变量
+  bool _showActivationDialog = false;
+  String? _activationCode;
+  String? _activationUrl;
 
   @override
   void initState() {
@@ -292,103 +297,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           }
           chatBloc.add(ChatUnauthorizedEvent());
           
-          if (kDebugMode) {
-            print('ChatPage: Showing activation dialog with code: ${otaState.code}');
+          // 更新状态变量以显示授权对话框，而不是直接调用showDialog
+          if (mounted) {
+            setState(() {
+              _showActivationDialog = true;
+              _activationCode = otaState.code;
+              _activationUrl = otaState.url;
+            });
+            
+            if (kDebugMode) {
+              print('ChatPage: Updated state to show activation dialog with code: ${otaState.code}');
+            }
           }
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: Text(AppLocalizations.of(context)!.deviceActivation),
-                content: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.pin_rounded,
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      size: 60,
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          AppLocalizations.of(
-                            context,
-                          )!.deviceActivationDescription,
-                        ),
-                        SizedBox(height: XConst.spacer),
-                        Text(
-                          otaState.code,
-                          style: TextStyle(
-                            fontSize: XConst.spacer * 4,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (null != otaState.url)
-                          Text(
-                            otaState.url!,
-                            //text underline
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-                actions: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () async {
-                          if (kDebugMode) {
-                            print('ChatPage: User rejected activation');
-                          }
-                          Navigator.pop(context);
-                          // 用户拒绝激活后，确保ChatBloc知道设备未授权
-                          if (kDebugMode) {
-                            print('ChatPage: User rejected activation, sending ChatUnauthorizedEvent');
-                          }
-                          chatBloc.add(ChatUnauthorizedEvent());
-                        },
-                        child: Text(AppLocalizations.of(context)!.reject),
-                      ),
-                      SizedBox(width: XConst.spacer),
-                      FilledButton(
-                        onPressed: () async {
-                          if (kDebugMode) {
-                            print('ChatPage: User accepted activation, code copied and URL launched');
-                          }
-                          Navigator.pop(context);
-                          try {
-                            await Clipboard.setData(
-                              ClipboardData(text: otaState.code),
-                            );
-                            if (null != otaState.url) {
-                              await launchUrl(Uri.parse(otaState.url!));
-                            }
-                          } catch (e) {
-                            if (kDebugMode) {
-                              print('ChatPage: Error during activation process: $e');
-                            }
-                          }
-                        },
-                        child: Text(AppLocalizations.of(context)!.ok),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          );
         } else if (otaState is OtaActivatedState) {
           // 设备已授权
           if (kDebugMode) {
             print('ChatPage: OtaActivatedState detected, sending ChatAuthorizedEvent');
           }
           chatBloc.add(ChatAuthorizedEvent());
+          
+          // 隐藏授权对话框
+          if (mounted && _showActivationDialog) {
+            setState(() {
+              _showActivationDialog = false;
+              _activationCode = null;
+              _activationUrl = null;
+            });
+            
+            if (kDebugMode) {
+              print('ChatPage: Updated state to hide activation dialog');
+            }
+          }
         }
       },
       child: BlocConsumer(
@@ -819,6 +758,107 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 
                 // HoldToTalkWidget覆盖在页面上层，确保它始终可见
                 HoldToTalkWidget(key: holdToTalkKey),
+                
+                // 授权对话框作为页面的一部分，而不是弹窗
+                if (_showActivationDialog && _activationCode != null)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black54,
+                      child: Center(
+                        child: AlertDialog(
+                          title: Text(AppLocalizations.of(context)!.deviceActivation),
+                          content: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                Icons.pin_rounded,
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                size: 60,
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.deviceActivationDescription,
+                                  ),
+                                  SizedBox(height: XConst.spacer),
+                                  Text(
+                                    _activationCode!,
+                                    style: TextStyle(
+                                      fontSize: XConst.spacer * 4,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (null != _activationUrl)
+                                    Text(
+                                      _activationUrl!,
+                                      //text underline
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    if (kDebugMode) {
+                                      print('ChatPage: User rejected activation');
+                                    }
+                                    setState(() {
+                                      _showActivationDialog = false;
+                                      _activationCode = null;
+                                      _activationUrl = null;
+                                    });
+                                    // 用户拒绝激活后，确保ChatBloc知道设备未授权
+                                    if (kDebugMode) {
+                                      print('ChatPage: User rejected activation, sending ChatUnauthorizedEvent');
+                                    }
+                                    chatBloc.add(ChatUnauthorizedEvent());
+                                  },
+                                  child: Text(AppLocalizations.of(context)!.reject),
+                                ),
+                                SizedBox(width: XConst.spacer),
+                                FilledButton(
+                                  onPressed: () async {
+                                    if (kDebugMode) {
+                                      print('ChatPage: User accepted activation, code copied and URL launched');
+                                    }
+                                    setState(() {
+                                      _showActivationDialog = false;
+                                      _activationCode = null;
+                                      _activationUrl = null;
+                                    });
+                                    try {
+                                      await Clipboard.setData(
+                                        ClipboardData(text: _activationCode!),
+                                      );
+                                      if (null != _activationUrl) {
+                                        await launchUrl(Uri.parse(_activationUrl!));
+                                      }
+                                    } catch (e) {
+                                      if (kDebugMode) {
+                                        print('ChatPage: Error during activation process: $e');
+                                      }
+                                    }
+                                  },
+                                  child: Text(AppLocalizations.of(context)!.ok),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           );

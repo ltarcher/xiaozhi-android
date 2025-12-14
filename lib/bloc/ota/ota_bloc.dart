@@ -16,6 +16,9 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
   // 添加定时检查授权状态的定时器
   Timer? _authorizationCheckTimer;
   static const Duration _authorizationCheckInterval = Duration(seconds: 15); // 每15秒检查一次
+  
+  // 添加计数器，用于跟踪检查次数
+  int _authorizationCheckCount = 0;
 
   OtaBloc() : super(OtaActivatedState()) {
     _logger = Logger();
@@ -73,8 +76,9 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
       }
       
       if (event is OtaCheckAuthorizationEvent) {
+        _authorizationCheckCount++;
         try {
-          _logger.i('___INFO Checking authorization status...');
+          _logger.i('___INFO Checking authorization status... (attempt $_authorizationCheckCount)');
           Response response = await _dio.post(
             await SharedPreferencesUtil().getOtaUrl() ?? XConst.defaultOtaUrl,
             data: {
@@ -89,12 +93,15 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
           );
           if (null == response.data['activation']) {
             _logger.i('___INFO Device is now authorized');
-            emit(OtaActivatedState());
+            // 只有在当前状态不是已授权状态时才发出新状态
+            if (state is! OtaActivatedState) {
+              emit(OtaActivatedState());
+            }
             // 取消定时检查
             _cancelAuthorizationCheckTimer();
           } else {
             _logger.i('___INFO Device still not authorized');
-            // 保持未授权状态，继续定时检查
+            // 获取授权信息
             String? url;
             try {
               String domain =
@@ -108,12 +115,32 @@ class OtaBloc extends Bloc<OtaEvent, OtaState> {
                 url = 'http://$domain';
               }
             } catch (_) {}
-            emit(
-              OtaNotActivatedState(
-                code: response.data['activation']['code'],
-                url: url,
-              ),
-            );
+            
+            // 检查当前状态是否已经是相同的未授权状态
+            bool shouldEmitState = true;
+            if (state is OtaNotActivatedState) {
+              final currentState = state as OtaNotActivatedState;
+              // 如果授权码和URL都相同，则通常不需要更新状态
+              if (currentState.code == response.data['activation']['code'] &&
+                  currentState.url == url) {
+                // 但是每3次检查（约45秒）强制触发一次状态更新，以确保授权窗口能定期显示
+                if (_authorizationCheckCount % 3 != 0) {
+                  _logger.i('___INFO Authorization state unchanged, skipping state update (check #$_authorizationCheckCount)');
+                  shouldEmitState = false;
+                } else {
+                  _logger.i('___INFO Forcing state update to show authorization dialog (check #$_authorizationCheckCount)');
+                }
+              }
+            }
+            
+            if (shouldEmitState) {
+              emit(
+                OtaNotActivatedState(
+                  code: response.data['activation']['code'],
+                  url: url,
+                ),
+              );
+            }
           }
         } catch (e, s) {
           _logger.e('___ERROR OTA Check $e $s');
