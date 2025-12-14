@@ -37,7 +37,10 @@ void main() async {
           create: (context) => OtaBloc()..add(OtaInitialEvent()),
           lazy: false,
         ),
-        BlocProvider(create: (context) => ChatBloc()..add(ChatInitialEvent())),
+        BlocProvider(
+          create: (context) => ChatBloc()..add(ChatInitialEvent()),
+          lazy: false,
+        ),
       ],
       child: MaterialApp(
         theme: ThemeData(
