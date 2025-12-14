@@ -237,7 +237,7 @@ public class LAppSprite {
      * @param height 高さ
      */
     public void setWindowSize(int width, int height) {
-        Log.v(TAG, "setWindowSize: width=" + width + ", height=" + height);
+        //Log.v(TAG, "setWindowSize: width=" + width + ", height=" + height);
         maxWidth = width;
         maxHeight = height;
     }

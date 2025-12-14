@@ -1,6 +1,7 @@
 package io.flutter.app;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -387,15 +388,19 @@ public class MainActivity extends FlutterActivity {
                                         
                                         // 控制唤醒词服务
                                         if (enabled) {
+                                            Log.d(TAG, "Wake word is being enabled");
                                             // 检查录音权限
                                             if (checkRecordAudioPermission()) {
+                                                Log.d(TAG, "Record audio permission already granted, starting service");
                                                 startWakeWordService();
                                             } else {
+                                                Log.d(TAG, "Record audio permission not granted, requesting permission");
                                                 // 如果没有权限，请求权限
                                                 requestRecordAudioPermission();
                                                 // 权限请求后，服务将在onRequestPermissionsResult中启动
                                             }
                                         } else {
+                                            Log.d(TAG, "Wake word is being disabled, stopping service");
                                             stopWakeWordService();
                                         }
                                         
@@ -566,7 +571,13 @@ public class MainActivity extends FlutterActivity {
         try {
             Log.d(TAG, "Starting WakeWordService");
             Intent serviceIntent = new Intent(this, com.thinkerror.xiaozhi.WakeWordService.class);
-            startService(serviceIntent);
+            Log.d(TAG, "Service intent created: " + serviceIntent.toString());
+            ComponentName componentName = startService(serviceIntent);
+            if (componentName != null) {
+                Log.d(TAG, "WakeWordService started successfully: " + componentName.toString());
+            } else {
+                Log.w(TAG, "WakeWordService startService returned null");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error starting WakeWordService", e);
         }
@@ -579,7 +590,8 @@ public class MainActivity extends FlutterActivity {
         try {
             Log.d(TAG, "Stopping WakeWordService");
             Intent serviceIntent = new Intent(this, com.thinkerror.xiaozhi.WakeWordService.class);
-            stopService(serviceIntent);
+            boolean result = stopService(serviceIntent);
+            Log.d(TAG, "WakeWordService stop result: " + result);
         } catch (Exception e) {
             Log.e(TAG, "Error stopping WakeWordService", e);
         }
@@ -593,15 +605,21 @@ public class MainActivity extends FlutterActivity {
         // 检查是否需要启动唤醒词服务
         android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
         boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
+        Log.d(TAG, "MainActivity onStart - isWakeWordEnabled: " + isWakeWordEnabled);
         
         if (isWakeWordEnabled) {
+            Log.d(TAG, "Wake word is enabled in preferences");
             // 检查录音权限
             if (checkRecordAudioPermission()) {
+                Log.d(TAG, "Record audio permission granted, starting service");
                 startWakeWordService();
             } else {
+                Log.d(TAG, "Record audio permission not granted, requesting permission");
                 // 如果没有权限，请求权限
                 requestRecordAudioPermission();
             }
+        } else {
+            Log.d(TAG, "Wake word is disabled in preferences");
         }
     }
     
@@ -610,9 +628,12 @@ public class MainActivity extends FlutterActivity {
      */
     private boolean checkRecordAudioPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            boolean hasPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                     == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "checkRecordAudioPermission: " + hasPermission);
+            return hasPermission;
         }
+        Log.d(TAG, "checkRecordAudioPermission: Android version < M, assuming permission granted");
         return true; // Android 6.0以下版本默认有权限
     }
     
@@ -621,11 +642,14 @@ public class MainActivity extends FlutterActivity {
      */
     private void requestRecordAudioPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Log.d(TAG, "Requesting record audio permission");
             ActivityCompat.requestPermissions(
                     this,
                     new String[]{Manifest.permission.RECORD_AUDIO},
                     REQUEST_RECORD_AUDIO_PERMISSION
             );
+        } else {
+            Log.d(TAG, "Not requesting permission: Android version < M");
         }
     }
     
@@ -636,20 +660,29 @@ public class MainActivity extends FlutterActivity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         
+        Log.d(TAG, "onRequestPermissionsResult called - requestCode: " + requestCode);
+        
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "Record audio permission granted");
-                // 权限被授予，检查是否需要启动唤醒词服务
-                android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
-                boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
-                
-                if (isWakeWordEnabled) {
-                    startWakeWordService();
+            if (grantResults.length > 0) {
+                Log.d(TAG, "Permission result: " + grantResults[0]);
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "Record audio permission granted");
+                    // 权限被授予，检查是否需要启动唤醒词服务
+                    android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+                    boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
+                    Log.d(TAG, "isWakeWordEnabled from prefs: " + isWakeWordEnabled);
+                    
+                    if (isWakeWordEnabled) {
+                        Log.d(TAG, "Starting wake word service after permission granted");
+                        startWakeWordService();
+                    }
+                } else {
+                    Log.w(TAG, "Record audio permission denied");
+                    // 权限被拒绝，显示提示信息
+                    // 这里可以通过MethodChannel通知Flutter端
                 }
             } else {
-                Log.w(TAG, "Record audio permission denied");
-                // 权限被拒绝，显示提示信息
-                // 这里可以通过MethodChannel通知Flutter端
+                Log.w(TAG, "No permission results received");
             }
         }
     }

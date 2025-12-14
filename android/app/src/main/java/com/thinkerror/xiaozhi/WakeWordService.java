@@ -79,17 +79,27 @@ public class WakeWordService extends Service implements RecognitionListener {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "WakeWordService onStartCommand");
+        Log.d(TAG, "Intent: " + (intent != null ? intent.toString() : "null"));
+        Log.d(TAG, "Flags: " + flags + ", startId: " + startId);
         
         // 启动前台服务
-        startForeground(NOTIFICATION_ID, createNotification());
+        try {
+            startForeground(NOTIFICATION_ID, createNotification());
+            Log.d(TAG, "Foreground service started successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting foreground service", e);
+        }
         
         // 加载最新设置
         loadSettings();
         
         // 如果唤醒词功能已启用，开始监听
         if (isWakeWordEnabled) {
+            Log.d(TAG, "Wake word is enabled, requesting audio focus and starting listening");
             requestAudioFocus();
             startListening();
+        } else {
+            Log.d(TAG, "Wake word is disabled, not starting listening");
         }
         
         return START_STICKY; // 服务被杀死后自动重启
@@ -135,8 +145,12 @@ public class WakeWordService extends Service implements RecognitionListener {
      * 开始监听唤醒词
      */
     private void startListening() {
+        Log.d(TAG, "startListening called - speechRecognizer: " + (speechRecognizer != null ? "not null" : "null") +
+                  ", isListening: " + isListening + ", hasAudioFocus: " + hasAudioFocus);
+        
         if (speechRecognizer != null && !isListening && hasAudioFocus) {
             try {
+                Log.d(TAG, "Starting speech recognition with intent: " + recognizerIntent.toString());
                 speechRecognizer.startListening(recognizerIntent);
                 isListening = true;
                 Log.d(TAG, "Started listening for wake word: " + wakeWord);
@@ -144,8 +158,16 @@ public class WakeWordService extends Service implements RecognitionListener {
                 Log.e(TAG, "Error starting speech recognition", e);
                 isListening = false;
             }
-        } else if (!hasAudioFocus) {
-            Log.w(TAG, "Cannot start listening: No audio focus");
+        } else {
+            if (speechRecognizer == null) {
+                Log.w(TAG, "Cannot start listening: SpeechRecognizer is null");
+            }
+            if (isListening) {
+                Log.w(TAG, "Cannot start listening: Already listening");
+            }
+            if (!hasAudioFocus) {
+                Log.w(TAG, "Cannot start listening: No audio focus");
+            }
         }
     }
     
@@ -185,12 +207,17 @@ public class WakeWordService extends Service implements RecognitionListener {
      * 检测唤醒词
      */
     private boolean checkWakeWord(String result) {
+        Log.d(TAG, "checkWakeWord called - result: '" + result + "', wakeWord: '" + wakeWord + "'");
+        
         if (result == null || result.trim().isEmpty()) {
+            Log.d(TAG, "Result is null or empty, returning false");
             return false;
         }
         
         // 简单的字符串匹配，可以优化为更复杂的匹配算法
         boolean isWakeWord = result.contains(wakeWord);
+        
+        Log.d(TAG, "Contains check result: " + isWakeWord);
         
         if (isWakeWord) {
             Log.d(TAG, "Wake word detected: " + result);
@@ -236,19 +263,25 @@ public class WakeWordService extends Service implements RecognitionListener {
          * 请求音频焦点
          */
         private void requestAudioFocus() {
+            Log.d(TAG, "requestAudioFocus called - audioManager: " + (audioManager != null ? "not null" : "null") +
+                      ", SDK_INT: " + Build.VERSION.SDK_INT);
+            
             if (audioManager == null) {
                 Log.e(TAG, "AudioManager is null");
                 return;
             }
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Log.d(TAG, "Using new AudioFocusRequest API");
                 if (audioFocusRequest == null) {
                     audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                             .setOnAudioFocusChangeListener(audioFocusChangeListener)
                             .build();
+                    Log.d(TAG, "Created AudioFocusRequest");
                 }
                 
                 int result = audioManager.requestAudioFocus(audioFocusRequest);
+                Log.d(TAG, "Audio focus request result: " + result);
                 if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                     hasAudioFocus = true;
                     Log.d(TAG, "Audio focus granted");
@@ -257,10 +290,12 @@ public class WakeWordService extends Service implements RecognitionListener {
                     Log.w(TAG, "Audio focus denied");
                 }
             } else {
+                Log.d(TAG, "Using legacy AudioFocus API");
                 // 兼容旧版本Android
                 int result = audioManager.requestAudioFocus(audioFocusChangeListener,
                         AudioManager.STREAM_MUSIC,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+                Log.d(TAG, "Audio focus request result (legacy): " + result);
                 if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                     hasAudioFocus = true;
                     Log.d(TAG, "Audio focus granted (legacy)");
@@ -376,7 +411,7 @@ public class WakeWordService extends Service implements RecognitionListener {
     // RecognitionListener接口实现
     @Override
     public void onReadyForSpeech(Bundle params) {
-        Log.d(TAG, "Ready for speech");
+        Log.d(TAG, "Ready for speech - params: " + (params != null ? params.toString() : "null"));
     }
     
     @Override
@@ -401,7 +436,8 @@ public class WakeWordService extends Service implements RecognitionListener {
     
     @Override
     public void onError(int error) {
-        Log.e(TAG, "Speech recognition error: " + error);
+        String errorMsg = getErrorText(error);
+        Log.e(TAG, "Speech recognition error: " + error + " - " + errorMsg);
         
         // 根据错误类型决定是否重启监听
         switch (error) {
@@ -412,17 +448,49 @@ public class WakeWordService extends Service implements RecognitionListener {
             case SpeechRecognizer.ERROR_SERVER:
             case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
                 // 这些错误需要重启监听
+                Log.d(TAG, "Restarting listening due to error: " + error);
                 restartListening();
                 break;
             default:
                 // 其他错误暂时不重启
+                Log.d(TAG, "Not restarting listening for error: " + error);
                 break;
+        }
+    }
+    
+    /**
+     * 获取错误描述
+     */
+    private String getErrorText(int errorCode) {
+        switch (errorCode) {
+            case SpeechRecognizer.ERROR_AUDIO:
+                return "Audio recording error";
+            case SpeechRecognizer.ERROR_CLIENT:
+                return "Client side error";
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
+                return "Insufficient permissions";
+            case SpeechRecognizer.ERROR_NETWORK:
+                return "Network error";
+            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
+                return "Network timeout";
+            case SpeechRecognizer.ERROR_NO_MATCH:
+                return "No match";
+            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY:
+                return "Recognizer busy";
+            case SpeechRecognizer.ERROR_SERVER:
+                return "Error from server";
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+                return "No speech input";
+            default:
+                return "Didn't understand, please try again.";
         }
     }
     
     @Override
     public void onResults(Bundle results) {
         ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        Log.d(TAG, "onResults called - matches: " + (matches != null ? matches.toString() : "null"));
+        
         if (matches != null && !matches.isEmpty()) {
             String result = matches.get(0);
             Log.d(TAG, "Speech recognition result: " + result);
@@ -434,12 +502,15 @@ public class WakeWordService extends Service implements RecognitionListener {
         }
         
         // 没有检测到唤醒词，继续监听
+        Log.d(TAG, "No wake word detected, restarting listening");
         restartListening();
     }
     
     @Override
     public void onPartialResults(Bundle partialResults) {
         ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        Log.d(TAG, "onPartialResults called - matches: " + (matches != null ? matches.toString() : "null"));
+        
         if (matches != null && !matches.isEmpty()) {
             String result = matches.get(0);
             Log.d(TAG, "Partial speech recognition result: " + result);
