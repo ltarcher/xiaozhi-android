@@ -40,3 +40,19 @@ class ChatConnectionErrorEvent extends ChatEvent {}
 class ChatUnauthorizedEvent extends ChatEvent {}
 
 class ChatAuthorizedEvent extends ChatEvent {}
+
+// 录音管理状态事件
+class ChatRecordingInitializedEvent extends ChatEvent {}
+
+class ChatRecordingStartedEvent extends ChatEvent {}
+
+class ChatRecordingErrorEvent extends ChatEvent {}
+
+// 对话状态事件
+class ChatConversationIdleEvent extends ChatEvent {}
+
+class ChatConversationRecordingEvent extends ChatEvent {}
+
+class ChatConversationPlayingEvent extends ChatEvent {}
+
+class ChatConversationWaitingEvent extends ChatEvent {}

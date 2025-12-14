@@ -360,6 +360,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ChatBloc({required OtaBloc otaBloc}) : _otaBloc = otaBloc, super(ChatInitialState(
     connectionStatus: WebSocketConnectionStatus.disconnected,
     authorizationStatus: AuthorizationStatus.unauthorized, // 默认设置为未授权，直到收到OtaBloc的授权状态
+    recordingStatus: RecordingStatus.initialized, // 默认设置为录音初始化状态
+    conversationStatus: ConversationStatus.idle, // 默认设置为休闲状态
   )) {
     _logger = Logger();
     on<ChatEvent>((event, emit) async {
@@ -395,6 +397,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             messageList: messageList,
             connectionStatus: state.connectionStatus, // 保持当前连接状态
             authorizationStatus: state.authorizationStatus, // 保持当前授权状态，不覆盖
+            recordingStatus: state.recordingStatus, // 保持当前录音状态
+            conversationStatus: state.conversationStatus, // 保持当前对话状态
           ));
         } catch (e, s) {
           _logger.e('___ERROR ChatInitialEvent $e $s');
@@ -402,6 +406,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             messageList: [],
             connectionStatus: WebSocketConnectionStatus.error,
             authorizationStatus: state.authorizationStatus, // 保持当前授权状态，不覆盖
+            recordingStatus: state.recordingStatus, // 保持当前录音状态
+            conversationStatus: state.conversationStatus, // 保持当前对话状态
           ));
         }
       }
@@ -413,6 +419,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             emit(ChatNoMicrophonePermissionState(
               connectionStatus: state.connectionStatus,
               authorizationStatus: state.authorizationStatus,
+              recordingStatus: state.recordingStatus, // 保持当前录音状态
+              conversationStatus: state.conversationStatus, // 保持当前对话状态
             ));
           }
           if (!_isOnCall) {
@@ -479,6 +487,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             }
           }
         });
+        
+        // 录音开始，更新录音状态为录音中
+        add(ChatRecordingStartedEvent());
+        // 对话状态更新为录音中
+        add(ChatConversationRecordingEvent());
       }
 
       if (event is ChatOnMessageEvent) {
@@ -488,6 +501,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             messageList: [event.message, ...state.messageList],
             connectionStatus: state.connectionStatus, // 保持当前连接状态
             authorizationStatus: state.authorizationStatus, // 保持当前授权状态
+            recordingStatus: state.recordingStatus, // 保持当前录音状态
+            conversationStatus: state.conversationStatus, // 保持当前对话状态
           ),
         );
       }
@@ -505,6 +520,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             hasMore: messageList.length == _messageListPaginatedLimit,
             connectionStatus: state.connectionStatus, // 保持当前连接状态
             authorizationStatus: state.authorizationStatus, // 保持当前授权状态
+            recordingStatus: state.recordingStatus, // 保持当前录音状态
+            conversationStatus: state.conversationStatus, // 保持当前对话状态
           ),
         );
       }
@@ -513,6 +530,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (null != _audioRecorder && (await _audioRecorder!.isRecording())) {
           await _audioRecorder!.stop();
         }
+        // 录音停止，更新录音状态为初始化
+        add(ChatRecordingInitializedEvent());
+        // 对话状态更新为等待中
+        add(ChatConversationWaitingEvent());
       }
 
       if (event is ChatStartCallEvent) {
@@ -582,6 +603,71 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           emit((state as ChatInitialState).copyWith(authorizationStatus: AuthorizationStatus.authorized));
         } else if (state is ChatNoMicrophonePermissionState) {
           emit((state as ChatNoMicrophonePermissionState).copyWith(authorizationStatus: AuthorizationStatus.authorized));
+        }
+      }
+      
+      // 处理录音管理状态事件
+      if (event is ChatRecordingInitializedEvent) {
+        _logger.i('___INFO ChatRecordingInitializedEvent received, updating recording status to initialized');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(recordingStatus: RecordingStatus.initialized));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(recordingStatus: RecordingStatus.initialized));
+        }
+      }
+      
+      if (event is ChatRecordingStartedEvent) {
+        _logger.i('___INFO ChatRecordingStartedEvent received, updating recording status to recording');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(recordingStatus: RecordingStatus.recording));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(recordingStatus: RecordingStatus.recording));
+        }
+      }
+      
+      if (event is ChatRecordingErrorEvent) {
+        _logger.i('___INFO ChatRecordingErrorEvent received, updating recording status to error');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(recordingStatus: RecordingStatus.error));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(recordingStatus: RecordingStatus.error));
+        }
+      }
+      
+      // 处理对话状态事件
+      if (event is ChatConversationIdleEvent) {
+        _logger.i('___INFO ChatConversationIdleEvent received, updating conversation status to idle');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(conversationStatus: ConversationStatus.idle));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(conversationStatus: ConversationStatus.idle));
+        }
+      }
+      
+      if (event is ChatConversationRecordingEvent) {
+        _logger.i('___INFO ChatConversationRecordingEvent received, updating conversation status to recording');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(conversationStatus: ConversationStatus.recording));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(conversationStatus: ConversationStatus.recording));
+        }
+      }
+      
+      if (event is ChatConversationPlayingEvent) {
+        _logger.i('___INFO ChatConversationPlayingEvent received, updating conversation status to playing');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(conversationStatus: ConversationStatus.playing));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(conversationStatus: ConversationStatus.playing));
+        }
+      }
+      
+      if (event is ChatConversationWaitingEvent) {
+        _logger.i('___INFO ChatConversationWaitingEvent received, updating conversation status to waiting');
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(conversationStatus: ConversationStatus.waiting));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(conversationStatus: ConversationStatus.waiting));
         }
       }
     });
