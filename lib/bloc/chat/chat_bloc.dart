@@ -473,17 +473,4 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
     });
   }
-  
-  // 监听OtaBloc状态变化的方法
-  void listenToOtaStateChanges(Stream<OtaState> otaStateStream) {
-    otaStateStream.listen((otaState) {
-      if (otaState is OtaNotActivatedState) {
-        // 设备未授权
-        add(ChatUnauthorizedEvent());
-      } else if (otaState is OtaActivatedState) {
-        // 设备已授权
-        add(ChatAuthorizedEvent());
-      }
-    });
-  }
 }
