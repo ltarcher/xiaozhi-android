@@ -27,8 +27,9 @@ public class AudioPlayerHelper {
     private Context context;
     private AudioTrack audioTrack;
     private Thread playbackThread;
-    private boolean isPlaying = false;
-    private boolean isPaused = false;
+    private volatile boolean isPlaying = false;
+    private volatile boolean isPaused = false;
+    private volatile boolean isStopped = false;
     
     // 音频参数
     private int sampleRate = 16000;
@@ -36,10 +37,18 @@ public class AudioPlayerHelper {
     private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private int bufferSize;
     
+    // 音频缓冲队列
+    private java.util.concurrent.BlockingQueue<byte[]> audioQueue;
+    
+    // 对象锁用于线程同步
+    private final Object lock = new Object();
+    
     public AudioPlayerHelper(Context context) {
         this.context = context;
         this.bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+        this.audioQueue = new java.util.concurrent.LinkedBlockingQueue<>();
         initializeAudioTrack();
+        startPlaybackThread();
     }
     
     /**
@@ -109,6 +118,76 @@ public class AudioPlayerHelper {
     }
     
     /**
+     * 启动播放线程
+     */
+    private void startPlaybackThread() {
+        if (playbackThread != null && playbackThread.isAlive()) {
+            return;
+        }
+        
+        isStopped = false;
+        playbackThread = new Thread(() -> {
+            try {
+                if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
+                    Log.e(TAG, "AudioTrack is not properly initialized");
+                    return;
+                }
+                
+                audioTrack.play();
+                Log.d(TAG, "Playback thread started");
+                
+                while (!isStopped) {
+                    try {
+                        // 从队列获取音频数据，最多等待100ms
+                        byte[] audioData = audioQueue.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        
+                        if (audioData == null) {
+                            // 没有数据时继续等待
+                            continue;
+                        }
+                        
+                        if (isPaused) {
+                            // 暂停时将数据重新放回队列
+                            audioQueue.offer(audioData);
+                            Thread.sleep(50);
+                            continue;
+                        }
+                        
+                        // 写入音频数据
+                        int bytesWritten = audioTrack.write(audioData, 0, audioData.length);
+                        if (bytesWritten < 0) {
+                            Log.e(TAG, "AudioTrack write error: " + bytesWritten);
+                        } else {
+                            Log.d(TAG, "Playing PCM stream, size: " + audioData.length);
+                        }
+                        
+                    } catch (InterruptedException e) {
+                        Log.d(TAG, "Playback thread interrupted");
+                        break;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in playback thread: " + e.getMessage(), e);
+                    }
+                }
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Fatal error in playback thread: " + e.getMessage(), e);
+            } finally {
+                try {
+                    if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
+                        audioTrack.stop();
+                        audioTrack.flush();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error stopping AudioTrack: " + e.getMessage(), e);
+                }
+                Log.d(TAG, "Playback thread ended");
+            }
+        });
+        
+        playbackThread.start();
+    }
+    
+    /**
      * 播放PCM音频数据流
      * 这是最核心的音频播放方法，用于实时音频播放
      */
@@ -118,54 +197,25 @@ public class AudioPlayerHelper {
             return;
         }
         
-        playbackThread = new Thread(() -> {
-            try {
-                if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
-                    Log.e(TAG, "AudioTrack is not properly initialized");
-                    return;
-                }
-                
-                isPlaying = true;
-                audioTrack.play();
-                
-                // 分块写入音频数据
-                int chunkSize = Math.min(bufferSize, pcmData.length);
-                int offset = 0;
-                
-                while (offset < pcmData.length && isPlaying) {
-                    int remainingBytes = pcmData.length - offset;
-                    int bytesToWrite = Math.min(chunkSize, remainingBytes);
-                    
-                    if (isPaused) {
-                        Thread.sleep(50); // 暂停时等待
-                        continue;
-                    }
-                    
-                    int bytesWritten = audioTrack.write(pcmData, offset, bytesToWrite);
-                    if (bytesWritten < 0) {
-                        Log.e(TAG, "AudioTrack write error: " + bytesWritten);
-                        break;
-                    }
-                    
-                    offset += bytesWritten;
-                    
-                    // 避免CPU占用过高
-                    Thread.sleep(1);
-                }
-                
-                // 等待播放完成
-                if (isPlaying) {
-                    Thread.sleep(100);
-                }
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error during PCM stream playback: " + e.getMessage(), e);
-            } finally {
-                stop();
-            }
-        });
+        if (pcmData == null || pcmData.length == 0) {
+            Log.w(TAG, "Empty PCM data received");
+            return;
+        }
         
-        playbackThread.start();
+        synchronized (lock) {
+            // 清空队列中的旧数据，避免延迟
+            audioQueue.clear();
+            
+            // 将新数据加入队列
+            audioQueue.offer(pcmData.clone());
+            
+            // 如果播放线程已停止，重新启动
+            if (isStopped || (playbackThread != null && !playbackThread.isAlive())) {
+                startPlaybackThread();
+            }
+            
+            isPlaying = true;
+        }
     }
     
     /**
@@ -211,9 +261,15 @@ public class AudioPlayerHelper {
      * 暂停播放
      */
     public void pause() {
-        isPaused = true;
-        if (audioTrack != null && audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
-            audioTrack.pause();
+        synchronized (lock) {
+            isPaused = true;
+            if (audioTrack != null && audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
+                try {
+                    audioTrack.pause();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error pausing AudioTrack: " + e.getMessage(), e);
+                }
+            }
         }
     }
     
@@ -221,9 +277,21 @@ public class AudioPlayerHelper {
      * 恢复播放
      */
     public void resume() {
-        isPaused = false;
-        if (audioTrack != null && audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
-            audioTrack.play();
+        synchronized (lock) {
+            isPaused = false;
+            isStopped = false;
+            if (audioTrack != null && audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
+                try {
+                    audioTrack.play();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error resuming AudioTrack: " + e.getMessage(), e);
+                }
+            }
+            
+            // 如果播放线程已停止，重新启动
+            if (playbackThread == null || !playbackThread.isAlive()) {
+                startPlaybackThread();
+            }
         }
     }
     
@@ -231,24 +299,20 @@ public class AudioPlayerHelper {
      * 停止播放
      */
     public void stop() {
-        isPlaying = false;
-        isPaused = false;
-        
-        if (audioTrack != null) {
-            try {
-                if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
-                    audioTrack.stop();
-                    audioTrack.flush();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error stopping AudioTrack: " + e.getMessage(), e);
-            }
+        synchronized (lock) {
+            isPlaying = false;
+            isPaused = false;
+            isStopped = true;
+            
+            // 清空音频队列
+            audioQueue.clear();
         }
         
+        // 中断播放线程
         if (playbackThread != null && playbackThread.isAlive()) {
             try {
                 playbackThread.interrupt();
-                playbackThread.join(1000); // 最多等待1秒
+                playbackThread.join(500); // 最多等待500ms
             } catch (InterruptedException e) {
                 Log.w(TAG, "Interrupted while waiting for playback thread to finish");
             }
@@ -261,13 +325,20 @@ public class AudioPlayerHelper {
     public void release() {
         stop();
         
-        if (audioTrack != null) {
-            try {
-                audioTrack.release();
-            } catch (Exception e) {
-                Log.e(TAG, "Error releasing AudioTrack: " + e.getMessage(), e);
+        synchronized (lock) {
+            if (audioTrack != null) {
+                try {
+                    if (audioTrack.getState() == AudioTrack.STATE_INITIALIZED) {
+                        audioTrack.release();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error releasing AudioTrack: " + e.getMessage(), e);
+                }
+                audioTrack = null;
             }
-            audioTrack = null;
+            
+            // 清空队列
+            audioQueue.clear();
         }
         
         Log.d(TAG, "AudioPlayerHelper resources released");
@@ -277,7 +348,7 @@ public class AudioPlayerHelper {
      * 检查是否正在播放
      */
     public boolean isPlaying() {
-        return isPlaying && !isPaused;
+        return isPlaying && !isPaused && !isStopped;
     }
     
     /**
