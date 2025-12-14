@@ -66,6 +66,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   void _initWebsocketListener() {
+    // 确保 _websocketChannel 不为 null
+    if (_websocketChannel == null) {
+      _logger.e('___ERROR _websocketChannel is null');
+      return;
+    }
+    
     _websocketStreamSubscription = _websocketChannel!.stream.listen(
       (data) async {
         try {
@@ -120,18 +126,37 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               add(ChatStartListenEvent());
             }
           } else if (data is Uint8List) {
-            if (false == _audioPlayer!.isOpen()) {
+            // 确保 _audioPlayer 不为 null
+            if (_audioPlayer == null) {
+              _logger.e('___ERROR _audioPlayer is null');
+              return;
+            }
+            
+            // 检查播放器是否已打开
+            if (!_audioPlayer!.isOpen()) {
               await _audioPlayer!.openPlayer();
             }
 
+            // 解码 Opus 数据
+            final pcmData = await CommonUtils.opusToPcm(
+              opusData: data,
+              sampleRate: _audioSampleRate,
+              channels: _audioChannels,
+            );
+            
+            // 确保解码成功
+            if (pcmData == null) {
+              _logger.e('___ERROR Failed to decode Opus data');
+              return;
+            }
+
             if (_audioPlayer!.isPlaying) {
-              _audioPlayer!.uint8ListSink!.add(
-                (await CommonUtils.opusToPcm(
-                  opusData: data,
-                  sampleRate: _audioSampleRate,
-                  channels: _audioChannels,
-                ))!,
-              );
+              // 确保 uint8ListSink 不为 null
+              if (_audioPlayer!.uint8ListSink == null) {
+                _logger.e('___ERROR uint8ListSink is null');
+                return;
+              }
+              _audioPlayer!.uint8ListSink!.add(pcmData);
             } else {
               await _audioPlayer!.startPlayerFromStream(
                 codec: Codec.pcm16,
@@ -225,6 +250,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _initWebsocketListener();
         }
 
+        // 确保 _websocketChannel 不为 null
+        if (_websocketChannel == null) {
+          _logger.e('___ERROR _websocketChannel is null');
+          return;
+        }
+        
         _websocketChannel!.sink.add(
           jsonEncode(
             WebsocketMessage(
@@ -236,6 +267,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ),
         );
 
+        // 确保 _audioRecorder 不为 null
+        if (_audioRecorder == null) {
+          _logger.e('___ERROR _audioRecorder is null');
+          return;
+        }
+        
         _audioRecorderStream = (await _audioRecorder!.startStream(
           RecordConfig(
             encoder: AudioEncoder.pcm16bits,
@@ -261,7 +298,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               frameDuration: _audioFrameDuration,
             );
             if (null != opusData) {
-              _websocketChannel!.sink.add(opusData);
+              // 再次检查 _websocketChannel 不为 null
+              if (_websocketChannel != null) {
+                _websocketChannel!.sink.add(opusData);
+              }
             }
           }
         });
