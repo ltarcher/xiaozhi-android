@@ -213,12 +213,12 @@ public class LAppDefine {
     }
 
     /**
-     * MOC3の整合性を検証するかどうか。有効ならtrue。
+     * 是否验证MOC3的一致性。有效时为true。
      */
     public static final boolean MOC_CONSISTENCY_VALIDATION_ENABLE = true;
 
     /**
-     * motion3.jsonの整合性を検証するかどうか。有効ならtrue。
+     * 是否验证motion3.json的一致性。有效时为true。
      */
     public static final boolean MOTION_CONSISTENCY_VALIDATION_ENABLE = true;
 

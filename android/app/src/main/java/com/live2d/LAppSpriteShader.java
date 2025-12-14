@@ -6,11 +6,11 @@ import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.utils.CubismDebug;
 
 /**
- * スプライト用のシェーダー設定を保持するクラス
+ * 用于保存精灵用着色器设置的类
  */
 public class LAppSpriteShader implements AutoCloseable {
     /**
-     * コンストラクタ
+     * 构造函数
      */
     public LAppSpriteShader() {
         programId = createShader();
@@ -22,28 +22,28 @@ public class LAppSpriteShader implements AutoCloseable {
     }
 
     /**
-     * シェーダーIDを取得する。
+     * 获取着色器ID。
      *
-     * @return シェーダーID
+     * @return 着色器ID
      */
     public int getShaderId() {
         return programId;
     }
 
     /**
-     * シェーダーを作成する。
+     * 创建着色器。
      *
-     * @return シェーダーID。正常に作成できなかった場合は0を返す。
+     * @return 着色器ID。无法正常创建时返回0。
      */
     private int createShader() {
-        // シェーダーのパスの作成
+        // 创建着色器路径
         String vertShaderFile = LAppDefine.ResourcePath.SHADER_ROOT.getPath();
         vertShaderFile += ("/" + LAppDefine.ResourcePath.VERT_SHADER.getPath());
 
         String fragShaderFile = LAppDefine.ResourcePath.SHADER_ROOT.getPath();
         fragShaderFile += ("/" + LAppDefine.ResourcePath.FRAG_SHADER.getPath());
 
-        // シェーダーのコンパイル
+        // 编译着色器
         int vertexShaderId = compileShader(vertShaderFile, GLES20.GL_VERTEX_SHADER);
         int fragmentShaderId = compileShader(fragShaderFile, GLES20.GL_FRAGMENT_SHADER);
 
@@ -51,17 +51,17 @@ public class LAppSpriteShader implements AutoCloseable {
             return 0;
         }
 
-        // プログラムオブジェクトの作成
+        // 创建程序对象
         int programId = GLES20.glCreateProgram();
 
-        // Programのシェーダーを設定
+        // 设置程序的着色器
         GLES20.glAttachShader(programId, vertexShaderId);
         GLES20.glAttachShader(programId, fragmentShaderId);
 
         GLES20.glLinkProgram(programId);
         GLES20.glUseProgram(programId);
 
-        // 不要になったシェーダーオブジェクトの削除
+        // 删除不再需要的着色器对象
         GLES20.glDeleteShader(vertexShaderId);
         GLES20.glDeleteShader(fragmentShaderId);
 
@@ -69,10 +69,10 @@ public class LAppSpriteShader implements AutoCloseable {
     }
 
     /**
-     * CreateShader内部関数。エラーチェックを行う。
+     * CreateShader内部函数。进行错误检查。
      *
-     * @param shaderId シェーダーID
-     * @return エラーチェック結果。trueの場合、エラーなし。
+     * @param shaderId 着色器ID
+     * @return 错误检查结果。true时表示没有错误。
      */
     private boolean checkShader(int shaderId) {
         int[] logLength = new int[1];
@@ -96,18 +96,18 @@ public class LAppSpriteShader implements AutoCloseable {
 
 
     /**
-     * シェーダーをコンパイルする。
-     * コンパイルに成功したら0を返す。
+     * 编译着色器。
+     * 编译成功时返回0。
      *
-     * @param fileName シェーダーファイル名
-     * @param shaderType 作成するシェーダーの種類
-     * @return シェーダーID。正常に作成できなかった場合は0を返す。
+     * @param fileName 着色器文件名
+     * @param shaderType 要创建的着色器类型
+     * @return 着色器ID。无法正常创建时返回0。
      */
     private int compileShader(String fileName, int shaderType) {
-        // ファイル読み込み
+        // 文件读取
         byte[] shaderBuffer = LAppPal.loadFileAsBytes(fileName);
 
-        // コンパイル
+        // 编译
         int shaderId = GLES20.glCreateShader(shaderType);
         GLES20.glShaderSource(shaderId, new String(shaderBuffer));
         GLES20.glCompileShader(shaderId);
@@ -119,5 +119,5 @@ public class LAppSpriteShader implements AutoCloseable {
         return shaderId;
     }
 
-    private final int programId; // シェーダーID
+    private final int programId; // 着色器ID
 }
