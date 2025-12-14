@@ -258,6 +258,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _reconnectAttempts++;
     _logger.i('___INFO Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
     
+    // 在重连时，将授权状态重置为未授权状态
+    add(ChatUnauthorizedEvent());
+    
     add(ChatConnectionReconnectingEvent());
     
     _reconnectTimer = Timer(_reconnectDelay, () {
@@ -269,6 +272,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _connectWebSocket() async {
     try {
       add(ChatConnectionConnectingEvent());
+      
+      // 在WebSocket连接时，将授权状态重置为未授权状态
+      add(ChatUnauthorizedEvent());
       
       _websocketChannel = IOWebSocketChannel.connect(
         Uri.parse(
