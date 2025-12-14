@@ -57,31 +57,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       onLipSyncUpdate: _onLipSyncUpdate,
     );
     
-    // 监听OtaBloc状态变化
-    _setupOtaStateListener();
-    
     super.initState();
-  }
-  
-  // 设置OtaBloc状态监听
-  void _setupOtaStateListener() {
-    final OtaBloc otaBloc = BlocProvider.of<OtaBloc>(context);
-    final ChatBloc chatBloc = BlocProvider.of<ChatBloc>(context);
-    
-    // 使用StreamSubscription监听OtaBloc状态变化
-    otaBloc.stream.listen((otaState) {
-      if (kDebugMode) {
-        print('ChatPage: OtaBloc state changed to: ${otaState.runtimeType}');
-      }
-      
-      if (otaState is OtaNotActivatedState) {
-        // 设备未授权
-        chatBloc.add(ChatUnauthorizedEvent());
-      } else if (otaState is OtaActivatedState) {
-        // 设备已授权
-        chatBloc.add(ChatAuthorizedEvent());
-      }
-    });
   }
 
   // 口型同步更新回调
@@ -307,7 +283,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         if (kDebugMode) {
           print('ChatPage: OtaBloc state changed to: ${otaState.runtimeType}');
         }
+        
+        // 处理授权状态变化
         if (otaState is OtaNotActivatedState) {
+          // 设备未授权
+          chatBloc.add(ChatUnauthorizedEvent());
+          
           if (kDebugMode) {
             print('ChatPage: Showing activation dialog with code: ${otaState.code}');
           }
@@ -394,6 +375,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               );
             },
           );
+        } else if (otaState is OtaActivatedState) {
+          // 设备已授权
+          chatBloc.add(ChatAuthorizedEvent());
         }
       },
       child: BlocConsumer(
