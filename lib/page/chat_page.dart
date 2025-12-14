@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -58,6 +60,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     
     super.initState();
+    
+    // 延迟设置ChatBloc的口型同步回调，确保ChatBloc已初始化
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // 设置ChatBloc的口型同步回调
+        chatBloc.setLipSyncCallback(_onLipSyncUpdate);
+        if (kDebugMode) {
+          print('ChatPage: LipSync callback set on ChatBloc');
+        }
+      }
+    });
   }
 
   // 口型同步更新回调
@@ -471,6 +484,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 if (kDebugMode) {
                   print('ChatPage: Live2D widget state not available for triggering expression');
                 }
+              }
+              
+              // 如果收到的是非自己发送的消息，启动口型同步
+              if (!chatState.messageList.first.sendByMe) {
+                if (kDebugMode) {
+                  print('ChatPage: Received message from other user, starting lip sync');
+                }
+                // 启动口型同步控制器
+                _lipSyncController.start();
+                
+                // 设置一个定时器，在预计的播放时间后停止口型同步
+                // 这里使用一个简单的估算：每秒约3-4个字符
+                int estimatedDuration = (chatState.messageList.first.text.length * 250).clamp(1000, 10000);
+                Timer(Duration(milliseconds: estimatedDuration), () {
+                  if (mounted) {
+                    _lipSyncController.stop();
+                    if (kDebugMode) {
+                      print('ChatPage: Stopped lip sync after estimated duration');
+                    }
+                  }
+                });
               }
             }
           }

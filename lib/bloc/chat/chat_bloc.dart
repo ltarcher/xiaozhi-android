@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:typed_data';
+import 'dart:math';
 
 import 'package:bloc/bloc.dart';
 import 'package:meta/meta.dart';
@@ -19,6 +21,7 @@ import 'package:xiaozhi/model/websocket_message.dart';
 import 'package:xiaozhi/util/common_utils.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/util/storage_util.dart';
+import 'package:xiaozhi/util/audio_processor.dart';
 
 part 'chat_event.dart';
 part 'chat_state.dart';
@@ -51,7 +54,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   int _messageListPaginatedOffset = 0;
 
   bool _isOnCall = false;
+  
+  // 添加音频处理器
+  late AudioProcessor _audioProcessor;
+  
+  // 添加口型同步值回调
+  Function(double)? _onLipSyncUpdate;
 
+  // 设置口型同步回调
+  void setLipSyncCallback(Function(double) onLipSyncUpdate) {
+    _onLipSyncUpdate = onLipSyncUpdate;
+  }
+  
   @override
   Future<void> close() {
     if (null != _websocketStreamSubscription) {
@@ -120,26 +134,33 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               add(ChatStartListenEvent());
             }
           } else if (data is Uint8List) {
-            if (false == _audioPlayer!.isOpen()) {
-              await _audioPlayer!.openPlayer();
-            }
+            // 将opus数据转换为PCM数据
+            Uint8List? pcmData = await CommonUtils.opusToPcm(
+              opusData: data,
+              sampleRate: _audioSampleRate,
+              channels: _audioChannels,
+            );
+            
+            if (pcmData != null) {
+              // 处理音频数据以计算口型同步值
+              _processAudioForLipSync(pcmData);
+              
+              // 播放音频
+              if (false == _audioPlayer!.isOpen()) {
+                await _audioPlayer!.openPlayer();
+              }
 
-            if (_audioPlayer!.isPlaying) {
-              _audioPlayer!.uint8ListSink!.add(
-                (await CommonUtils.opusToPcm(
-                  opusData: data,
+              if (_audioPlayer!.isPlaying) {
+                _audioPlayer!.uint8ListSink!.add(pcmData);
+              } else {
+                await _audioPlayer!.startPlayerFromStream(
+                  codec: Codec.pcm16,
+                  interleaved: false,
+                  numChannels: _audioChannels,
                   sampleRate: _audioSampleRate,
-                  channels: _audioChannels,
-                ))!,
-              );
-            } else {
-              await _audioPlayer!.startPlayerFromStream(
-                codec: Codec.pcm16,
-                interleaved: false,
-                numChannels: _audioChannels,
-                sampleRate: _audioSampleRate,
-                bufferSize: 1024,
-              );
+                  bufferSize: 1024,
+                );
+              }
             }
           }
         } catch (e, s) {
@@ -158,9 +179,42 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
     );
   }
+  
+  // 处理音频数据以计算口型同步值
+  void _processAudioForLipSync(Uint8List pcmData) {
+    try {
+      // 将PCM字节数据转换为双精度浮点数列表
+      List<double> audioSamples = _convertPcmToDouble(pcmData);
+      
+      // 使用音频处理器计算口型同步值
+      double lipSyncValue = _audioProcessor.processAudio(audioSamples);
+      
+      // 通过回调更新口型同步值
+      _onLipSyncUpdate?.call(lipSyncValue);
+    } catch (e) {
+      _logger.e('Error processing audio for lip sync: $e');
+    }
+  }
+  
+  // 将PCM字节数据转换为双精度浮点数列表
+  List<double> _convertPcmToDouble(Uint8List pcmData) {
+    // 假设PCM数据是16位有符号整数
+    List<double> samples = [];
+    for (int i = 0; i < pcmData.length - 1; i += 2) {
+      // 将两个字节组合成一个16位有符号整数
+      int sample = (pcmData[i + 1] << 8) | pcmData[i];
+      // 转换为有符号整数
+      if (sample > 32767) sample -= 65536;
+      // 归一化到-1.0到1.0的范围
+      samples.add(sample / 32768.0);
+    }
+    return samples;
+  }
 
   ChatBloc() : super(ChatInitialState()) {
     _logger = Logger();
+    _audioProcessor = AudioProcessor();
+    
     on<ChatEvent>((event, emit) async {
       if (event is ChatInitialEvent) {
         try {
