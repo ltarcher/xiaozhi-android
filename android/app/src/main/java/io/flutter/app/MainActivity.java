@@ -1,10 +1,15 @@
 package io.flutter.app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.live2d.LAppLive2DManager;
 import com.live2d.LAppDefine.MotionGroup;
@@ -22,6 +27,7 @@ public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
     private static final String WAKE_WORD_CHANNEL = "wake_word_channel";
     private static final String TAG = "MainActivity";
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 1001;
     private Live2DViewFactory live2DViewFactory;
     
     // 添加实例映射管理
@@ -381,7 +387,14 @@ public class MainActivity extends FlutterActivity {
                                         
                                         // 控制唤醒词服务
                                         if (enabled) {
-                                            startWakeWordService();
+                                            // 检查录音权限
+                                            if (checkRecordAudioPermission()) {
+                                                startWakeWordService();
+                                            } else {
+                                                // 如果没有权限，请求权限
+                                                requestRecordAudioPermission();
+                                                // 权限请求后，服务将在onRequestPermissionsResult中启动
+                                            }
                                         } else {
                                             stopWakeWordService();
                                         }
@@ -582,7 +595,62 @@ public class MainActivity extends FlutterActivity {
         boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
         
         if (isWakeWordEnabled) {
-            startWakeWordService();
+            // 检查录音权限
+            if (checkRecordAudioPermission()) {
+                startWakeWordService();
+            } else {
+                // 如果没有权限，请求权限
+                requestRecordAudioPermission();
+            }
+        }
+    }
+    
+    /**
+     * 检查录音权限
+     */
+    private boolean checkRecordAudioPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        return true; // Android 6.0以下版本默认有权限
+    }
+    
+    /**
+     * 请求录音权限
+     */
+    private void requestRecordAudioPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    REQUEST_RECORD_AUDIO_PERMISSION
+            );
+        }
+    }
+    
+    /**
+     * 权限请求结果处理
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Record audio permission granted");
+                // 权限被授予，检查是否需要启动唤醒词服务
+                android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+                boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
+                
+                if (isWakeWordEnabled) {
+                    startWakeWordService();
+                }
+            } else {
+                Log.w(TAG, "Record audio permission denied");
+                // 权限被拒绝，显示提示信息
+                // 这里可以通过MethodChannel通知Flutter端
+            }
         }
     }
     

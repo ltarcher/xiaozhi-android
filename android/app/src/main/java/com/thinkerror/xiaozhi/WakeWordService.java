@@ -1,7 +1,12 @@
 package com.thinkerror.xiaozhi;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.speech.RecognitionListener;
@@ -13,7 +18,7 @@ import android.preference.PreferenceManager;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.AudioFocusRequest;
-import android.os.Build;
+import androidx.core.app.NotificationCompat;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -26,6 +31,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
 public class WakeWordService extends Service implements RecognitionListener {
     private static final String TAG = "WakeWordService";
     private static final String CHANNEL = "wake_word_channel";
+    private static final String NOTIFICATION_CHANNEL_ID = "wake_word_service_channel";
+    private static final int NOTIFICATION_ID = 1001;
     
     private SpeechRecognizer speechRecognizer;
     private Intent recognizerIntent;
@@ -37,11 +44,16 @@ public class WakeWordService extends Service implements RecognitionListener {
     private AudioManager audioManager;
     private AudioFocusRequest audioFocusRequest;
     private boolean hasAudioFocus = false;
+    private NotificationManager notificationManager;
     
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "WakeWordService onCreate");
+        
+        // 初始化通知管理器
+        notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        createNotificationChannel();
         
         // 初始化SharedPreferences
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -67,6 +79,9 @@ public class WakeWordService extends Service implements RecognitionListener {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "WakeWordService onStartCommand");
+        
+        // 启动前台服务
+        startForeground(NOTIFICATION_ID, createNotification());
         
         // 加载最新设置
         loadSettings();
@@ -111,6 +126,9 @@ public class WakeWordService extends Service implements RecognitionListener {
         wakeWord = sharedPreferences.getString("WAKE_WORD", "你好小清");
         
         Log.d(TAG, "Settings loaded - enabled: " + isWakeWordEnabled + ", wakeWord: " + wakeWord);
+        
+        // 更新通知内容
+        updateNotification();
     }
     
     /**
@@ -310,6 +328,50 @@ public class WakeWordService extends Service implements RecognitionListener {
                 }
             }
         };
+    
+    /**
+     * 创建通知渠道
+     */
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "唤醒词服务",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("用于监听唤醒词的后台服务");
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+    
+    /**
+     * 创建通知
+     */
+    private Notification createNotification() {
+        Intent notificationIntent = new Intent(this, io.flutter.app.MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, notificationIntent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0
+        );
+        
+        return new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("唤醒词服务")
+                .setContentText("正在监听唤醒词：" + wakeWord)
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)
+                .build();
+    }
+    
+    /**
+     * 更新通知内容
+     */
+    private void updateNotification() {
+        if (notificationManager != null) {
+            Notification notification = createNotification();
+            notificationManager.notify(NOTIFICATION_ID, notification);
+        }
+    }
     
     // RecognitionListener接口实现
     @Override
