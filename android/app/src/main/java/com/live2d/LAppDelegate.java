@@ -88,11 +88,11 @@ public class LAppDelegate {
 
     public void onSurfaceCreated() {
         Log.d(TAG, "onSurfaceCreated: Surface created");
-        // テクスチャサンプリング設定
+        // 纹理采样设置
         GLES20.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GLES20.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-        // 透過設定
+        // 透明度设置
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -103,12 +103,12 @@ public class LAppDelegate {
 
     public void onSurfaceChanged(int width, int height) {
         Log.d(TAG, "onSurfaceChanged: width=" + width + ", height=" + height);
-        // 描画範囲指定
+        // 绘制范围指定
         GLES20.glViewport(0, 0, width, height);
         windowWidth = width;
         windowHeight = height;
 
-        // AppViewの初期化
+        // AppView的初始化
         view.initialize();
         Log.d(TAG, "onSurfaceChanged: View initialized");
         view.initializeSprite();
@@ -124,10 +124,10 @@ public class LAppDelegate {
     }
 
     public void run() {
-        // 時間更新
+        // 时间更新
         LAppPal.updateTime();
 
-        // 画面初期化
+        // 画面初始化
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearDepthf(1.0f);
@@ -136,7 +136,7 @@ public class LAppDelegate {
             view.render();
         }
 
-        // アプリケーションを非アクティブにする
+        // 使应用程序变为非活动状态
         if (!isActive) {
             if (activity != null) {
                 activity.finishAndRemoveTask();
@@ -279,7 +279,7 @@ public class LAppDelegate {
     }
 
     /**
-     * 模型シーン索引
+     * 模型场景索引
      */
     private int currentModel;
 

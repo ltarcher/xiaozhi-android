@@ -44,12 +44,12 @@ public class TouchManager {
     }
 
     /**
-     * 拖动时的事件
+     * 双点拖动时的事件
      *
-     * @param deviceX1 1个触摸屏幕的x值
-     * @param deviceY1 1个触摸屏幕的y値
-     * @param deviceX2 2个触摸屏幕的x値
-     * @param deviceY2 2个触摸屏幕的y値
+     * @param deviceX1 第1个触摸屏幕的x值
+     * @param deviceY1 第1个触摸屏幕的y值
+     * @param deviceX2 第2个触摸屏幕的x值
+     * @param deviceY2 第2个触摸屏幕的y值
      */
     public void touchesMoved(float deviceX1, float deviceY1, float deviceX2, float deviceY2) {
         float distance = calculateDistance(deviceX1, deviceY1, deviceX2, deviceY2);
@@ -145,11 +145,11 @@ public class TouchManager {
     /**
      * 从点1到点2的距离
      *
-     * @param x1 1个触摸屏幕的x值
-     * @param y1 1个触摸屏幕的y値
-     * @param x2 1个触摸屏幕的x値
-     * @param y2 1个触摸屏幕のy値
-     * @return 2点の距離
+     * @param x1 第1个触摸屏幕的x值
+     * @param y1 第1个触摸屏幕的y值
+     * @param x2 第2个触摸屏幕的x值
+     * @param y2 第2个触摸屏幕的y值
+     * @return 两点的距离
      */
     private float calculateDistance(float x1, float y1, float x2, float y2) {
         return (float) Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
@@ -159,8 +159,8 @@ public class TouchManager {
      * 从2个值中，计算移动量
      * 如果方向不同，则移动量为0。如果方向相同，则参考绝对值较小的值
      *
-     * @param v1 1个移动量
-     * @param v2 2个移动量
+     * @param v1 第1个移动量
+     * @param v2 第2个移动量
      * @return 较小的移动量
      */
     private float calculateMovingAmount(float v1, float v2) {
@@ -180,55 +180,55 @@ public class TouchManager {
      */
     private float startX;
     /**
-     * 触摸开始时的y値
+     * 触摸开始时的y值
      */
     private float startY;
     /**
-     * 单点触摸时的x値
+     * 单点触摸时的x值
      */
     private float lastX;
     /**
-     * 単点触摸時のy値
+     * 单点触摸时的y值
      */
     private float lastY;
     /**
-     * 双点触摸时的1个x値
+     * 双点触摸时的第1个x值
      */
     private float lastX1;
     /**
-     * 双点触摸时的1个y値
+     * 双点触摸时的第1个y值
      */
     private float lastY1;
     /**
-     * 双点触摸时的2个x値
+     * 双点触摸时的第2个x值
      */
     private float lastX2;
     /**
-     * 双点触摸时的2个y値
+     * 双点触摸时的第2个y值
      */
     private float lastY2;
     /**
-     * 2本以上でタッチしたときの指の距離
+     * 两点以上触摸时的手指距离
      */
     private float lastTouchDistance;
     /**
-     * 前回の値から今回の値へのxの移動距離
+     * 从上次的值到这次的值的x移动距离
      */
     private float deltaX;
     /**
-     * 前回の値から今回の値へのyの移動距離
+     * 从上次的值到这次的值的y移动距离
      */
     private float deltaY;
     /**
-     * このフレームで掛け合わせる拡大率。拡大操作中以外は1
+     * 这一帧要乘以的放大率。非放大操作时为1
      */
     private float scale;
     /**
-     * 単点触摸時はtrue
+     * 单点触摸时为true
      */
     private boolean isTouchSingle;
     /**
-     * フリップが有効かどうか
+     * 翻转是否有效
      */
     private boolean isFlipAvailable;
 }
