@@ -893,7 +893,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           child: Tooltip(
             message: '已授权',
             child: Icon(
-              Icons.verified_user,
+              Icons.security,
               color: Colors.green,
               size: 16,
             ),
