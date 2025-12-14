@@ -11,6 +11,7 @@ import com.live2d.LAppDefine.Priority;
 import com.live2d.LAppView;
 import com.live2d.Live2DViewFactory;
 import com.live2d.LAppDelegate;
+import com.thinkerror.xiaozhi.AudioPlayerPlugin;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -52,6 +53,9 @@ public class MainActivity extends FlutterActivity {
                 .getPlatformViewsController()
                 .getRegistry()
                 .registerViewFactory("live2d_view", live2DViewFactory);
+        
+        // 注册自定义音频播放器插件
+        AudioPlayerPlugin.registerWith(flutterEngine, this);
         
         // 然后调用父类方法
         super.configureFlutterEngine(flutterEngine);
