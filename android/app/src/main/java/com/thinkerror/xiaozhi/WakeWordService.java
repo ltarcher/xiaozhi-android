@@ -71,6 +71,10 @@ public class WakeWordService extends Service implements RecognitionListener {
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.CHINA.toString());
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        // 添加语音识别的额外配置以减少缓冲区压力
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+        }
         
         // 加载设置
         loadSettings();
@@ -192,7 +196,7 @@ public class WakeWordService extends Service implements RecognitionListener {
     private void restartListening() {
         stopListening();
         
-        // 短暂延迟后重新开始监听，避免频繁重启
+        // 增加延迟时间，减少 ImageReader 缓冲区压力
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -200,7 +204,7 @@ public class WakeWordService extends Service implements RecognitionListener {
                     startListening();
                 }
             }
-        }, 1000); // 1秒延迟
+        }, 2000); // 增加到2秒延迟
     }
     
     /**
@@ -245,10 +249,10 @@ public class WakeWordService extends Service implements RecognitionListener {
         callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(callIntent);
         
-        // 短暂停止监听，避免重复触发
+        // 停止监听，避免重复触发
         stopListening();
         
-        // 5秒后重新开始监听
+        // 增加延迟时间，减少 ImageReader 缓冲区压力
         new android.os.Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -256,7 +260,7 @@ public class WakeWordService extends Service implements RecognitionListener {
                     startListening();
                 }
             }
-        }, 5000);
+        }, 7000); // 增加到7秒延迟
     }
         
         /**

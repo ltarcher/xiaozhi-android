@@ -305,20 +305,37 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _audioRecorderSubscription = null;
         }
 
-        _audioRecorderSubscription = _audioRecorderStream!.listen((data) async {
-          if (_websocketChannel != null &&
-              data.isNotEmpty &&
-              data.length % 2 == 0) {
-            Uint8List? opusData = await CommonUtils.pcmToOpus(
-              pcmData: data,
-              sampleRate: _audioSampleRate,
-              frameDuration: _audioFrameDuration,
-            );
-            if (null != opusData) {
-              _websocketChannel!.sink.add(opusData);
+        _audioRecorderSubscription = _audioRecorderStream!.listen(
+          (data) async {
+            // 添加缓冲区处理延迟，减少 ImageReader 缓冲区压力
+            await Future.delayed(Duration(milliseconds: 10));
+            
+            if (_websocketChannel != null &&
+                data.isNotEmpty &&
+                data.length % 2 == 0) {
+              try {
+                Uint8List? opusData = await CommonUtils.pcmToOpus(
+                  pcmData: data,
+                  sampleRate: _audioSampleRate,
+                  frameDuration: _audioFrameDuration,
+                );
+                if (null != opusData) {
+                  _websocketChannel!.sink.add(opusData);
+                }
+              } catch (e) {
+                _logger.e('Error processing audio data: $e');
+              }
             }
-          }
-        });
+          },
+          // 添加错误处理，防止流异常导致缓冲区积压
+          onError: (error) {
+            _logger.e('Audio stream error: $error');
+          },
+          // 取消时的处理
+          onDone: () {
+            _logger.i('Audio stream completed');
+          },
+        );
       }
 
       if (event is ChatOnMessageEvent) {
