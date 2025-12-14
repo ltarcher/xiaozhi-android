@@ -22,6 +22,10 @@ class SharedPreferencesUtil {
 
   final String _keyLive2DPowerVisible = 'LIVE2D_POWER_VISIBLE';
 
+  final String _keyWakeWordEnabled = 'WAKE_WORD_ENABLED';
+
+  final String _keyWakeWord = 'WAKE_WORD';
+
   Future<void> init() async {
     String? otaUrl = await getOtaUrl();
     if (null == otaUrl) {
@@ -47,6 +51,17 @@ class SharedPreferencesUtil {
     bool? powerVisible = await getLive2DPowerVisible();
     if (powerVisible == null) {
       await setLive2DPowerVisible(false); // 默认电源按钮不可见
+    }
+
+    // 初始化唤醒词默认值
+    bool? wakeWordEnabled = await getWakeWordEnabled();
+    if (wakeWordEnabled == null) {
+      await setWakeWordEnabled(false); // 默认关闭唤醒词
+    }
+
+    String? wakeWord = await getWakeWord();
+    if (wakeWord == null || wakeWord.isEmpty) {
+      await setWakeWord("你好小清"); // 默认唤醒词
     }
   }
 
@@ -94,5 +109,21 @@ class SharedPreferencesUtil {
 
   Future<bool> setLive2DPowerVisible(bool value) async {
     return (await SharedPreferences.getInstance()).setBool(_keyLive2DPowerVisible, value);
+  }
+
+  Future<bool?> getWakeWordEnabled() async {
+    return (await SharedPreferences.getInstance()).getBool(_keyWakeWordEnabled);
+  }
+
+  Future<bool> setWakeWordEnabled(bool value) async {
+    return (await SharedPreferences.getInstance()).setBool(_keyWakeWordEnabled, value);
+  }
+
+  Future<String?> getWakeWord() async {
+    return (await SharedPreferences.getInstance()).getString(_keyWakeWord);
+  }
+
+  Future<bool> setWakeWord(String value) async {
+    return (await SharedPreferences.getInstance()).setString(_keyWakeWord, value);
   }
 }

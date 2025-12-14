@@ -23,14 +23,22 @@ class _SettingPageState extends State<SettingPage> {
   bool _isGearVisible = true;
   bool _isPowerVisible = false;
   
+  // 唤醒词设置状态
+  bool _isWakeWordEnabled = false;
+  late TextEditingController _wakeWordController;
+  
   // Live2D控制通道
   static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
+  
+  // 唤醒词控制通道
+  static const MethodChannel _wakeWordChannel = MethodChannel('wake_word_channel');
 
   @override
   void initState() {
     _otaUrlController = TextEditingController();
     _websocketUrlController = TextEditingController();
     _macAddressController = TextEditingController();
+    _wakeWordController = TextEditingController();
     
     // 加载现有的配置
     SharedPreferencesUtil().getOtaUrl().then((v) {
@@ -51,6 +59,9 @@ class _SettingPageState extends State<SettingPage> {
     
     // 加载Live2D按钮配置
     _loadLive2DButtonSettings();
+    
+    // 加载唤醒词配置
+    _loadWakeWordSettings();
     
     super.initState();
   }
@@ -75,6 +86,61 @@ class _SettingPageState extends State<SettingPage> {
           _isGearVisible = true;
           _isPowerVisible = false;
         });
+      }
+    }
+  }
+  
+  // 加载唤醒词设置
+  Future<void> _loadWakeWordSettings() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      bool? wakeWordEnabled = await prefsUtil.getWakeWordEnabled();
+      String? wakeWord = await prefsUtil.getWakeWord();
+      
+      if (mounted) {
+        setState(() {
+          _isWakeWordEnabled = wakeWordEnabled ?? false; // 默认关闭
+          _wakeWordController.text = wakeWord ?? "你好小清"; // 默认唤醒词
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        // 如果加载失败，使用默认值
+        setState(() {
+          _isWakeWordEnabled = false;
+          _wakeWordController.text = "你好小清";
+        });
+      }
+    }
+  }
+  
+  // 立即应用唤醒词设置的方法
+  Future<void> _applyWakeWordSettings() async {
+    try {
+      if (kDebugMode) {
+        print("SettingPage: Applying wake word settings - enabled: $_isWakeWordEnabled, word: ${_wakeWordController.text}");
+      }
+      
+      // 通过MethodChannel控制唤醒词服务
+      await _wakeWordChannel.invokeMethod('setWakeWordEnabled', {
+        'enabled': _isWakeWordEnabled,
+        'wakeWord': _wakeWordController.text,
+      });
+      
+      if (kDebugMode) {
+        print("SettingPage: Wake word settings applied successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply wake word settings due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply wake word settings - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Unexpected error applying wake word settings: $e");
       }
     }
   }
@@ -145,6 +211,10 @@ class _SettingPageState extends State<SettingPage> {
                 SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
                 await prefsUtil.setLive2DGearVisible(_isGearVisible);
                 await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
+                
+                // 保存唤醒词配置
+                await prefsUtil.setWakeWordEnabled(_isWakeWordEnabled);
+                await prefsUtil.setWakeWord(_wakeWordController.text);
                  
                 if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
@@ -302,6 +372,120 @@ class _SettingPageState extends State<SettingPage> {
             ),
           ),
           
+          // 唤醒词设置部分
+          SizedBox(height: XConst.spacer * 3),
+          Text(
+            '语音唤醒设置',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: XConst.spacer),
+          
+          // 唤醒词开关
+          Card(
+            elevation: 2,
+            child: ListTile(
+              leading: Icon(
+                Icons.mic_rounded,
+                color: _isWakeWordEnabled ? primaryColor : Colors.grey,
+              ),
+              title: Text('语音唤醒'),
+              subtitle: Text('开启后可通过语音唤醒应用'),
+              trailing: Switch(
+                value: _isWakeWordEnabled,
+                onChanged: (bool value) async {
+                  setState(() {
+                    _isWakeWordEnabled = value;
+                  });
+                   
+                  // 立即应用设置到唤醒词服务
+                  await _applyWakeWordSettings();
+                   
+                  // 同时保存到持久化存储
+                  try {
+                    SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+                    await prefsUtil.setWakeWordEnabled(_isWakeWordEnabled);
+                    if (kDebugMode) {
+                      print("SettingPage: Wake word enabled saved to preferences: $_isWakeWordEnabled");
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print("SettingPage: Error saving wake word enabled to preferences: $e");
+                    }
+                  }
+                },
+                activeColor: primaryColor,
+              ),
+            ),
+          ),
+          
+          SizedBox(height: XConst.spacer),
+          
+          // 唤醒词设置
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.record_voice_over_rounded,
+                        color: primaryColor,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '唤醒词',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: XConst.spacer * 0.5),
+                  TextField(
+                    controller: _wakeWordController,
+                    enabled: _isWakeWordEnabled,
+                    decoration: InputDecoration(
+                      hintText: '请输入唤醒词',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.keyboard_voice_rounded),
+                      helperText: '建议使用4-6个字的简单词语，如"你好小清"',
+                    ),
+                    onChanged: (value) {
+                      // 实时应用唤醒词设置
+                      _applyWakeWordSettings();
+                    },
+                  ),
+                  SizedBox(height: XConst.spacer * 0.5),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.grey,
+                        size: 16,
+                      ),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '唤醒词设置后立即生效，唤醒后将自动跳转到通话页面',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
           SizedBox(height: XConst.spacer * 2),
           
           // 说明文字
@@ -323,6 +507,7 @@ class _SettingPageState extends State<SettingPage> {
                   Text(
                     '• 齿轮按钮：用于切换Live2D模型\n'
                     '• 电源按钮：关闭应用程序\n'
+                    '• 语音唤醒：开启后可通过唤醒词激活应用\n'
                     '• 设置会立即生效并自动保存',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),

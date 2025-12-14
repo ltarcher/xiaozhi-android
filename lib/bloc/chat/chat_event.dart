@@ -24,3 +24,5 @@ class ChatStopListenEvent extends ChatEvent {}
 class ChatStartCallEvent extends ChatEvent {}
 
 class ChatStopCallEvent extends ChatEvent {}
+
+class ChatNavigateToCallEvent extends ChatEvent {}

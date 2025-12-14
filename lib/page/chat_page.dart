@@ -17,6 +17,7 @@ import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
 
 import 'call_page.dart';
 import 'setting_page.dart';
+import 'package:flutter/services.dart'; // 添加MethodChannel导入
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -42,6 +43,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加口型同步控制器
   late LipSyncController _lipSyncController;
+  
+  // 添加MethodChannel用于处理唤醒词导航
+  static const MethodChannel _channel = MethodChannel('live2d_channel');
 
   @override
   void initState() {
@@ -71,6 +75,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
       }
     });
+    
+    // 设置MethodChannel处理唤醒词导航
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'navigateToCall') {
+        if (kDebugMode) {
+          print('ChatPage: Received navigateToCall call from native');
+        }
+        _navigateToCallPage();
+      }
+    });
   }
 
   // 口型同步更新回调
@@ -90,7 +104,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
   }
-
+  
+  // 导航到通话页面的方法
+  void _navigateToCallPage() {
+    if (kDebugMode) {
+      print('ChatPage: Navigating to call page due to wake word');
+    }
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CallPage(),
+      ),
+    );
+  }
+  
   // 从持久化存储恢复按钮状态
   Future<void> _restoreButtonStates() async {
     try {

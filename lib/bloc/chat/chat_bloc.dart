@@ -358,6 +358,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         _isOnCall = false;
         add(ChatStopListenEvent());
       }
+      
+      if (event is ChatNavigateToCallEvent) {
+        // 处理从唤醒词跳转到通话页面的请求
+        _logger.i('Navigating to call page due to wake word');
+      }
     });
   }
 }

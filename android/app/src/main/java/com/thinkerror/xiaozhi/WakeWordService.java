@@ -1,0 +1,284 @@
+package com.thinkerror.xiaozhi;
+
+import android.app.Service;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.util.Log;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import android.content.Context;
+import java.util.ArrayList;
+import java.util.Locale;
+
+import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.common.MethodCall;
+import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
+import io.flutter.plugin.common.MethodChannel.Result;
+
+public class WakeWordService extends Service implements RecognitionListener {
+    private static final String TAG = "WakeWordService";
+    private static final String CHANNEL = "wake_word_channel";
+    
+    private SpeechRecognizer speechRecognizer;
+    private Intent recognizerIntent;
+    private boolean isListening = false;
+    private boolean isWakeWordEnabled = false;
+    private String wakeWord = "你好小清";
+    private MethodChannel methodChannel;
+    private SharedPreferences sharedPreferences;
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.d(TAG, "WakeWordService onCreate");
+        
+        // 初始化SharedPreferences
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        
+        // 初始化语音识别器
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+        speechRecognizer.setRecognitionListener(this);
+        
+        // 创建识别意图
+        recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.CHINA.toString());
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        
+        // 加载设置
+        loadSettings();
+    }
+    
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "WakeWordService onStartCommand");
+        
+        // 加载最新设置
+        loadSettings();
+        
+        // 如果唤醒词功能已启用，开始监听
+        if (isWakeWordEnabled) {
+            startListening();
+        }
+        
+        return START_STICKY; // 服务被杀死后自动重启
+    }
+    
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+    
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "WakeWordService onDestroy");
+        
+        // 停止监听
+        stopListening();
+        
+        // 销毁语音识别器
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+            speechRecognizer = null;
+        }
+    }
+    
+    /**
+     * 加载设置
+     */
+    private void loadSettings() {
+        isWakeWordEnabled = sharedPreferences.getBoolean("WAKE_WORD_ENABLED", false);
+        wakeWord = sharedPreferences.getString("WAKE_WORD", "你好小清");
+        
+        Log.d(TAG, "Settings loaded - enabled: " + isWakeWordEnabled + ", wakeWord: " + wakeWord);
+    }
+    
+    /**
+     * 开始监听唤醒词
+     */
+    private void startListening() {
+        if (speechRecognizer != null && !isListening) {
+            try {
+                speechRecognizer.startListening(recognizerIntent);
+                isListening = true;
+                Log.d(TAG, "Started listening for wake word: " + wakeWord);
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting speech recognition", e);
+                isListening = false;
+            }
+        }
+    }
+    
+    /**
+     * 停止监听唤醒词
+     */
+    private void stopListening() {
+        if (speechRecognizer != null && isListening) {
+            try {
+                speechRecognizer.stopListening();
+                isListening = false;
+                Log.d(TAG, "Stopped listening for wake word");
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping speech recognition", e);
+            }
+        }
+    }
+    
+    /**
+     * 重新开始监听（用于连续监听）
+     */
+    private void restartListening() {
+        stopListening();
+        
+        // 短暂延迟后重新开始监听，避免频繁重启
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isWakeWordEnabled) {
+                    startListening();
+                }
+            }
+        }, 1000); // 1秒延迟
+    }
+    
+    /**
+     * 检测唤醒词
+     */
+    private boolean checkWakeWord(String result) {
+        if (result == null || result.trim().isEmpty()) {
+            return false;
+        }
+        
+        // 简单的字符串匹配，可以优化为更复杂的匹配算法
+        boolean isWakeWord = result.contains(wakeWord);
+        
+        if (isWakeWord) {
+            Log.d(TAG, "Wake word detected: " + result);
+            onWakeWordDetected();
+        }
+        
+        return isWakeWord;
+    }
+    
+    /**
+     * 唤醒词检测到后的处理
+     */
+    private void onWakeWordDetected() {
+        Log.d(TAG, "Wake word detected, launching CallPage");
+        
+        // 发送广播通知Flutter端
+        Intent wakeWordIntent = new Intent("com.thinkerror.xiaozhi.WAKE_WORD_DETECTED");
+        sendBroadcast(wakeWordIntent);
+        
+        // 启动通话页面
+        Intent callIntent = new Intent(this, io.flutter.app.MainActivity.class);
+        callIntent.setAction("android.intent.action.MAIN");
+        callIntent.addCategory("android.intent.category.LAUNCHER");
+        callIntent.putExtra("navigate_to_call", true);
+        callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(callIntent);
+        
+        // 短暂停止监听，避免重复触发
+        stopListening();
+        
+        // 5秒后重新开始监听
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isWakeWordEnabled) {
+                    startListening();
+                }
+            }
+        }, 5000);
+    }
+    
+    // RecognitionListener接口实现
+    @Override
+    public void onReadyForSpeech(Bundle params) {
+        Log.d(TAG, "Ready for speech");
+    }
+    
+    @Override
+    public void onBeginningOfSpeech() {
+        Log.d(TAG, "Beginning of speech");
+    }
+    
+    @Override
+    public void onRmsChanged(float rmsdB) {
+        // 音量变化，可以用于可视化
+    }
+    
+    @Override
+    public void onBufferReceived(byte[] buffer) {
+        // 音频缓冲区接收
+    }
+    
+    @Override
+    public void onEndOfSpeech() {
+        Log.d(TAG, "End of speech");
+    }
+    
+    @Override
+    public void onError(int error) {
+        Log.e(TAG, "Speech recognition error: " + error);
+        
+        // 根据错误类型决定是否重启监听
+        switch (error) {
+            case SpeechRecognizer.ERROR_AUDIO:
+            case SpeechRecognizer.ERROR_CLIENT:
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
+            case SpeechRecognizer.ERROR_NETWORK:
+            case SpeechRecognizer.ERROR_SERVER:
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT:
+                // 这些错误需要重启监听
+                restartListening();
+                break;
+            default:
+                // 其他错误暂时不重启
+                break;
+        }
+    }
+    
+    @Override
+    public void onResults(Bundle results) {
+        ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && !matches.isEmpty()) {
+            String result = matches.get(0);
+            Log.d(TAG, "Speech recognition result: " + result);
+            
+            // 检测唤醒词
+            if (checkWakeWord(result)) {
+                return; // 如果检测到唤醒词，不继续处理
+            }
+        }
+        
+        // 没有检测到唤醒词，继续监听
+        restartListening();
+    }
+    
+    @Override
+    public void onPartialResults(Bundle partialResults) {
+        ArrayList<String> matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if (matches != null && !matches.isEmpty()) {
+            String result = matches.get(0);
+            Log.d(TAG, "Partial speech recognition result: " + result);
+            
+            // 检测唤醒词
+            if (checkWakeWord(result)) {
+                return; // 如果检测到唤醒词，不继续处理
+            }
+        }
+    }
+    
+    @Override
+    public void onEvent(int eventType, Bundle params) {
+        Log.d(TAG, "Speech recognition event: " + eventType);
+    }
+}

@@ -1,5 +1,6 @@
 package io.flutter.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -19,6 +20,7 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
+    private static final String WAKE_WORD_CHANNEL = "wake_word_channel";
     private static final String TAG = "MainActivity";
     private Live2DViewFactory live2DViewFactory;
     
@@ -353,7 +355,66 @@ public class MainActivity extends FlutterActivity {
                                 Log.w(TAG, "Unknown method called: " + call.method);
                                 result.notImplemented();
                             }
+                           
+                        }
+                );
+        
+        // 注册唤醒词MethodChannel
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), WAKE_WORD_CHANNEL)
+                .setMethodCallHandler(
+                        (call, result) -> {
+                            Log.d(TAG, "WakeWord MethodChannel call received: " + call.method);
                             
+                            if (call.method.equals("setWakeWordEnabled")) {
+                                Boolean enabled = call.argument("enabled");
+                                String wakeWord = call.argument("wakeWord");
+                                Log.d(TAG, "setWakeWordEnabled called: enabled=" + enabled + ", wakeWord=" + wakeWord);
+                                
+                                if (enabled != null && wakeWord != null) {
+                                    try {
+                                        // 保存到SharedPreferences
+                                        android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+                                        android.content.SharedPreferences.Editor editor = prefs.edit();
+                                        editor.putBoolean("WAKE_WORD_ENABLED", enabled);
+                                        editor.putString("WAKE_WORD", wakeWord);
+                                        editor.apply();
+                                        
+                                        // 控制唤醒词服务
+                                        if (enabled) {
+                                            startWakeWordService();
+                                        } else {
+                                            stopWakeWordService();
+                                        }
+                                        
+                                        result.success(null);
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Error in setWakeWordEnabled", e);
+                                        result.error("WAKE_WORD_ERROR", "Failed to set wake word: " + e.getMessage(), null);
+                                    }
+                                } else {
+                                    result.error("INVALID_ARGUMENT", "Enabled or wakeWord argument is null", null);
+                                }
+                            } else if (call.method.equals("navigateToCall")) {
+                                Log.d(TAG, "navigateToCall called - navigating to call page");
+                                
+                                try {
+                                    // 启动通话页面
+                                    Intent callIntent = new Intent(this, io.flutter.app.MainActivity.class);
+                                    callIntent.setAction("android.intent.action.MAIN");
+                                    callIntent.addCategory("android.intent.category.LAUNCHER");
+                                    callIntent.putExtra("navigate_to_call", true);
+                                    callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(callIntent);
+                                    
+                                    result.success(null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in navigateToCall", e);
+                                    result.error("NAVIGATE_ERROR", "Failed to navigate to call page: " + e.getMessage(), null);
+                                }
+                            } else {
+                                Log.w(TAG, "Unknown wake word method called: " + call.method);
+                                result.notImplemented();
+                            }
                         }
                 );
         Log.d(TAG, "configureFlutterEngine: Configuration completed");
@@ -482,6 +543,71 @@ public class MainActivity extends FlutterActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error in deactivateInstance for: " + instanceId, e);
             result.error("DEACTIVATE_INSTANCE_ERROR", "Failed to deactivate instance: " + e.getMessage(), null);
+        }
+    }
+    
+    /**
+     * 启动唤醒词服务
+     */
+    private void startWakeWordService() {
+        try {
+            Log.d(TAG, "Starting WakeWordService");
+            Intent serviceIntent = new Intent(this, com.thinkerror.xiaozhi.WakeWordService.class);
+            startService(serviceIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting WakeWordService", e);
+        }
+    }
+    
+    /**
+     * 停止唤醒词服务
+     */
+    private void stopWakeWordService() {
+        try {
+            Log.d(TAG, "Stopping WakeWordService");
+            Intent serviceIntent = new Intent(this, com.thinkerror.xiaozhi.WakeWordService.class);
+            stopService(serviceIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping WakeWordService", e);
+        }
+    }
+    
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d(TAG, "MainActivity onStart");
+        
+        // 检查是否需要启动唤醒词服务
+        android.content.SharedPreferences prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE);
+        boolean isWakeWordEnabled = prefs.getBoolean("WAKE_WORD_ENABLED", false);
+        
+        if (isWakeWordEnabled) {
+            startWakeWordService();
+        }
+    }
+    
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d(TAG, "MainActivity onStop");
+        
+        // 停止唤醒词服务（如果需要的话，可以改为保持运行）
+        // stopWakeWordService();
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.d(TAG, "MainActivity onNewIntent: " + intent.getAction());
+        
+        // 检查是否是从唤醒词启动的
+        if (intent.getBooleanExtra("navigate_to_call", false)) {
+            Log.d(TAG, "Navigating to call page due to wake word");
+            
+            // 这里可以添加Flutter端导航到通话页面的逻辑
+            // 由于我们需要在Flutter中导航，可以通过MethodChannel通知Flutter
+            new MethodChannel(getFlutterEngine().getDartExecutor().getBinaryMessenger(), CHANNEL)
+                    .invokeMethod("navigateToCall", null);
         }
     }
 }
