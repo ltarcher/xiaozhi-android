@@ -481,7 +481,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           }
           return Scaffold(
             appBar: AppBar(
-              title: Text(AppLocalizations.of(context)!.xiaozhi),
+              title: Row(
+                children: [
+                  Text(AppLocalizations.of(context)!.xiaozhi),
+                  SizedBox(width: 8),
+                  // 添加连接状态指示器
+                  _buildConnectionStatusIndicator(chatState.connectionStatus),
+                ],
+              ),
               leading: Row(
                 children: [
                   IconButton(
@@ -796,6 +803,64 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
           );
         },
+      ),
+    );
+  }
+  
+  // 构建连接状态指示器
+  Widget _buildConnectionStatusIndicator(dynamic status) {
+    IconData icon;
+    Color color;
+    String tooltip;
+    
+    // 使用字符串比较而不是枚举比较，以避免直接引用枚举类型
+    String statusString = status.toString();
+    
+    if (statusString.contains('connected')) {
+      icon = Icons.cloud_done;
+      color = Colors.green;
+      tooltip = '已连接到服务器';
+    } else if (statusString.contains('connecting')) {
+      icon = Icons.cloud_sync;
+      color = Colors.orange;
+      tooltip = '正在连接服务器...';
+    } else if (statusString.contains('reconnecting')) {
+      icon = Icons.cloud_sync;
+      color = Colors.orange;
+      tooltip = '正在重连服务器...';
+    } else if (statusString.contains('disconnected')) {
+      icon = Icons.cloud_off;
+      color = Colors.red;
+      tooltip = '未连接到服务器';
+    } else {
+      // error状态或其他未知状态
+      icon = Icons.error_outline;
+      color = Colors.red;
+      tooltip = '连接错误';
+    }
+    
+    return Tooltip(
+      message: tooltip,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 16,
+          ),
+          if (statusString.contains('reconnecting'))
+            Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

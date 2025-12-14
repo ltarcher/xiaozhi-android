@@ -24,3 +24,14 @@ class ChatStopListenEvent extends ChatEvent {}
 class ChatStartCallEvent extends ChatEvent {}
 
 class ChatStopCallEvent extends ChatEvent {}
+
+// WebSocket连接状态事件
+class ChatConnectionConnectingEvent extends ChatEvent {}
+
+class ChatConnectionConnectedEvent extends ChatEvent {}
+
+class ChatConnectionDisconnectedEvent extends ChatEvent {}
+
+class ChatConnectionReconnectingEvent extends ChatEvent {}
+
+class ChatConnectionErrorEvent extends ChatEvent {}

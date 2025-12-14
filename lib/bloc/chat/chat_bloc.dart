@@ -51,6 +51,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   int _messageListPaginatedOffset = 0;
 
   bool _isOnCall = false;
+  
+  // 添加重连机制相关变量
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 5;
+  static const Duration _reconnectDelay = Duration(seconds: 3);
 
   @override
   Future<void> close() {
@@ -61,6 +67,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     if (null != _audioRecorderSubscription) {
       _audioRecorderSubscription!.cancel();
       _audioRecorderSubscription = null;
+    }
+    if (null != _reconnectTimer) {
+      _reconnectTimer!.cancel();
+      _reconnectTimer = null;
+    }
+    if (null != _websocketChannel) {
+      _websocketChannel!.sink.close();
+      _websocketChannel = null;
     }
     return super.close();
   }
@@ -173,6 +187,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       onError: (e) {
         _logger.e('___ERROR Websocket $e');
+        // 连接错误，更新状态并尝试重连
+        add(ChatConnectionErrorEvent());
+        _scheduleReconnect();
       },
       onDone: () {
         _logger.i('___INFO Websocket Closed');
@@ -180,8 +197,73 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           _websocketStreamSubscription!.cancel();
           _websocketStreamSubscription = null;
         }
+        // 连接关闭，更新状态并尝试重连
+        add(ChatConnectionDisconnectedEvent());
+        _scheduleReconnect();
       },
     );
+  }
+  
+  // 添加重连逻辑
+  void _scheduleReconnect() {
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _logger.i('___INFO Max reconnect attempts reached, giving up');
+      return;
+    }
+    
+    _reconnectAttempts++;
+    _logger.i('___INFO Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
+    
+    add(ChatConnectionReconnectingEvent());
+    
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      _connectWebSocket();
+    });
+  }
+  
+  // 添加WebSocket连接方法
+  Future<void> _connectWebSocket() async {
+    try {
+      add(ChatConnectionConnectingEvent());
+      
+      _websocketChannel = IOWebSocketChannel.connect(
+        Uri.parse(
+          (await SharedPreferencesUtil().getWebsocketUrl()) ??
+              XConst.defaultWebsocketUrl,
+        ),
+        headers: {
+          "Protocol-Version": "1",
+          "Device-Id": await SharedPreferencesUtil().getMacAddress(),
+        },
+      );
+
+      _initWebsocketListener();
+
+      _websocketChannel!.sink.add(
+        jsonEncode(
+          WebsocketMessage(
+            type: WebsocketMessage.typeHello,
+            transport: WebsocketMessage.transportWebSocket,
+            audioParams: AudioParams(
+              sampleRate: _audioSampleRate,
+              channels: _audioChannels,
+              frameDuration: _audioFrameDuration,
+              format: AudioParams.formatOpus,
+            ),
+          ).toJson(),
+        ),
+      );
+      
+      // 连接成功，重置重连计数器并更新状态
+      _reconnectAttempts = 0;
+      add(ChatConnectionConnectedEvent());
+      
+      _logger.i('___INFO WebSocket connected successfully');
+    } catch (e, s) {
+      _logger.e('___ERROR Failed to connect WebSocket: $e $s');
+      add(ChatConnectionErrorEvent());
+      _scheduleReconnect();
+    }
   }
 
   ChatBloc() : super(ChatInitialState()) {
@@ -189,33 +271,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatEvent>((event, emit) async {
       if (event is ChatInitialEvent) {
         try {
-          _websocketChannel = IOWebSocketChannel.connect(
-            Uri.parse(
-              (await SharedPreferencesUtil().getWebsocketUrl()) ??
-                  XConst.defaultWebsocketUrl,
-            ),
-            headers: {
-              "Protocol-Version": "1",
-              "Device-Id": await SharedPreferencesUtil().getMacAddress(),
-            },
-          );
-
-          _initWebsocketListener();
-
-          _websocketChannel!.sink.add(
-            jsonEncode(
-              WebsocketMessage(
-                type: WebsocketMessage.typeHello,
-                transport: WebsocketMessage.transportWebSocket,
-                audioParams: AudioParams(
-                  sampleRate: _audioSampleRate,
-                  channels: _audioChannels,
-                  frameDuration: _audioFrameDuration,
-                  format: AudioParams.formatOpus,
-                ),
-              ).toJson(),
-            ),
-          );
+          // 使用新的连接方法
+          await _connectWebSocket();
 
           _audioRecorder = AudioRecorder();
 
@@ -229,9 +286,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
                 offset: _messageListPaginatedOffset,
               );
 
-          emit(ChatInitialState(messageList: messageList));
+          emit(ChatInitialState(
+            messageList: messageList,
+            connectionStatus: state.connectionStatus, // 保持当前连接状态
+          ));
         } catch (e, s) {
           _logger.e('___ERROR ChatInitialEvent $e $s');
+          emit(ChatInitialState(
+            messageList: [],
+            connectionStatus: WebSocketConnectionStatus.error,
+          ));
         }
       }
 
@@ -310,7 +374,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (event is ChatOnMessageEvent) {
         await StorageUtil().insertMessage(event.message);
         emit(
-          ChatInitialState(messageList: [event.message, ...state.messageList]),
+          ChatInitialState(
+            messageList: [event.message, ...state.messageList],
+            connectionStatus: state.connectionStatus, // 保持当前连接状态
+          ),
         );
       }
 
@@ -325,6 +392,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ChatInitialState(
             messageList: [...state.messageList, ...messageList],
             hasMore: messageList.length == _messageListPaginatedLimit,
+            connectionStatus: state.connectionStatus, // 保持当前连接状态
           ),
         );
       }
@@ -343,6 +411,47 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (event is ChatStopCallEvent) {
         _isOnCall = false;
         add(ChatStopListenEvent());
+      }
+      
+      // 处理WebSocket连接状态事件
+      if (event is ChatConnectionConnectingEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.connecting));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.connecting));
+        }
+      }
+      
+      if (event is ChatConnectionConnectedEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.connected));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.connected));
+        }
+      }
+      
+      if (event is ChatConnectionDisconnectedEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.disconnected));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.disconnected));
+        }
+      }
+      
+      if (event is ChatConnectionReconnectingEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.reconnecting));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.reconnecting));
+        }
+      }
+      
+      if (event is ChatConnectionErrorEvent) {
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(connectionStatus: WebSocketConnectionStatus.error));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(connectionStatus: WebSocketConnectionStatus.error));
+        }
       }
     });
   }
