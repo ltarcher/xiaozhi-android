@@ -38,6 +38,7 @@ sealed class ChatState {
   final AuthorizationStatus authorizationStatus;
   final RecordingStatus recordingStatus;
   final ConversationStatus conversationStatus;
+  final double lipSyncValue;
 
   const ChatState({
     this.messageList = const [],
@@ -45,6 +46,7 @@ sealed class ChatState {
     this.authorizationStatus = AuthorizationStatus.unknown,
     this.recordingStatus = RecordingStatus.initialized,
     this.conversationStatus = ConversationStatus.idle,
+    this.lipSyncValue = 0.0,
   });
   
   ChatState copyWith({
@@ -53,6 +55,7 @@ sealed class ChatState {
     AuthorizationStatus? authorizationStatus,
     RecordingStatus? recordingStatus,
     ConversationStatus? conversationStatus,
+    double? lipSyncValue,
   }) {
     // 由于ChatState是抽象类，这个方法由子类实现
     throw UnimplementedError('copyWith must be implemented by subclasses');
@@ -69,6 +72,7 @@ final class ChatInitialState extends ChatState {
     super.authorizationStatus,
     super.recordingStatus,
     super.conversationStatus,
+    super.lipSyncValue,
   });
   
   @override
@@ -79,6 +83,7 @@ final class ChatInitialState extends ChatState {
     RecordingStatus? recordingStatus,
     ConversationStatus? conversationStatus,
     bool? hasMore,
+    double? lipSyncValue,
   }) {
     return ChatInitialState(
       messageList: messageList ?? this.messageList,
@@ -87,6 +92,7 @@ final class ChatInitialState extends ChatState {
       recordingStatus: recordingStatus ?? this.recordingStatus,
       conversationStatus: conversationStatus ?? this.conversationStatus,
       hasMore: hasMore ?? this.hasMore,
+      lipSyncValue: lipSyncValue ?? this.lipSyncValue,
     );
   }
 }
@@ -98,6 +104,7 @@ final class ChatNoMicrophonePermissionState extends ChatState {
     super.authorizationStatus,
     super.recordingStatus,
     super.conversationStatus,
+    super.lipSyncValue,
   });
   
   @override
@@ -107,6 +114,7 @@ final class ChatNoMicrophonePermissionState extends ChatState {
     AuthorizationStatus? authorizationStatus,
     RecordingStatus? recordingStatus,
     ConversationStatus? conversationStatus,
+    double? lipSyncValue,
   }) {
     return ChatNoMicrophonePermissionState(
       messageList: messageList ?? this.messageList,
@@ -114,6 +122,7 @@ final class ChatNoMicrophonePermissionState extends ChatState {
       authorizationStatus: authorizationStatus ?? this.authorizationStatus,
       recordingStatus: recordingStatus ?? this.recordingStatus,
       conversationStatus: conversationStatus ?? this.conversationStatus,
+      lipSyncValue: lipSyncValue ?? this.lipSyncValue,
     );
   }
 }

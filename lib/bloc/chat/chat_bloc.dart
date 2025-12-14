@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:meta/meta.dart';
 import 'package:logger/logger.dart';
 import 'package:opus_dart/opus_dart.dart';
@@ -187,47 +189,50 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               add(ChatStartListenEvent());
             }
           } else if (data is Uint8List) {
-            // 确保 _audioPlayer 不为 null
-            if (_audioPlayer == null) {
-              _logger.e('___ERROR _audioPlayer is null');
-              return;
-            }
-           
-            // 检查播放器是否已打开
-            if (!_audioPlayer!.isOpen()) {
-              await _audioPlayer!.openPlayer();
-            }
-
-            // 解码 Opus 数据
-            final pcmData = await CommonUtils.opusToPcm(
-              opusData: data,
-              sampleRate: _audioSampleRate,
-              channels: _audioChannels,
-            );
-           
-            // 确保解码成功
-            if (pcmData == null) {
-              _logger.e('___ERROR Failed to decode Opus data');
-              return;
-            }
-
-            if (_audioPlayer!.isPlaying) {
-              // 确保 uint8ListSink 不为 null
-              if (_audioPlayer!.uint8ListSink == null) {
-                _logger.e('___ERROR uint8ListSink is null');
-                return;
-              }
-              _audioPlayer!.uint8ListSink!.add(pcmData);
-            } else {
-              await _audioPlayer!.startPlayerFromStream(
-                codec: taudio.Codec.pcm16,
-                interleaved: false,
-                numChannels: _audioChannels,
-                sampleRate: _audioSampleRate,
-                bufferSize: 1024,
-              );
-            }
+          // 确保 _audioPlayer 不为 null
+          if (_audioPlayer == null) {
+            _logger.e('___ERROR _audioPlayer is null');
+            return;
           }
+         
+          // 检查播放器是否已打开
+          if (!_audioPlayer!.isOpen()) {
+            await _audioPlayer!.openPlayer();
+          }
+
+          // 解码 Opus 数据
+          final pcmData = await CommonUtils.opusToPcm(
+            opusData: data,
+            sampleRate: _audioSampleRate,
+            channels: _audioChannels,
+          );
+         
+          // 确保解码成功
+          if (pcmData == null) {
+            _logger.e('___ERROR Failed to decode Opus data');
+            return;
+          }
+
+          // 处理音频数据用于口型同步
+          _processAudioDataForLipSync(pcmData);
+
+          if (_audioPlayer!.isPlaying) {
+            // 确保 uint8ListSink 不为 null
+            if (_audioPlayer!.uint8ListSink == null) {
+              _logger.e('___ERROR uint8ListSink is null');
+              return;
+            }
+            _audioPlayer!.uint8ListSink!.add(pcmData);
+          } else {
+            await _audioPlayer!.startPlayerFromStream(
+              codec: taudio.Codec.pcm16,
+              interleaved: false,
+              numChannels: _audioChannels,
+              sampleRate: _audioSampleRate,
+              bufferSize: 1024,
+            );
+          }
+        }
         } catch (e, s) {
           _logger.e('___ERROR Listen $s $e');
         }
@@ -670,6 +675,66 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           emit((state as ChatNoMicrophonePermissionState).copyWith(conversationStatus: ConversationStatus.waiting));
         }
       }
+      
+      // 处理口型同步事件
+      if (event is ChatLipSyncUpdateEvent) {
+        _logger.i('___INFO ChatLipSyncUpdateEvent received, lipSyncValue: ${event.lipSyncValue}');
+        // 口型同步值不需要更新状态，而是通过状态流传递给UI
+        // 这里我们可以直接在状态中包含口型同步值
+        if (state is ChatInitialState) {
+          emit((state as ChatInitialState).copyWith(lipSyncValue: event.lipSyncValue));
+        } else if (state is ChatNoMicrophonePermissionState) {
+          emit((state as ChatNoMicrophonePermissionState).copyWith(lipSyncValue: event.lipSyncValue));
+        }
+      }
     });
+  }
+
+  /// 处理音频数据用于口型同步
+  void _processAudioDataForLipSync(Uint8List pcmData) {
+    try {
+      // 将字节数据转换为16位整数列表
+      List<int> samples = [];
+      for (int i = 0; i < pcmData.length - 1; i += 2) {
+        // 小端序转换
+        int sample = (pcmData[i + 1] << 8) | (pcmData[i] & 0xff);
+        // 转换为有符号16位整数
+        if (sample > 32767) sample -= 65536;
+        samples.add(sample);
+      }
+
+      // 计算RMS值用于口型同步
+      double sum = 0.0;
+      for (int sample in samples) {
+        double normalizedSample = sample / 32768.0; // 转换为-1.0到1.0范围
+        sum += normalizedSample * normalizedSample;
+      }
+      double rms = sum / samples.length;
+      
+      // 将RMS值转换为口型同步值(0.0-1.0)
+      double lipSyncValue = _rmsToLipSyncValue(rms);
+      
+      // 更新对话状态为播放中
+      add(ChatConversationPlayingEvent());
+      
+      // 通过事件通知Flutter层更新口型同步值
+      add(ChatLipSyncUpdateEvent(lipSyncValue: lipSyncValue));
+    } catch (e) {
+      _logger.e('___ERROR Processing audio data for lip sync: $e');
+    }
+  }
+
+  /// 将RMS值转换为口型同步值
+  double _rmsToLipSyncValue(double rms) {
+    // 应用对数缩放使低音量更敏感
+    double threshold = 0.01; // 静音阈值
+    if (rms < threshold) {
+      return 0.0;
+    }
+    
+    // 对数缩放
+    double logRms = log(rms + 1) / log(2);
+    // 限制在0.0-1.0范围内
+    return min(1.0, max(0.0, logRms * 2));
   }
 }

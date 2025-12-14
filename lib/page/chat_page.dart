@@ -82,6 +82,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
   }
+  
+  // 处理服务器端音频播放时的口型同步
+  void _handleServerAudioLipSync(double lipSyncValue) {
+    if (kDebugMode) {
+      print('ChatPage: Server audio lip sync value updated: $lipSyncValue');
+    }
+    
+    // 更新Live2D模型的口型同步值
+    if (_live2DKey.currentState != null) {
+      try {
+        (_live2DKey.currentState as dynamic).setLipSyncValue(lipSyncValue);
+      } catch (e) {
+        if (kDebugMode) {
+          print('ChatPage: Error setting server audio lip sync value: $e');
+        }
+      }
+    }
+  }
 
   // 从持久化存储恢复按钮状态
   Future<void> _restoreButtonStates() async {
@@ -437,6 +455,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           if (kDebugMode) {
             print('ChatPage: Building UI with ${chatState.messageList.length} messages');
             print('ChatPage: Current state - connectionStatus: ${chatState.connectionStatus}, authorizationStatus: ${chatState.authorizationStatus}');
+          }
+          
+          // 监听口型同步值变化
+          if (chatState.lipSyncValue > 0.0) {
+            _handleServerAudioLipSync(chatState.lipSyncValue);
           }
           return Scaffold(
             appBar: AppBar(
