@@ -434,7 +434,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               clearUp();
             }
             
-            // 当收到新消息时，触发Live2D模型的随机表情
+            // 当收到新消息时，触发Live2D模型的随机表情（限制频率避免性能问题）
             if (chatState.messageList.isNotEmpty) {
               // 使用GlobalKey直接访问State方法触发表情
               if (_live2DKey.currentState != null) {
@@ -457,8 +457,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             print('ChatPage: Current state - connectionStatus: ${chatState.connectionStatus}, authorizationStatus: ${chatState.authorizationStatus}');
           }
           
-          // 监听口型同步值变化
-          if (chatState.lipSyncValue > 0.0) {
+          // 监听口型同步值变化（添加阈值避免频繁更新）
+          if (chatState.lipSyncValue > 0.01) {
             _handleServerAudioLipSync(chatState.lipSyncValue);
           }
           return Scaffold(
