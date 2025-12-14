@@ -9,7 +9,7 @@ import 'package:opus_dart/opus_dart.dart';
 import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
-import 'package:taudio/public/fs/flutter_sound.dart';
+import 'package:xiaozhi/util/android_audio_player.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -32,7 +32,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   AudioRecorder? _audioRecorder;
 
-  FlutterSoundPlayer? _audioPlayer;
+  CompatibleAudioPlayer? _audioPlayer;
 
   Stream<Uint8List>? _audioRecorderStream;
 
@@ -120,7 +120,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               add(ChatStartListenEvent());
             }
           } else if (data is Uint8List) {
-            if (false == _audioPlayer!.isOpen()) {
+            if (!_audioPlayer!.isOpen) {
               await _audioPlayer!.openPlayer();
             }
 
@@ -134,11 +134,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               );
             } else {
               await _audioPlayer!.startPlayerFromStream(
-                codec: Codec.pcm16,
-                interleaved: false,
-                numChannels: _audioChannels,
                 sampleRate: _audioSampleRate,
+                numChannels: _audioChannels,
                 bufferSize: 1024,
+                codec: 'pcm16',
+                interleaved: false,
               );
             }
           }
@@ -194,7 +194,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
           _audioRecorder = AudioRecorder();
 
-          _audioPlayer = FlutterSoundPlayer();
+          _audioPlayer = CompatibleAudioPlayer();
 
           initOpus(await opus_flutter.load());
 
