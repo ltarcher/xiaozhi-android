@@ -14,6 +14,8 @@ import com.live2d.LAppDelegate;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
+import com.thinkerror.xiaozhi.AudioPlayerCompat;
+import com.thinkerror.xiaozhi.DeviceInfoCompat;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 
@@ -62,6 +64,11 @@ public class MainActivity extends FlutterActivity {
         
         // 然后调用父类方法
         super.configureFlutterEngine(flutterEngine);
+
+        // 注册Android 9兼容音频播放器
+        AudioPlayerCompat.registerWith(flutterEngine, getApplicationContext());
+        // 注册设备信息兼容性工具
+        DeviceInfoCompat.registerWith(flutterEngine);
         
         // 注册MethodChannel用于与Flutter通信
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
