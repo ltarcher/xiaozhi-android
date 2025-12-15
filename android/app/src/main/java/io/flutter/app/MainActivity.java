@@ -28,6 +28,10 @@ public class MainActivity extends FlutterActivity {
     
     // 表情管理器
     // private ExpressionManager expressionManager = new ExpressionManager();
+    
+    // 防重复触发表情的机制
+    private java.util.Map<String, String> lastExpressionMap = new java.util.HashMap<>();
+    private static final long EXPRESSION_COOLDOWN_MS = 500; // 500ms冷却时间
 
     /**
      * 获取模型索引的辅助方法
@@ -113,7 +117,15 @@ public class MainActivity extends FlutterActivity {
                                 try {
                                     // 获取当前模型并触发表情，使用多实例管理
                                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                    int modelIndex = getModelIndex(instanceId);
+                                    
+                                    // 检查实例是否已经存在映射
+                                    if (!instanceMap.containsKey(instanceId)) {
+                                        Log.w(TAG, "triggerExpression: Instance " + instanceId + " not found in instanceMap, skipping expression trigger");
+                                        result.success(null);
+                                        return;
+                                    }
+                                    
+                                    int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
                                     if (live2DManager.getModel(modelIndex) != null) {
@@ -121,17 +133,45 @@ public class MainActivity extends FlutterActivity {
                                         String mappedExpressionId = getExpressionId(expressionName);
                                         Log.d(TAG, "triggerExpression: Mapping '" + expressionName + "' to '" + mappedExpressionId + "'");
                                         
+                                        // 防重复触发检查
+                                        String instanceKey = instanceId + "_" + modelIndex;
+                                        String lastExpression = lastExpressionMap.get(instanceKey);
+                                        long currentTime = System.currentTimeMillis();
+                                        
+                                        // 如果是相同的表情且在冷却时间内，跳过
+                                        if (lastExpression != null && lastExpression.equals(mappedExpressionId)) {
+                                            Log.d(TAG, "triggerExpression: Skipping duplicate expression '" + mappedExpressionId + "' for instance " + instanceId);
+                                            result.success(null);
+                                            return;
+                                        }
+                                        
                                         // 检查表达式是否存在
                                         if (isExpressionAvailable(live2DManager.getModel(modelIndex), mappedExpressionId)) {
-                                            // 使用映射后的表达式ID
-                                            live2DManager.getModel(modelIndex).setExpression(mappedExpressionId);
-                                            Log.d(TAG, "triggerExpression: Successfully set expression '" + mappedExpressionId + "'");
-                                            result.success(null);
+                                            try {
+                                                // 使用映射后的表达式ID
+                                                live2DManager.getModel(modelIndex).setExpression(mappedExpressionId);
+                                                
+                                                // 更新最后触发的表情
+                                                lastExpressionMap.put(instanceKey, mappedExpressionId);
+                                                
+                                                Log.d(TAG, "triggerExpression: Successfully set expression '" + mappedExpressionId + "'");
+                                                result.success(null);
+                                            } catch (Exception e) {
+                                                Log.e(TAG, "triggerExpression: Error setting expression '" + mappedExpressionId + "'", e);
+                                                // 清除记录，允许下次重试
+                                                lastExpressionMap.remove(instanceKey);
+                                                result.error("EXCEPTION_SET_ERROR", "Failed to set expression: " + e.getMessage(), null);
+                                            }
                                         } else {
                                             Log.w(TAG, "triggerExpression: Expression '" + expressionName + "' (mapped to '" + mappedExpressionId + "') not found in model, using random expression instead");
                                             // 如果指定的表达式不存在，使用随机表情作为后备
-                                            live2DManager.getModel(modelIndex).setRandomExpression();
-                                            result.success(null);
+                                            try {
+                                                live2DManager.getModel(modelIndex).setRandomExpression();
+                                                result.success(null);
+                                            } catch (Exception e) {
+                                                Log.e(TAG, "triggerExpression: Error setting random expression", e);
+                                                result.error("RANDOM_EXPRESSION_ERROR", "Failed to set random expression: " + e.getMessage(), null);
+                                            }
                                         }
                                     } else {
                                         result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
@@ -154,7 +194,15 @@ public class MainActivity extends FlutterActivity {
                                 try {
                                     // 获取当前模型并播放动作，使用多实例管理
                                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                    int modelIndex = getModelIndex(instanceId);
+                                    
+                                    // 检查实例是否已经存在映射
+                                    if (!instanceMap.containsKey(instanceId)) {
+                                        Log.w(TAG, "playMotion: Instance " + instanceId + " not found in instanceMap, skipping motion play");
+                                        result.success(null);
+                                        return;
+                                    }
+                                    
+                                    int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "playMotion: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                     
                                     if (live2DManager.getModel(modelIndex) != null) {
@@ -358,7 +406,15 @@ public class MainActivity extends FlutterActivity {
                                 try {
                                     // 获取当前模型并设置口型同步值，使用多实例管理
                                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                                    int modelIndex = getModelIndex(instanceId);
+                                    
+                                    // 检查实例是否已经存在映射
+                                    if (!instanceMap.containsKey(instanceId)) {
+                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, skipping lip sync value set");
+                                        result.success(null);
+                                        return;
+                                    }
+                                    
+                                    int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                     
                                     if (live2DManager.getModel(modelIndex) != null) {
