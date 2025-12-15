@@ -25,6 +25,9 @@ public class MainActivity extends FlutterActivity {
     // 添加实例映射管理
     private java.util.Map<String, Integer> instanceMap = new java.util.HashMap<>();
     private int nextModelIndex = 0;
+    
+    // 表情管理器
+    // private ExpressionManager expressionManager = new ExpressionManager();
 
     /**
      * 获取模型索引的辅助方法
@@ -100,15 +103,36 @@ public class MainActivity extends FlutterActivity {
                                 String instanceId = call.argument("instanceId");
                                 Log.d(TAG, "triggerExpression called: expressionName=" + expressionName + ", instanceId=" + instanceId);
                                 
+                                // 验证表达式名称
+                                if (expressionName == null || expressionName.isEmpty()) {
+                                    Log.w(TAG, "triggerExpression: Expression name is null or empty, skipping");
+                                    result.success(null); // 不报错，只是跳过
+                                    return;
+                                }
+                                
                                 try {
                                     // 获取当前模型并触发表情，使用多实例管理
                                     LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
                                     int modelIndex = getModelIndex(instanceId);
                                     Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                    
+                                   
                                     if (live2DManager.getModel(modelIndex) != null) {
-                                        live2DManager.getModel(modelIndex).setRandomExpression();
-                                        result.success(null);
+                                        // 获取映射后的表达式ID
+                                        String mappedExpressionId = getExpressionId(expressionName);
+                                        Log.d(TAG, "triggerExpression: Mapping '" + expressionName + "' to '" + mappedExpressionId + "'");
+                                        
+                                        // 检查表达式是否存在
+                                        if (isExpressionAvailable(live2DManager.getModel(modelIndex), mappedExpressionId)) {
+                                            // 使用映射后的表达式ID
+                                            live2DManager.getModel(modelIndex).setExpression(mappedExpressionId);
+                                            Log.d(TAG, "triggerExpression: Successfully set expression '" + mappedExpressionId + "'");
+                                            result.success(null);
+                                        } else {
+                                            Log.w(TAG, "triggerExpression: Expression '" + expressionName + "' (mapped to '" + mappedExpressionId + "') not found in model, using random expression instead");
+                                            // 如果指定的表达式不存在，使用随机表情作为后备
+                                            live2DManager.getModel(modelIndex).setRandomExpression();
+                                            result.success(null);
+                                        }
                                     } else {
                                         result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
                                     }
@@ -390,6 +414,72 @@ public class MainActivity extends FlutterActivity {
         } catch (Exception e) {
             Log.e(TAG, "changeToModelByName: Error changing model", e);
         }
+    }
+    
+    /**
+     * 检查指定的表达式是否在模型中可用
+     * @param model Live2D模型
+     * @param expressionName 表达式名称
+     * @return 如果表达式存在返回true，否则返回false
+     */
+    private boolean isExpressionAvailable(com.live2d.LAppModel model, String expressionName) {
+        if (model == null || expressionName == null || expressionName.isEmpty()) {
+            return false;
+        }
+        
+        try {
+            // 通过反射获取expressions字段
+            java.lang.reflect.Field expressionsField = model.getClass().getDeclaredField("expressions");
+            expressionsField.setAccessible(true);
+            java.util.Map<String, ?> expressions = (java.util.Map<String, ?>) expressionsField.get(model);
+            
+            if (expressions != null) {
+                // 首先检查直接的表达式名称
+                if (expressions.containsKey(expressionName)) {
+                    Log.d(TAG, "Expression '" + expressionName + "' found directly in model");
+                    return true;
+                }
+                
+                // 检查常见的表情映射
+                String mappedId = getExpressionId(expressionName);
+                if (expressions.containsKey(mappedId)) {
+                    Log.d(TAG, "Expression '" + expressionName + "' -> '" + mappedId + "' found in model");
+                    return true;
+                }
+                
+                Log.d(TAG, "Expression '" + expressionName + "' not found in model");
+                return false;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking expression availability: " + e.getMessage());
+        }
+        
+        // 如果无法检查表达式列表，假设表达式存在（向后兼容）
+        Log.d(TAG, "Cannot verify expression '" + expressionName + "', assuming it exists");
+        return true;
+    }
+    
+    /**
+     * 获取表达式对应的实际ID
+     * @param expressionName 表达式名称
+     * @return 表达式ID，如果映射不存在则返回原始名称
+     */
+    private String getExpressionId(String expressionName) {
+        if (expressionName == null || expressionName.isEmpty()) {
+            return expressionName;
+        }
+        
+        // 常见的表情名称到ID的映射
+        if (expressionName.equals("Happy")) return "F02";
+        if (expressionName.equals("Sad")) return "F07";
+        if (expressionName.equals("Surprised")) return "F03";
+        if (expressionName.equals("Normal")) return "F01";
+        if (expressionName.equals("Blushing")) return "F08";
+        if (expressionName.equals("Angry")) return "F05";
+        if (expressionName.equals("Sleepy")) return "F06";
+        
+        // 如果不在常见映射中，返回原始名称
+        return expressionName;
     }
 
     /**
