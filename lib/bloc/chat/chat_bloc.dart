@@ -9,8 +9,10 @@ import 'package:opus_dart/opus_dart.dart';
 import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
-import 'package:taudio/public/fs/flutter_sound.dart';
+import 'package:taudio/public/fs/flutter_sound.dart' as taudio;
 import 'package:uuid/uuid.dart';
+import 'package:xiaozhi/util/android_version_util.dart';
+import 'package:xiaozhi/util/audio_player_wrapper.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -33,7 +35,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   AudioRecorder? _audioRecorder;
 
-  FlutterSoundPlayer? _audioPlayer;
+  AudioPlayerWrapper? _audioPlayer;
 
   Stream<Uint8List>? _audioRecorderStream;
 
@@ -206,7 +208,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               _audioPlayer!.uint8ListSink!.add(pcmData);
             } else {
               await _audioPlayer!.startPlayerFromStream(
-                codec: Codec.pcm16,
+                codec: taudio.Codec.pcm16,
                 interleaved: false,
                 numChannels: _audioChannels,
                 sampleRate: _audioSampleRate,
@@ -358,7 +360,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
           _audioRecorder = AudioRecorder();
 
-          _audioPlayer = FlutterSoundPlayer();
+          // 根据Android版本创建合适的音频播放器
+          _audioPlayer = AudioPlayerFactory.createPlayerSync();
+          
+          // 记录当前使用的播放器类型
+          _logger.i('___INFO Using ${AudioPlayerFactory.getPlayerTypeDescriptionSync()}');
 
           initOpus(await opus_flutter.load());
 
