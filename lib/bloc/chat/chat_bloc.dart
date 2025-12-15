@@ -394,19 +394,36 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       }
 
       if (event is ChatStartListenEvent) {
-        if (!await Permission.microphone.isGranted) {
-          if (!event.isRequestMicrophonePermission ||
-              !await Permission.microphone.request().isGranted) {
-            emit(ChatNoMicrophonePermissionState(
-              connectionStatus: state.connectionStatus,
-              authorizationStatus: state.authorizationStatus,
-              recordingStatus: state.recordingStatus, // 保持当前录音状态
-              conversationStatus: state.conversationStatus, // 保持当前对话状态
-            ));
-          }
+        // 检查麦克风权限
+        bool hasPermission = await Permission.microphone.isGranted;
+        
+        // 如果没有权限且需要请求权限
+        if (!hasPermission && event.isRequestMicrophonePermission) {
+          hasPermission = await Permission.microphone.request().isGranted;
+        }
+        
+        // 如果仍然没有权限，显示权限对话框
+        if (!hasPermission) {
+          emit(ChatNoMicrophonePermissionState(
+            connectionStatus: state.connectionStatus,
+            authorizationStatus: state.authorizationStatus,
+            recordingStatus: state.recordingStatus, // 保持当前录音状态
+            conversationStatus: state.conversationStatus, // 保持当前对话状态
+          ));
           if (!_isOnCall) {
             return;
           }
+        }
+        
+        // 如果有权限，确保当前状态不是ChatNoMicrophonePermissionState
+        if (hasPermission && state is ChatNoMicrophonePermissionState) {
+          emit(ChatInitialState(
+            messageList: state.messageList,
+            connectionStatus: state.connectionStatus,
+            authorizationStatus: state.authorizationStatus,
+            recordingStatus: state.recordingStatus,
+            conversationStatus: state.conversationStatus,
+          ));
         }
 
         if (null == _websocketStreamSubscription) {
@@ -511,10 +528,29 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (null != _audioRecorder && (await _audioRecorder!.isRecording())) {
           await _audioRecorder!.stop();
         }
-        // 录音停止，更新录音状态为初始化
-        add(ChatRecordingInitializedEvent());
-        // 对话状态更新为等待中
-        add(ChatConversationWaitingEvent());
+        
+        // 检查当前状态，避免重复触发事件
+        bool needUpdateRecordingStatus = true;
+        bool needUpdateConversationStatus = true;
+        
+        if (state is ChatInitialState) {
+          needUpdateRecordingStatus = state.recordingStatus != RecordingStatus.initialized;
+          needUpdateConversationStatus = state.conversationStatus != ConversationStatus.waiting;
+        } else if (state is ChatNoMicrophonePermissionState) {
+          needUpdateRecordingStatus = state.recordingStatus != RecordingStatus.initialized;
+          needUpdateConversationStatus = state.conversationStatus != ConversationStatus.waiting;
+        }
+        
+        // 只有在需要更新状态时才触发事件
+        if (needUpdateRecordingStatus) {
+          // 录音停止，更新录音状态为初始化
+          add(ChatRecordingInitializedEvent());
+        }
+        
+        if (needUpdateConversationStatus) {
+          // 对话状态更新为等待中
+          add(ChatConversationWaitingEvent());
+        }
       }
 
       if (event is ChatStartCallEvent) {

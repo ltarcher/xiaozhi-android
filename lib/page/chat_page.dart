@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -45,6 +46,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showActivationDialog = false;
   String? _activationCode;
   String? _activationUrl;
+  
+  // 添加控制权限对话框显示的状态变量
+  bool _isPermissionDialogShowing = false;
 
   @override
   void initState() {
@@ -336,14 +340,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           if (kDebugMode) {
             print('ChatPage: ChatBloc state changed to: ${chatState.runtimeType}');
           }
-          if (chatState is ChatNoMicrophonePermissionState) {
+          
+          if (chatState is ChatNoMicrophonePermissionState && !_isPermissionDialogShowing) {
             if (kDebugMode) {
               print('ChatPage: No microphone permission, showing dialog');
             }
             clearUp();
+            
+            _isPermissionDialogShowing = true;
 
             showDialog(
               context: context,
+              barrierDismissible: false, // 防止用户点击外部关闭对话框
               builder: (context) {
                 return AlertDialog(
                   title: Text(AppLocalizations.of(context)!.requestPermission),
@@ -371,6 +379,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             if (kDebugMode) {
                               print('ChatPage: User rejected microphone permission');
                             }
+                            _isPermissionDialogShowing = false;
                             Navigator.pop(context);
                           },
                           child: Text(AppLocalizations.of(context)!.reject),
@@ -381,12 +390,30 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             if (kDebugMode) {
                               print('ChatPage: User granted microphone permission');
                             }
+                            _isPermissionDialogShowing = false;
                             Navigator.pop(context);
-                            chatBloc.add(
-                              ChatStartListenEvent(
-                                isRequestMicrophonePermission: true,
-                              ),
-                            );
+                            
+                            // 重新检查权限状态
+                            bool hasPermission = await Permission.microphone.isGranted;
+                            if (kDebugMode) {
+                              print('ChatPage: Permission check after dialog: $hasPermission');
+                            }
+                            
+                            // 如果有权限，直接开始录音而不是再次请求权限
+                            if (hasPermission) {
+                              chatBloc.add(
+                                ChatStartListenEvent(
+                                  isRequestMicrophonePermission: false, // 不再请求权限，直接开始录音
+                                ),
+                              );
+                            } else {
+                              // 如果仍然没有权限，再次请求
+                              chatBloc.add(
+                                ChatStartListenEvent(
+                                  isRequestMicrophonePermission: true,
+                                ),
+                              );
+                            }
                           },
                           child: Text(AppLocalizations.of(context)!.agree),
                         ),
@@ -395,7 +422,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   ],
                 );
               },
-            );
+            ).then((_) {
+              // 对话框关闭后重置标志
+              _isPermissionDialogShowing = false;
+            });
           }
 
           if (chatState is ChatInitialState) {
