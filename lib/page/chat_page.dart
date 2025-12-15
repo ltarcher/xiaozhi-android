@@ -423,8 +423,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 if (kDebugMode) {
                   print('ChatPage: Triggering Live2D expression');
                 }
-                // 直接通过GlobalKey访问State方法
-                (_live2DKey.currentState as dynamic).triggerExpression('Happy');
+                // 使用更安全的表情触发方法
+                _triggerExpressionSafely('Happy'); // 使用语义化的表情名称
               } else {
                 if (kDebugMode) {
                   print('ChatPage: Live2D widget state not available for triggering expression');
@@ -984,5 +984,45 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return Row(
       children: indicators,
     );
+  }
+  
+  /// 安全地触发表情，包含验证和错误处理
+  void _triggerExpressionSafely(String expressionName) async {
+    if (_live2DKey.currentState == null) {
+      if (kDebugMode) {
+        print('ChatPage: Live2D widget state is null, cannot trigger expression');
+      }
+      return;
+    }
+    
+    try {
+      // 直接使用语义化名称，让Android端处理映射
+      if (kDebugMode) {
+        print('ChatPage: Triggering expression: $expressionName');
+      }
+      
+      // 调用原生方法触发表情，让Android端处理名称映射
+      await (_live2DKey.currentState as dynamic).triggerExpression(expressionName);
+      
+      if (kDebugMode) {
+        print('ChatPage: Expression triggered successfully: $expressionName');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error triggering expression: $expressionName, error: $e');
+      }
+      
+      // 如果触发表情失败，尝试使用随机表情作为后备
+      try {
+        if (kDebugMode) {
+          print('ChatPage: Falling back to random expression due to error');
+        }
+        await (_live2DKey.currentState as dynamic).triggerExpression('Random');
+      } catch (fallbackError) {
+        if (kDebugMode) {
+          print('ChatPage: Even fallback to random expression failed: $fallbackError');
+        }
+      }
+    }
   }
 }
