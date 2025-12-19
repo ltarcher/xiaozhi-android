@@ -9,8 +9,10 @@ import 'package:opus_dart/opus_dart.dart';
 import 'package:opus_flutter/opus_flutter.dart' as opus_flutter;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
-import 'package:taudio/public/fs/flutter_sound.dart';
+import 'package:taudio/public/fs/flutter_sound.dart' as taudio;
 import 'package:uuid/uuid.dart';
+import 'package:xiaozhi/util/android_version_util.dart';
+import 'package:xiaozhi/util/audio_player_wrapper.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -33,7 +35,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   AudioRecorder? _audioRecorder;
 
-  FlutterSoundPlayer? _audioPlayer;
+  AudioPlayerWrapper? _audioPlayer;
 
   Stream<Uint8List>? _audioRecorderStream;
 
@@ -89,6 +91,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _websocketChannel = null;
     }
     return super.close();
+  }
+  
+  /// 初始化音频播放器工厂，确保正确的版本检测
+  Future<void> _initializeAudioPlayerFactory() async {
+    try {
+      // 异步获取API级别，这将触发原生方法调用
+      final apiLevel = await AndroidVersionUtil.getCurrentApiLevel();
+      _logger.i('___INFO Detected Android API level: $apiLevel');
+      
+    } catch (e) {
+      _logger.e('___ERROR Failed to detect Android API level: $e');
+    }
   }
 
   // 添加一个标志，用于跟踪是否已经收到服务器的第一个响应
@@ -206,7 +220,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               _audioPlayer!.uint8ListSink!.add(pcmData);
             } else {
               await _audioPlayer!.startPlayerFromStream(
-                codec: Codec.pcm16,
+                codec: taudio.Codec.pcm16,
                 interleaved: false,
                 numChannels: _audioChannels,
                 sampleRate: _audioSampleRate,
@@ -356,7 +370,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
           _audioRecorder = AudioRecorder();
 
-          _audioPlayer = FlutterSoundPlayer();
+          // 异步获取API级别以确保正确的版本检测
+          final apiLevel = await AndroidVersionUtil.getCurrentApiLevel();
+          _logger.i('___INFO Detected Android API level: $apiLevel');
+          
+          // 根据API级别创建合适的音频播放器
+          if (apiLevel >= 29) {
+            _audioPlayer = TaudioPlayerWrapper();
+            _logger.i('___INFO Using Taudio (FlutterSound) - Android 10+');
+          } else {
+            _audioPlayer = CompatibleAudioPlayerWrapper();
+            _logger.i('___INFO Using Compatible Audio Player - Android 9');
+          }
 
           initOpus(await opus_flutter.load());
 
