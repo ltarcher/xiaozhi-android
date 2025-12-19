@@ -565,9 +565,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               ),
                               // SmartRefresher占据大部分区域，但为Live2D按钮留出空间
                               Positioned(
-                                top: 80, // 为顶部按钮留出足够空间
+                                top: (constraints.maxHeight / 2) + 40, // 为顶部按钮留出足够空间，并将高度减半
                                 left: 0,
-                                right: 80, // 为右上角按钮留出足够空间
+                                right: 0, // 让SmartRefresher占满整个宽度
                                 bottom: 0,
                                 child: SmartRefresher(
                                   enablePullDown: false,
