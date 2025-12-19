@@ -28,14 +28,21 @@ class AndroidVersionUtil {
         print('AndroidVersionUtil: OS version from Platform: $version');
       }
       
-      // 尝试从版本字符串中提取API级别
+      // 尝试从版本字符串中提取Android版本号，然后转换为API级别
       final match = RegExp(r'Android (\d+)').firstMatch(version);
       if (match != null) {
-        return int.tryParse(match.group(1)!) ?? -1;
+        final androidVersion = int.tryParse(match.group(1)!) ?? -1;
+        // 将Android版本号转换为API级别
+        return _versionToApiLevel(androidVersion);
       }
       
       // 如果无法提取，尝试直接解析整个字符串
-      return int.tryParse(version) ?? -1;
+      final directVersion = int.tryParse(version) ?? -1;
+      if (directVersion > 0) {
+        return _versionToApiLevel(directVersion);
+      }
+      
+      return -1;
     } catch (e) {
       if (kDebugMode) {
         print('AndroidVersionUtil: Error getting API level: $e');
@@ -73,19 +80,54 @@ class AndroidVersionUtil {
         print('AndroidVersionUtil: OS version from Platform: $version');
       }
       
-      // 尝试从版本字符串中提取API级别
+      // 尝试从版本字符串中提取Android版本号，然后转换为API级别
       final match = RegExp(r'Android (\d+)').firstMatch(version);
       if (match != null) {
-        return int.tryParse(match.group(1)!) ?? -1;
+        final androidVersion = int.tryParse(match.group(1)!) ?? -1;
+        // 将Android版本号转换为API级别
+        return _versionToApiLevel(androidVersion);
       }
       
       // 如果无法提取，尝试直接解析整个字符串
-      return int.tryParse(version) ?? -1;
+      final directVersion = int.tryParse(version) ?? -1;
+      if (directVersion > 0) {
+        return _versionToApiLevel(directVersion);
+      }
+      
+      return -1;
     } catch (e) {
       if (kDebugMode) {
         print('AndroidVersionUtil: Error getting API level: $e');
       }
       return -1;
+    }
+  }
+  
+  /// 将Android版本号转换为API级别
+  static int _versionToApiLevel(int androidVersion) {
+    switch (androidVersion) {
+      case 9:
+        return ANDROID_9_API_LEVEL; // 28
+      case 10:
+        return ANDROID_10_API_LEVEL; // 29
+      case 11:
+        return 30;
+      case 12:
+        return 31;
+      case 13:
+        return 33;
+      case 14:
+        return 34;
+      case 15:
+        return 35;
+      default:
+        // 对于未知的版本，假设是较新的版本（>= Android 10）
+        if (androidVersion >= 10) {
+          // 估算API级别：Android 10 (29) + (版本号 - 10)
+          return ANDROID_10_API_LEVEL + (androidVersion - 10);
+        }
+        // 对于较低的版本，假设是Android 9或更早
+        return ANDROID_9_API_LEVEL;
     }
   }
 
