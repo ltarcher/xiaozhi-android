@@ -249,6 +249,14 @@ class CompatibleAudioPlayerWrapper extends AudioPlayerWrapper {
           if (kDebugMode) {
             print('CompatibleAudioPlayer: Error checking playback status: $e');
           }
+          
+          /// 设置API级别缓存
+          void setApiLevelCache(int apiLevel) {
+            AudioPlayerFactory._cachedApiLevel = apiLevel;
+            if (kDebugMode) {
+              print('AudioPlayerFactory: API level cache set to: $apiLevel');
+            }
+          }
         }
       });
     } catch (e) {
@@ -402,16 +410,45 @@ class AudioPlayerFactory {
   
   /// 同步创建适合当前Android版本的音频播放器
   static AudioPlayerWrapper createPlayerSync() {
-    if (AndroidVersionUtil.isAndroid10OrHigherSync()) {
-      if (kDebugMode) {
-        print('AudioPlayerFactory: Creating TaudioPlayerWrapper for Android 10+');
+    // 优先使用原生方法，通过静态变量缓存API级别
+    final int apiLevel = _getNativeApiLevelWithCache();
+    final bool isAndroid10Plus = apiLevel >= 29;
+    
+    if (kDebugMode) {
+      print('AudioPlayerFactory: Using cached API level: $apiLevel');
+      print('AudioPlayerFactory: Is Android 10+: $isAndroid10Plus');
+    }
+    
+    final playerType = isAndroid10Plus ? 'TaudioPlayerWrapper' : 'CompatibleAudioPlayerWrapper';
+    
+    if (kDebugMode) {
+      print('AudioPlayerFactory: Creating $playerType (${isAndroid10Plus ? "Android 10+" : "Android 9"})');
+      print('AudioPlayerFactory: Player created: ${playerType.toString()}');
+    }
+    
+    return isAndroid10Plus ? TaudioPlayerWrapper() : CompatibleAudioPlayerWrapper();
+  }
+  
+  // 缓存的API级别，避免重复调用原生方法
+  static int? _cachedApiLevel;
+  
+  /// 获取原生API级别（带缓存）
+  static int _getNativeApiLevelWithCache() {
+    if (_cachedApiLevel != null) {
+      return _cachedApiLevel!;
+    }
+    
+    try {
+      // 使用同步方法获取API级别
+      _cachedApiLevel = AndroidVersionUtil.getCurrentApiLevelSync();
+      if (_cachedApiLevel == -1) {
+        // 如果同步方法失败，默认假设是Android 10+
+        _cachedApiLevel = 29;
       }
-      return TaudioPlayerWrapper();
-    } else {
-      if (kDebugMode) {
-        print('AudioPlayerFactory: Creating CompatibleAudioPlayerWrapper for Android 9');
-      }
-      return CompatibleAudioPlayerWrapper();
+      return _cachedApiLevel!;
+    } catch (e) {
+      _cachedApiLevel = 29; // 默认Android 10+
+      return _cachedApiLevel!;
     }
   }
   

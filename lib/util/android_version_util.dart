@@ -18,6 +18,9 @@ class AndroidVersionUtil {
     try {
       // 首先尝试使用原生方法获取API级别
       final apiLevel = await _getApiLevelFromNative();
+      if (kDebugMode) {
+        print('AndroidVersionUtil: API level from native: $apiLevel');
+      }
       if (apiLevel > 0) {
         return apiLevel;
       }
@@ -74,6 +77,9 @@ class AndroidVersionUtil {
     }
     
     try {
+      // 对于同步版本，我们也尝试使用原生方法，但作为最后的回退方案
+      // 注意：这里不能等待异步方法，所以只能尝试直接获取
+      
       // 使用dart:io获取系统信息
       final version = Platform.operatingSystemVersion;
       if (kDebugMode) {
@@ -85,21 +91,33 @@ class AndroidVersionUtil {
       if (match != null) {
         final androidVersion = int.tryParse(match.group(1)!) ?? -1;
         // 将Android版本号转换为API级别
-        return _versionToApiLevel(androidVersion);
+        final apiLevel = _versionToApiLevel(androidVersion);
+        if (kDebugMode) {
+          print('AndroidVersionUtil: Extracted Android version: $androidVersion, converted to API level: $apiLevel');
+        }
+        return apiLevel;
       }
       
       // 如果无法提取，尝试直接解析整个字符串
       final directVersion = int.tryParse(version) ?? -1;
       if (directVersion > 0) {
-        return _versionToApiLevel(directVersion);
+        final apiLevel = _versionToApiLevel(directVersion);
+        if (kDebugMode) {
+          print('AndroidVersionUtil: Parsed version: $directVersion, converted to API level: $apiLevel');
+        }
+        return apiLevel;
       }
       
-      return -1;
+      // 如果所有方法都失败，默认假设是Android 10+（因为现在大部分设备都是新版本）
+      if (kDebugMode) {
+        print('AndroidVersionUtil: Could not determine version, defaulting to API level 29 (Android 10+)');
+      }
+      return 29; // Android 10的API级别
     } catch (e) {
       if (kDebugMode) {
-        print('AndroidVersionUtil: Error getting API level: $e');
+        print('AndroidVersionUtil: Error getting API level: $e, defaulting to API level 29');
       }
-      return -1;
+      return 29; // Android 10的API级别
     }
   }
   
@@ -152,7 +170,13 @@ class AndroidVersionUtil {
   /// 同步检查是否为Android 10或更高版本
   static bool isAndroid10OrHigherSync() {
     final apiLevel = getCurrentApiLevelSync();
-    return apiLevel >= ANDROID_10_API_LEVEL;
+    final isAndroid10Plus = apiLevel >= ANDROID_10_API_LEVEL;
+    
+    if (kDebugMode) {
+      print('AndroidVersionUtil: isAndroid10OrHigherSync - API Level: $apiLevel, Is Android 10+: $isAndroid10Plus');
+    }
+    
+    return isAndroid10Plus;
   }
 
   /// 获取Android版本名称

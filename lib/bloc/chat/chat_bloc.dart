@@ -92,6 +92,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
     return super.close();
   }
+  
+  /// 初始化音频播放器工厂，确保正确的版本检测
+  Future<void> _initializeAudioPlayerFactory() async {
+    try {
+      // 异步获取API级别，这将触发原生方法调用
+      final apiLevel = await AndroidVersionUtil.getCurrentApiLevel();
+      _logger.i('___INFO Detected Android API level: $apiLevel');
+      
+    } catch (e) {
+      _logger.e('___ERROR Failed to detect Android API level: $e');
+    }
+  }
 
   // 添加一个标志，用于跟踪是否已经收到服务器的第一个响应
   bool _hasReceivedFirstResponse = false;
@@ -358,11 +370,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
           _audioRecorder = AudioRecorder();
 
-          // 根据Android版本创建合适的音频播放器
-          _audioPlayer = AudioPlayerFactory.createPlayerSync();
+          // 异步获取API级别以确保正确的版本检测
+          final apiLevel = await AndroidVersionUtil.getCurrentApiLevel();
+          _logger.i('___INFO Detected Android API level: $apiLevel');
           
-          // 记录当前使用的播放器类型
-          _logger.i('___INFO Using ${AudioPlayerFactory.getPlayerTypeDescriptionSync()}');
+          // 根据API级别创建合适的音频播放器
+          if (apiLevel >= 29) {
+            _audioPlayer = TaudioPlayerWrapper();
+            _logger.i('___INFO Using Taudio (FlutterSound) - Android 10+');
+          } else {
+            _audioPlayer = CompatibleAudioPlayerWrapper();
+            _logger.i('___INFO Using Compatible Audio Player - Android 9');
+          }
 
           initOpus(await opus_flutter.load());
 
