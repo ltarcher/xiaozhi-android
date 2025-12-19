@@ -341,6 +341,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             print('ChatPage: ChatBloc state changed to: ${chatState.runtimeType}');
           }
           
+          // 检查授权状态变化，同步更新授权对话框显示状态
+          String authorizationString = chatState.authorizationStatus.toString();
+          if (authorizationString.contains('AuthorizationStatus.authorized') && _showActivationDialog) {
+            if (kDebugMode) {
+              print('ChatPage: ChatState shows authorized, hiding activation dialog');
+            }
+            setState(() {
+              _showActivationDialog = false;
+              _activationCode = null;
+              _activationUrl = null;
+            });
+          }
+          
           if (chatState is ChatNoMicrophonePermissionState && !_isPermissionDialogShowing) {
             if (kDebugMode) {
               print('ChatPage: No microphone permission, showing dialog');
@@ -468,6 +481,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             print('ChatPage: Building UI with ${chatState.messageList.length} messages');
             print('ChatPage: Current state - connectionStatus: ${chatState.connectionStatus}, authorizationStatus: ${chatState.authorizationStatus}');
           }
+          
+          // 在构建UI时也检查授权状态，确保对话框状态与授权状态同步
+          String authorizationString = chatState.authorizationStatus.toString();
+          if (authorizationString.contains('AuthorizationStatus.authorized') && _showActivationDialog) {
+            if (kDebugMode) {
+              print('ChatPage: Builder detected authorized state, hiding activation dialog');
+            }
+            setState(() {
+              _showActivationDialog = false;
+              _activationCode = null;
+              _activationUrl = null;
+            });
+          }
+          
           return Scaffold(
             appBar: AppBar(
               title: Row(

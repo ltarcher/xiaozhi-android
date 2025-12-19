@@ -263,9 +263,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _reconnectAttempts++;
     _logger.i('___INFO Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts');
     
-    // 在重连时，将授权状态重置为未授权状态
-    add(ChatUnauthorizedEvent());
-    
     // 触发OtaBloc的授权状态检查，强制更新状态
     _logger.i('___INFO Triggering authorization check during reconnect with force update');
     _otaBloc.add(OtaCheckAuthorizationEvent(forceUpdate: true));
@@ -282,12 +279,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       add(ChatConnectionConnectingEvent());
       
-      // 在WebSocket连接时，将授权状态重置为未授权状态
-      add(ChatUnauthorizedEvent());
-      
       // 触发OtaBloc的授权状态检查，强制更新状态
       _logger.i('___INFO Triggering authorization check during WebSocket connection with force update');
       _otaBloc.add(OtaCheckAuthorizationEvent(forceUpdate: true));
+      
+      // 等待一小段时间让OtaBloc更新状态
+      await Future.delayed(Duration(milliseconds: 500));
+      
+      // 检查当前授权状态
+      bool isAuthorized = false;
+      if (_otaBloc.state is OtaActivatedState) {
+        isAuthorized = true;
+        _logger.i('___INFO Device is authorized, including authorization in WebSocket connection');
+      } else {
+        _logger.i('___INFO Device is not authorized, WebSocket connection will be unauthorized');
+        // 只有在未授权状态下才重置授权状态
+        add(ChatUnauthorizedEvent());
+      }
       
       _websocketChannel = IOWebSocketChannel.connect(
         Uri.parse(
@@ -297,6 +305,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         headers: {
           "Protocol-Version": "1",
           "Device-Id": await SharedPreferencesUtil().getMacAddress(),
+          // 添加授权状态到头部
+          "Authorization": isAuthorized ? "Bearer authorized" : "Bearer unauthorized",
         },
       );
 
@@ -306,6 +316,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _initWebsocketListener();
 
       // 发送hello消息并等待响应，以确认连接真正可用
+      // 使用之前定义的isAuthorized变量
+      
       _websocketChannel!.sink.add(
         jsonEncode(
           WebsocketMessage(
@@ -317,6 +329,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               frameDuration: _audioFrameDuration,
               format: AudioParams.formatOpus,
             ),
+            // 添加授权状态到消息中
+            text: isAuthorized ? "authorized" : "unauthorized",
           ).toJson(),
         ),
       );
