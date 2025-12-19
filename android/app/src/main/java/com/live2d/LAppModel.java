@@ -361,6 +361,14 @@ public class LAppModel extends CubismUserModel {
      * @param expressionID 表情动作的ID
      */
     public void setExpression(final String expressionID) {
+        // 检查模型是否支持表情
+        if (expressions.isEmpty()) {
+            if (debugMode) {
+                LAppPal.printLog("Model does not support expressions, skipping: " + expressionID);
+            }
+            return;
+        }
+        
         ACubismMotion motion = expressions.get(expressionID);
 
         if (debugMode) {
@@ -368,7 +376,12 @@ public class LAppModel extends CubismUserModel {
         }
 
         if (motion != null) {
-            expressionManager.startMotionPriority(motion, LAppDefine.Priority.FORCE.getPriority());
+            // 检查表情管理器是否可用
+            if (expressionManager != null) {
+                expressionManager.startMotionPriority(motion, LAppDefine.Priority.FORCE.getPriority());
+            } else if (debugMode) {
+                LAppPal.printLog("Expression manager is null, cannot set expression: " + expressionID);
+            }
         } else {
             if (debugMode) {
                 LAppPal.printLog("expression " + expressionID + "is null");
@@ -380,20 +393,38 @@ public class LAppModel extends CubismUserModel {
      * 设置随机选择的表情动作
      */
     public void setRandomExpression() {
-        if (expressions.size() == 0) {
+        // 检查是否有可用的表情
+        if (expressions == null || expressions.isEmpty()) {
+            if (debugMode) {
+                LAppPal.printLog("No expressions available for random selection");
+            }
             return;
         }
 
-        Random random = new Random();
-        int number = random.nextInt(Integer.MAX_VALUE) % expressions.size();
-
-        int i = 0;
-        for (String key : expressions.keySet()) {
-            if (i == number) {
-                setExpression(key);
-                return;
+        // 检查表情管理器是否可用
+        if (expressionManager == null) {
+            if (debugMode) {
+                LAppPal.printLog("Expression manager is null, cannot set random expression");
             }
-            i++;
+            return;
+        }
+
+        try {
+            Random random = new Random();
+            int number = random.nextInt(Integer.MAX_VALUE) % expressions.size();
+
+            int i = 0;
+            for (String key : expressions.keySet()) {
+                if (i == number) {
+                    setExpression(key);
+                    return;
+                }
+                i++;
+            }
+        } catch (Exception e) {
+            if (debugMode) {
+                LAppPal.printLog("Exception while setting random expression: " + e.getMessage());
+            }
         }
     }
 
@@ -624,29 +655,52 @@ public class LAppModel extends CubismUserModel {
                     LAppPal.printLog("load motion: " + path + "==>[" + group + "_" + i + "]");
                 }
 
-                byte[] buffer;
-                buffer = createBuffer(modelPath);
+                try {
+                    byte[] buffer;
+                    buffer = createBuffer(modelPath);
 
-                // 如果无法加载动作，则跳过该过程。
-                CubismMotion tmp = loadMotion(buffer, motionConsistency);
-                if (tmp == null) {
+                    // 检查缓冲区是否有效
+                    if (buffer == null || buffer.length == 0) {
+                        if (debugMode) {
+                            LAppPal.printLog("Failed to load motion file: " + path + " - buffer is null or empty");
+                        }
+                        continue;
+                    }
+
+                    // 如果无法加载动作，则跳过该过程。
+                    CubismMotion tmp = loadMotion(buffer, motionConsistency);
+                    if (tmp == null) {
+                        if (debugMode) {
+                            LAppPal.printLog("Failed to load motion: " + path + " - motion is null after loading");
+                        }
+                        continue;
+                    }
+
+                    final float fadeInTime = modelSetting.getMotionFadeInTimeValue(group, i);
+
+                    if (fadeInTime != -1.0f) {
+                        tmp.setFadeInTime(fadeInTime);
+                    }
+
+                    final float fadeOutTime = modelSetting.getMotionFadeOutTimeValue(group, i);
+
+                    if (fadeOutTime != -1.0f) {
+                        tmp.setFadeOutTime(fadeOutTime);
+                    }
+
+                    tmp.setEffectIds(eyeBlinkIds, lipSyncIds);
+                    motions.put(name, tmp);
+                    
+                    if (debugMode) {
+                        LAppPal.printLog("Successfully loaded motion: " + path);
+                    }
+                } catch (Exception e) {
+                    if (debugMode) {
+                        LAppPal.printLog("Exception while loading motion: " + path + " - " + e.getMessage());
+                    }
+                    // 继续加载下一个动作文件，不让单个错误导致整个应用崩溃
                     continue;
                 }
-
-                final float fadeInTime = modelSetting.getMotionFadeInTimeValue(group, i);
-
-                if (fadeInTime != -1.0f) {
-                    tmp.setFadeInTime(fadeInTime);
-                }
-
-                final float fadeOutTime = modelSetting.getMotionFadeOutTimeValue(group, i);
-
-                if (fadeOutTime != -1.0f) {
-                    tmp.setFadeOutTime(fadeOutTime);
-                }
-
-                tmp.setEffectIds(eyeBlinkIds, lipSyncIds);
-                motions.put(name, tmp);
             }
         }
     }
