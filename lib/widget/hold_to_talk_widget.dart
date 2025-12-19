@@ -31,6 +31,8 @@ class HoldToTalkWidgetState extends State<HoldToTalkWidget>
     }
   }
 
+  bool get isSpeaking => _isSpeaking;
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);

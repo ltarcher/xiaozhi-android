@@ -451,8 +451,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _refreshController.loadNoData();
             }
 
+            // 只有在没有正在录音的情况下才检查新消息
             if (chatState.messageList.isNotEmpty &&
-                chatState.messageList.first.sendByMe) {
+                chatState.messageList.first.sendByMe &&
+                !_isPressing) {
               if (kDebugMode) {
                 print('ChatPage: Message sent by me, calling clearUp');
               }
@@ -745,15 +747,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           if (kDebugMode) {
                             print('ChatPage: Tap up on hold-to-talk button');
                           }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          clearUp();
+                          // 只有在没有开始长按的情况下才处理点击事件
+                          if (!holdToTalkKey.currentState!.isSpeaking) {
+                            holdToTalkKey.currentState!.setCancelTapUp(false);
+                            clearUp();
+                          }
                         },
                         onTapCancel: () {
                           if (kDebugMode) {
                             print('ChatPage: Tap cancel on hold-to-talk button');
                           }
-                          holdToTalkKey.currentState!.setCancelTapUp(false);
-                          clearUp();
+                          // 只有在没有开始长按的情况下才处理点击取消事件
+                          if (!holdToTalkKey.currentState!.isSpeaking) {
+                            holdToTalkKey.currentState!.setCancelTapUp(false);
+                            clearUp();
+                          }
                         },
                         onLongPressStart: (_) async {
                           if (kDebugMode) {
