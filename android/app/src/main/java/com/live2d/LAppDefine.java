@@ -220,7 +220,7 @@ public class LAppDefine {
     /**
      * 是否验证motion3.json的一致性。有效时为true。
      */
-    public static final boolean MOTION_CONSISTENCY_VALIDATION_ENABLE = true;
+    public static final boolean MOTION_CONSISTENCY_VALIDATION_ENABLE = false;
 
     /**
      * Enable/Disable debug logging.

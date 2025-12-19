@@ -238,7 +238,21 @@ public class LAppModel extends CubismUserModel {
                 byte[] buffer;
                 buffer = createBuffer(path);
 
-                motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, motionConsistency);
+                // 首先尝试使用一致性验证加载动作
+                try {
+                    motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, motionConsistency);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
+                    // 如果一致性验证失败，尝试禁用验证再加载一次
+                    try {
+                        Log.d(TAG, "Retrying motion loading without consistency check: " + path);
+                        motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, false);
+                    } catch (Exception e2) {
+                        Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
+                        motion = null;
+                    }
+                }
+                
                 if (motion != null) {
                     final float fadeInTime = modelSetting.getMotionFadeInTimeValue(group, number);
 
@@ -628,8 +642,23 @@ public class LAppModel extends CubismUserModel {
                 buffer = createBuffer(modelPath);
 
                 // 如果无法加载动作，则跳过该过程。
-                CubismMotion tmp = loadMotion(buffer, motionConsistency);
+                // 首先尝试使用一致性验证，如果失败则禁用验证再试一次
+                CubismMotion tmp = null;
+                try {
+                    tmp = loadMotion(buffer, motionConsistency);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
+                    // 如果一致性验证失败，尝试禁用验证再加载一次
+                    try {
+                        Log.d(TAG, "Retrying motion loading without consistency check: " + path);
+                        tmp = loadMotion(buffer, false);
+                    } catch (Exception e2) {
+                        Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
+                    }
+                }
+                
                 if (tmp == null) {
+                    Log.w(TAG, "Skipping motion due to loading failure: " + path);
                     continue;
                 }
 

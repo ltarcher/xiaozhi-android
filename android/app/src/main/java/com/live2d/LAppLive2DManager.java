@@ -340,13 +340,23 @@ public class LAppLive2DManager {
 
     private LAppLive2DManager() {
         Log.d(TAG, "LAppLive2DManager: 初始化管理器");
-        setUpModel();
-        // 仅在找到模型时才切换场景
-        if (!modelDir.isEmpty()) {
-            Log.d(TAG, "LAppLive2DManager: 找到模型，切换到场景0");
-            changeScene(0);
-        } else {
-            Log.e(TAG, "LAppLive2DManager: 初始化期间未找到模型");
+        try {
+            setUpModel();
+            // 仅在找到模型时才切换场景
+            if (!modelDir.isEmpty()) {
+                Log.d(TAG, "LAppLive2DManager: 找到模型，切换到场景0");
+                try {
+                    changeScene(0);
+                } catch (Exception e) {
+                    Log.e(TAG, "LAppLive2DManager: 切换场景时发生错误", e);
+                    // 即使切换场景失败，也不抛出异常，允许管理器继续初始化
+                }
+            } else {
+                Log.e(TAG, "LAppLive2DManager: 初始化期间未找到模型");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "LAppLive2DManager: 初始化过程中发生错误", e);
+            // 不抛出异常，允许管理器继续初始化，只是可能没有模型
         }
     }
 

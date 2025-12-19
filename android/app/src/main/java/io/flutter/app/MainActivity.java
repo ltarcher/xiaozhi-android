@@ -123,7 +123,19 @@ public class MainActivity extends FlutterActivity {
                                 
                                 try {
                                     // 获取当前模型并触发表情，使用多实例管理
-                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    LAppLive2DManager live2DManager;
+                                    try {
+                                        live2DManager = LAppLive2DManager.getInstance();
+                                        if (live2DManager == null) {
+                                            Log.e(TAG, "triggerExpression: LAppLive2DManager.getInstance() returned null");
+                                            result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                                            return;
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "triggerExpression: Error getting LAppLive2DManager instance", e);
+                                        result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
+                                        return;
+                                    }
                                     
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
@@ -200,7 +212,19 @@ public class MainActivity extends FlutterActivity {
                                 
                                 try {
                                     // 获取当前模型并播放动作，使用多实例管理
-                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    LAppLive2DManager live2DManager;
+                                    try {
+                                        live2DManager = LAppLive2DManager.getInstance();
+                                        if (live2DManager == null) {
+                                            Log.e(TAG, "playMotion: LAppLive2DManager.getInstance() returned null");
+                                            result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                                            return;
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "playMotion: Error getting LAppLive2DManager instance", e);
+                                        result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
+                                        return;
+                                    }
                                     
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
@@ -412,7 +436,19 @@ public class MainActivity extends FlutterActivity {
                                 
                                 try {
                                     // 获取当前模型并设置口型同步值，使用多实例管理
-                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    LAppLive2DManager live2DManager;
+                                    try {
+                                        live2DManager = LAppLive2DManager.getInstance();
+                                        if (live2DManager == null) {
+                                            Log.e(TAG, "setLipSyncValue: LAppLive2DManager.getInstance() returned null");
+                                            result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                                            return;
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "setLipSyncValue: Error getting LAppLive2DManager instance", e);
+                                        result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
+                                        return;
+                                    }
                                     
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
@@ -453,7 +489,17 @@ public class MainActivity extends FlutterActivity {
      */
     private void changeToModelByName(String modelPath, String instanceId) {
         try {
-            LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+            LAppLive2DManager live2DManager;
+            try {
+                live2DManager = LAppLive2DManager.getInstance();
+                if (live2DManager == null) {
+                    Log.e(TAG, "changeToModelByName: LAppLive2DManager.getInstance() returned null");
+                    return;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "changeToModelByName: Error getting LAppLive2DManager instance", e);
+                return;
+            }
             
             // 从modelPath中提取模型名称（去掉路径前缀）
             String modelName = modelPath;
@@ -571,7 +617,19 @@ public class MainActivity extends FlutterActivity {
             // 如果提供了模型路径，初始化模型
             if (modelPath != null && !modelPath.isEmpty()) {
                 try {
-                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                    LAppLive2DManager live2DManager;
+                    try {
+                        live2DManager = LAppLive2DManager.getInstance();
+                        if (live2DManager == null) {
+                            Log.e(TAG, "activateInstance: LAppLive2DManager.getInstance() returned null");
+                            result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                            return;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "activateInstance: Error getting LAppLive2DManager instance", e);
+                        result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
+                        return;
+                    }
                     Log.d(TAG, "activateInstance: Attempting to load model from path: " + modelPath);
                     
                     // 确保Live2D管理器已初始化
@@ -620,7 +678,19 @@ public class MainActivity extends FlutterActivity {
                 int modelIndex = instanceMap.get(instanceId);
                 
                 // 释放模型资源
-                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                LAppLive2DManager live2DManager;
+                try {
+                    live2DManager = LAppLive2DManager.getInstance();
+                    if (live2DManager == null) {
+                        Log.e(TAG, "deactivateInstance: LAppLive2DManager.getInstance() returned null");
+                        result.success(null);
+                        return;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "deactivateInstance: Error getting LAppLive2DManager instance", e);
+                    result.success(null); // 不报错，只是记录
+                    return;
+                }
                 if (live2DManager.getModel(modelIndex) != null) {
                     live2DManager.getModel(modelIndex).deleteModel();
                 }
