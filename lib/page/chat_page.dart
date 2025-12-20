@@ -12,6 +12,7 @@ import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
+import 'package:xiaozhi/util/voice_wake_up_service.dart'; // 添加语音唤醒服务导入
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -45,6 +46,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showActivationDialog = false;
   String? _activationCode;
   String? _activationUrl;
+  
+  // 添加语音唤醒服务实例
+  late VoiceWakeUpService _voiceWakeUpService;
+  bool _isVoiceWakeUpEnabled = true;
 
   @override
   void initState() {
@@ -61,6 +66,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _lipSyncController = LipSyncController(
       onLipSyncUpdate: _onLipSyncUpdate,
     );
+    
+    // 初始化语音唤醒服务
+    _voiceWakeUpService = VoiceWakeUpService();
+    _initializeVoiceWakeUp();
     
     super.initState();
   }
@@ -148,6 +157,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this); // 移除观察者
     _refreshController.dispose();
     _lipSyncController.stop(); // 停止口型同步控制器
+    
+    // 停止并释放语音唤醒服务
+    _voiceWakeUpService.stopListening();
+    _voiceWakeUpService.dispose();
     super.dispose();
   }
 
@@ -179,7 +192,88 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         // 暂停口型同步
         _lipSyncController.stop();
       }
+      
+      // 根据应用状态控制语音唤醒
+      if (state == AppLifecycleState.resumed) {
+        // 应用恢复时，如果启用了语音唤醒，则开始监听
+        if (_isVoiceWakeUpEnabled) {
+          _voiceWakeUpService.startListening();
+        }
+      } else {
+        // 应用暂停时，停止语音唤醒监听
+        _voiceWakeUpService.stopListening();
+      }
     }
+  }
+  
+  // 初始化语音唤醒服务
+  Future<void> _initializeVoiceWakeUp() async {
+    try {
+      // 设置唤醒词检测回调
+      _voiceWakeUpService.onWakeWordDetected = (String hypothesis) {
+        if (kDebugMode) {
+          print('ChatPage: Wake word detected: $hypothesis');
+        }
+        
+        // 当检测到唤醒词时，触发开始录音
+        _handleWakeWordDetected();
+      };
+      
+      // 设置错误回调
+      _voiceWakeUpService.onError = (String error) {
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up error: $error');
+        }
+      };
+      
+      // 初始化语音唤醒服务
+      bool initialized = await _voiceWakeUpService.initialize();
+      if (initialized && _isVoiceWakeUpEnabled) {
+        await _voiceWakeUpService.startListening();
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up service started');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Failed to initialize voice wake up: $e');
+      }
+    }
+  }
+  
+  // 处理检测到唤醒词的情况
+  void _handleWakeWordDetected() {
+    if (!mounted) return;
+    
+    // 显示提示信息
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.mic, color: Colors.white),
+            SizedBox(width: 8),
+            Text('唤醒词已识别，开始录音...'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    // 触发录音开始事件
+    holdToTalkKey.currentState!.setSpeaking(true);
+    if (!_isPressing) {
+      setState(() {
+        _isPressing = true;
+      });
+    }
+    
+    // 开始口型同步
+    _lipSyncController.start();
+    
+    // 开始聊天监听
+    chatBloc.add(ChatStartListenEvent());
+
   }
 
   clearUp() async {
@@ -291,6 +385,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       print('ChatPage: _togglePowerVisible function completed');
     }
   }
+  
+  // 切换语音唤醒功能
+  void _toggleVoiceWakeUp(bool enabled) async {
+    setState(() {
+      _isVoiceWakeUpEnabled = enabled;
+    });
+    
+    try {
+      if (enabled) {
+        await _voiceWakeUpService.startListening();
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up enabled');
+        }
+      } else {
+        await _voiceWakeUpService.stopListening();
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up disabled');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error toggling voice wake up: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +417,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       print('ChatPage: build called, gearVisible: $_isGearVisible, powerVisible: $_isPowerVisible');
     }
     final MediaQueryData mediaQuery = MediaQuery.of(context);
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     OtaBloc otaBloc = BlocProvider.of<OtaBloc>(context);
 
@@ -547,6 +667,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ),
                     ];
                   },
+                ),
+                // 添加语音唤醒开关
+                IconButton(
+                  onPressed: () {
+                    _toggleVoiceWakeUp(!_isVoiceWakeUpEnabled);
+                  },
+                  icon: Icon(
+                    _isVoiceWakeUpEnabled ? Icons.mic : Icons.mic_off,
+                    color: _isVoiceWakeUpEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+                  ),
                 ),
                 IconButton(
                   onPressed: () {

@@ -18,10 +18,14 @@ class _SettingPageState extends State<SettingPage> {
   late TextEditingController _otaUrlController;
   late TextEditingController _websocketUrlController;
   late TextEditingController _macAddressController;
+  late TextEditingController _wakeWordController;
   
   // Live2D按钮可见性状态
   bool _isGearVisible = true;
   bool _isPowerVisible = false;
+  
+  // 语音唤醒状态
+  bool _isVoiceWakeUpEnabled = false;
   
   // Live2D控制通道
   static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
@@ -31,6 +35,7 @@ class _SettingPageState extends State<SettingPage> {
     _otaUrlController = TextEditingController();
     _websocketUrlController = TextEditingController();
     _macAddressController = TextEditingController();
+    _wakeWordController = TextEditingController();
     
     // 加载现有的配置
     SharedPreferencesUtil().getOtaUrl().then((v) {
@@ -48,6 +53,9 @@ class _SettingPageState extends State<SettingPage> {
         _macAddressController.text = v;
       }
     });
+    
+    // 加载唤醒词配置
+    _loadWakeWordSettings();
     
     // 加载Live2D按钮配置
     _loadLive2DButtonSettings();
@@ -74,6 +82,28 @@ class _SettingPageState extends State<SettingPage> {
         setState(() {
           _isGearVisible = true;
           _isPowerVisible = false;
+        });
+      }
+    }
+  }
+  
+  // 加载唤醒词设置
+  Future<void> _loadWakeWordSettings() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      String? wakeWord = await prefsUtil.getWakeWord();
+      
+      if (mounted) {
+        setState(() {
+          _wakeWordController.text = wakeWord ?? '你好，小清';
+          _isVoiceWakeUpEnabled = true; // 默认启用语音唤醒
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _wakeWordController.text = '你好，小清';
+          _isVoiceWakeUpEnabled = true; // 默认启用语音唤醒
         });
       }
     }
@@ -141,10 +171,11 @@ class _SettingPageState extends State<SettingPage> {
                   _macAddressController.text,
                 );
                 
-                // 保存Live2D按钮配置
+                // 保存Live2D按钮配置和唤醒词配置
                 SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
                 await prefsUtil.setLive2DGearVisible(_isGearVisible);
                 await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
+                await prefsUtil.setWakeWord(_wakeWordController.text.trim());
                  
                 if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
@@ -304,6 +335,84 @@ class _SettingPageState extends State<SettingPage> {
           
           SizedBox(height: XConst.spacer * 2),
           
+          // 语音唤醒设置部分
+          Text(
+            '语音唤醒设置',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: XConst.spacer),
+          
+          // 语音唤醒开关
+          Card(
+            elevation: 2,
+            child: ListTile(
+              leading: Icon(
+                Icons.mic_rounded,
+                color: _isVoiceWakeUpEnabled ? primaryColor : Colors.grey,
+              ),
+              title: Text('语音唤醒'),
+              subtitle: Text('开启后可以通过语音唤醒助手'),
+              trailing: Switch(
+                value: _isVoiceWakeUpEnabled,
+                onChanged: (bool value) {
+                  setState(() {
+                    _isVoiceWakeUpEnabled = value;
+                  });
+                },
+                activeColor: primaryColor,
+              ),
+            ),
+          ),
+          
+          SizedBox(height: XConst.spacer),
+          
+          // 唤醒词设置
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.record_voice_over_rounded,
+                        color: primaryColor,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '唤醒词',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  TextField(
+                    controller: _wakeWordController,
+                    enabled: _isVoiceWakeUpEnabled,
+                    decoration: InputDecoration(
+                      hintText: '请输入唤醒词，如"你好，小清"',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.mic),
+                      helperText: '建议使用简短易识别的唤醒词',
+                    ),
+                    maxLength: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(height: XConst.spacer * 2),
+          
           // 说明文字
           Card(
             elevation: 1,
@@ -323,6 +432,7 @@ class _SettingPageState extends State<SettingPage> {
                   Text(
                     '• 齿轮按钮：用于切换Live2D模型\n'
                     '• 电源按钮：关闭应用程序\n'
+                    '• 语音唤醒：通过唤醒词启动对话\n'
                     '• 设置会立即生效并自动保存',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),

@@ -11,11 +11,12 @@ import com.live2d.LAppDefine.Priority;
 import com.live2d.LAppView;
 import com.live2d.Live2DViewFactory;
 import com.live2d.LAppDelegate;
+import com.thinkerror.xiaozhi.AudioPlayerCompat;
+import com.thinkerror.xiaozhi.DeviceInfoCompat;
+import com.thinkerror.xiaozhi.VoiceWakeUpService;
 
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
-import com.thinkerror.xiaozhi.AudioPlayerCompat;
-import com.thinkerror.xiaozhi.DeviceInfoCompat;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 
@@ -23,6 +24,8 @@ public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
     private static final String TAG = "MainActivity";
     private Live2DViewFactory live2DViewFactory;
+    private VoiceWakeUpService voiceWakeUpService;
+    private MethodChannel voiceWakeUpChannel;
     
     // 添加实例映射管理
     private java.util.Map<String, Integer> instanceMap = new java.util.HashMap<>();
@@ -69,6 +72,11 @@ public class MainActivity extends FlutterActivity {
         AudioPlayerCompat.registerWith(flutterEngine, getApplicationContext());
         // 注册设备信息兼容性工具
         DeviceInfoCompat.registerWith(flutterEngine);
+        
+        // 注册语音唤醒服务
+        voiceWakeUpChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), "voice_wakeup_channel");
+        voiceWakeUpService = new VoiceWakeUpService(getApplicationContext(), voiceWakeUpChannel);
+        voiceWakeUpChannel.setMethodCallHandler(voiceWakeUpService);
         
         // 注册MethodChannel用于与Flutter通信
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
@@ -136,14 +144,14 @@ public class MainActivity extends FlutterActivity {
                                         result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
                                         return;
                                     }
-                                    
+                                   
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
                                         Log.w(TAG, "triggerExpression: Instance " + instanceId + " not found in instanceMap, skipping expression trigger");
                                         result.success(null);
                                         return;
                                     }
-                                    
+                                   
                                     int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
@@ -151,28 +159,28 @@ public class MainActivity extends FlutterActivity {
                                         // 获取映射后的表达式ID
                                         String mappedExpressionId = getExpressionId(expressionName);
                                         Log.d(TAG, "triggerExpression: Mapping '" + expressionName + "' to '" + mappedExpressionId + "'");
-                                        
+                                       
                                         // 防重复触发检查
                                         String instanceKey = instanceId + "_" + modelIndex;
                                         String lastExpression = lastExpressionMap.get(instanceKey);
                                         long currentTime = System.currentTimeMillis();
-                                        
+                                       
                                         // 如果是相同的表情且在冷却时间内，跳过
                                         if (lastExpression != null && lastExpression.equals(mappedExpressionId)) {
                                             Log.d(TAG, "triggerExpression: Skipping duplicate expression '" + mappedExpressionId + "' for instance " + instanceId);
                                             result.success(null);
                                             return;
                                         }
-                                        
+                                       
                                         // 检查表达式是否存在
                                         if (isExpressionAvailable(live2DManager.getModel(modelIndex), mappedExpressionId)) {
                                             try {
                                                 // 使用映射后的表达式ID
                                                 live2DManager.getModel(modelIndex).setExpression(mappedExpressionId);
-                                                
+                                               
                                                 // 更新最后触发的表情
                                                 lastExpressionMap.put(instanceKey, mappedExpressionId);
-                                                
+                                               
                                                 Log.d(TAG, "triggerExpression: Successfully set expression '" + mappedExpressionId + "'");
                                                 result.success(null);
                                             } catch (Exception e) {
@@ -225,17 +233,17 @@ public class MainActivity extends FlutterActivity {
                                         result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
                                         return;
                                     }
-                                    
+                                   
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
                                         Log.w(TAG, "playMotion: Instance " + instanceId + " not found in instanceMap, skipping motion play");
                                         result.success(null);
                                         return;
                                     }
-                                    
+                                   
                                     int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "playMotion: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                    
+                                   
                                     if (live2DManager.getModel(modelIndex) != null) {
                                         int prio = priority != null ? priority : Priority.NORMAL.getPriority();
                                         live2DManager.getModel(modelIndex).startRandomMotion(motionGroup, prio);
@@ -256,7 +264,7 @@ public class MainActivity extends FlutterActivity {
                                     // 确保实例映射存在
                                     int modelIndex = getModelIndex(instanceId);
                                     Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                    
+                                   
                                     // TODO: 实现具体的模型初始化逻辑
                                     // 这里可以根据modelPath加载特定的模型
                                     result.success(modelIndex);
@@ -287,7 +295,7 @@ public class MainActivity extends FlutterActivity {
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     LAppView appView = appDelegate.getView();
                                     Log.d(TAG, "setGearVisible: appView=" + (appView != null ? "not null" : "null"));
                                     if (appView == null) {
@@ -295,15 +303,15 @@ public class MainActivity extends FlutterActivity {
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     // 设置指定实例的齿轮按钮可见性
                                     appView.setGearVisible(visible);
                                     Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ") for instance: " + instanceId);
-                                    
+                                   
                                     // 强制刷新视图
                                     appDelegate.requestRender();
                                     Log.d(TAG, "setGearVisible: Called appDelegate.requestRender() for instance: " + instanceId);
-                                    
+                                   
                                     result.success(null);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in setGearVisible for instance: " + instanceId, e);
@@ -328,7 +336,7 @@ public class MainActivity extends FlutterActivity {
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     LAppView appView = appDelegate.getView();
                                     Log.d(TAG, "setPowerVisible: appView=" + (appView != null ? "not null" : "null"));
                                     if (appView == null) {
@@ -336,15 +344,15 @@ public class MainActivity extends FlutterActivity {
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     // 设置指定实例的电源按钮可见性
                                     appView.setPowerVisible(visible);
                                     Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ") for instance: " + instanceId);
-                                    
+                                   
                                     // 强制刷新视图
                                     appDelegate.requestRender();
                                     Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender() for instance: " + instanceId);
-                                    
+                                   
                                     result.success(null);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in setPowerVisible for instance: " + instanceId, e);
@@ -361,14 +369,14 @@ public class MainActivity extends FlutterActivity {
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     LAppView appView = appDelegate.getView();
                                     if (appView == null) {
                                         Log.e(TAG, "isGearVisible: Live2D view is not ready");
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     boolean visible = appView.isGearVisible();
                                     Log.d(TAG, "isGearVisible returning: " + visible + " for instance: " + instanceId);
                                     result.success(visible);
@@ -387,14 +395,14 @@ public class MainActivity extends FlutterActivity {
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     LAppView appView = appDelegate.getView();
                                     if (appView == null) {
                                         Log.e(TAG, "isPowerVisible: Live2D view is not ready");
                                         result.error("VIEW_NOT_READY", "Live2D view is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     boolean visible = appView.isPowerVisible();
                                     Log.d(TAG, "isPowerVisible returning: " + visible + " for instance: " + instanceId);
                                     result.success(visible);
@@ -414,7 +422,7 @@ public class MainActivity extends FlutterActivity {
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                         return;
                                     }
-                                    
+                                   
                                     // 请求重新渲染视图
                                     appDelegate.requestRender();
                                     Log.d(TAG, "refreshView: Called appDelegate.requestRender() for instance: " + instanceId);
@@ -449,7 +457,7 @@ public class MainActivity extends FlutterActivity {
                                         result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
                                         return;
                                     }
-                                    
+                                   
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
                                         Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, using default model");
@@ -466,11 +474,11 @@ public class MainActivity extends FlutterActivity {
                                             }
                                         }
                                     }
-                                    
+                                   
                                     // 根据实例映射获取模型索引
                                     int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                    
+                                   
                                     if (live2DManager.getModelNum() > 0 && modelIndex >= 0 && modelIndex < live2DManager.getModelNum() && live2DManager.getModel(modelIndex) != null) {
                                         // 限制value在0.0-1.0范围内
                                         float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
@@ -502,6 +510,17 @@ public class MainActivity extends FlutterActivity {
                         }
                 );
         Log.d(TAG, "configureFlutterEngine: Configuration completed");
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        
+        // 释放语音唤醒服务资源
+        if (voiceWakeUpService != null) {
+            voiceWakeUpService.dispose();
+            voiceWakeUpService = null;
+        }
     }
 
     /**

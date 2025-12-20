@@ -1,3 +1,5 @@
+import java.util.UUID
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -47,15 +49,42 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    flutter {
+        source = "../.."
+    }
+
+    // 添加sourceSets以包含生成的assets
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("$buildDir/generated/assets", "src/main/assets")
+        }
+    }
+
+    // 添加本地库引用和Live2D依赖
+    dependencies {
+        implementation(files("../libs/live2d/Live2DCubismCore.aar"))
+        // 添加对Live2D Framework模块的引用
+        implementation(files("../libs/live2d/framework-release.aar"))
+        
+        // 添加Vosk语音识别依赖
+        implementation("com.alphacephei:vosk-android:0.3.32")
+        implementation("net.java.dev.jna:jna:5.8.0@aar")
+    }
 }
 
-flutter {
-    source = "../.."
+// 为assets中的vosk模型创建uuid文件
+tasks.register("genModelUUID") {
+    doLast {
+        val uuid = UUID.randomUUID().toString()
+        val srcDir = file("src/main/assets/vosk-model-small-cn-0.22")
+        srcDir.mkdirs()
+        val ofile = file("$srcDir/uuid")
+        ofile.writeText(uuid)
+    }
 }
 
-// 添加本地库引用和Live2D依赖
-dependencies {
-    implementation(files("../libs/live2d/Live2DCubismCore.aar"))
-    // 添加对Live2D Framework模块的引用
-    implementation(files("../libs/live2d/framework-release.aar"))
+// 确保uuid文件在构建前生成
+tasks.named("preBuild") {
+    dependsOn("genModelUUID")
 }
