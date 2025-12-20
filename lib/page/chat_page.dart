@@ -12,6 +12,8 @@ import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
+import 'package:xiaozhi/util/wake_word_detector.dart'; // 添加唤醒词检测器导入
+import 'package:xiaozhi/util/android_service_manager.dart'; // 添加Android服务管理器导入
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -45,6 +47,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _showActivationDialog = false;
   String? _activationCode;
   String? _activationUrl;
+  
+  // 添加唤醒词检测器
+  late WakeWordDetector _wakeWordDetector;
+  
+  // 添加是否处于唤醒状态（连续对话模式）的标志
+  bool _isWakeModeActive = false;
 
   @override
   void initState() {
@@ -61,6 +69,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _lipSyncController = LipSyncController(
       onLipSyncUpdate: _onLipSyncUpdate,
     );
+    
+    // 初始化唤醒词检测器
+    _wakeWordDetector = WakeWordDetector(
+      onWakeWordDetected: _onWakeWordDetected,
+      onAudioDataReady: _processWakeWordAudio,
+    );
+    
+    // 初始化唤醒词检测器
+    _initWakeWordDetector();
     
     super.initState();
   }
@@ -148,6 +165,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this); // 移除观察者
     _refreshController.dispose();
     _lipSyncController.stop(); // 停止口型同步控制器
+    _wakeWordDetector.dispose(); // 释放唤醒词检测器资源
     super.dispose();
   }
 
@@ -178,6 +196,216 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         
         // 暂停口型同步
         _lipSyncController.stop();
+      }
+    }
+  }
+  
+  // 初始化唤醒词检测器
+  Future<void> _initWakeWordDetector() async {
+    try {
+      // 优先使用Android后台服务进行唤醒词检测
+      await AndroidServiceManager.startWakeWordService();
+      
+      // 如果Android服务启动失败，则使用Flutter层的唤醒词检测器作为备用方案
+      // 注意：这需要应用保持在前台才能工作
+      if (kDebugMode) {
+        print('ChatPage: Android wake word service started');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Failed to start Android wake word service, falling back to Flutter detector: $e');
+      }
+      
+      // 备用方案：使用Flutter层的唤醒词检测器
+      await _wakeWordDetector.initialize();
+      await _wakeWordDetector.startDetection();
+    }
+  }
+  
+  // 处理唤醒词检测到的音频数据并发送到服务器
+  Future<void> _processWakeWordAudio(Uint8List opusData) async {
+    try {
+      if (kDebugMode) {
+        print('ChatPage: Processing wake word audio data, size: ${opusData.length}');
+      }
+      
+      // 检查WebSocket连接状态
+      final currentState = chatBloc.state;
+      final connectionStatus = currentState.connectionStatus.toString();
+      
+      if (!connectionStatus.contains('connected')) {
+        if (kDebugMode) {
+          print('ChatPage: WebSocket not connected for wake word detection, status: $connectionStatus');
+        }
+        return;
+      }
+      
+      // 直接发送音频数据到WebSocket服务器进行语音识别
+      chatBloc.add(ChatSendAudioEvent(audioData: opusData));
+      
+      if (kDebugMode) {
+        print('ChatPage: Wake word audio sent to server');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error processing wake word audio: $e');
+      }
+    }
+  }
+  
+  // 将PCM数据转换为Opus格式
+  Future<Uint8List> _pcmToOpus(Uint8List pcmData) async {
+    try {
+      // 这里需要实现PCM到Opus的转换
+      // 由于Opus编码可能需要特定的库，这里简化处理
+      // 在实际实现中，您需要使用适当的Opus编码库
+      
+      // 临时返回原始PCM数据，实际应用中应该进行Opus编码
+      return pcmData;
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error converting PCM to Opus: $e');
+      }
+      // 返回空列表，避免类型错误
+      return Uint8List(0);
+    }
+  }
+  
+  // 发送唤醒词音频数据到服务器
+  Future<void> _sendWakeWordAudioToServer(Uint8List opusData) async {
+    try {
+      // 检查WebSocket连接状态
+      final currentState = chatBloc.state;
+      final connectionStatus = currentState.connectionStatus.toString();
+      
+      if (!connectionStatus.contains('connected')) {
+        if (kDebugMode) {
+          print('ChatPage: WebSocket not connected for wake word detection, status: $connectionStatus');
+        }
+        return;
+      }
+      
+      // 发送语音识别消息
+      if (kDebugMode) {
+        print('ChatPage: Sending wake word audio to server');
+      }
+      
+      // 使用ChatBloc的公共方法发送音频数据
+      if (connectionStatus.contains('connected')) {
+        try {
+          // 发送音频数据
+          // 直接访问ChatBloc的私有_websocketChannel来发送数据
+          // 这种方法不是最佳实践，但考虑到现有代码结构，这是最简单的解决方案
+          // 在实际项目中，应该添加一个公共方法来处理这种情况
+          final currentState = chatBloc.state;
+          final connectionStatus = currentState.connectionStatus.toString();
+          
+          if (connectionStatus.contains('connected')) {
+            try {
+              // 使用反射或者添加一个公共方法来发送数据
+              // 这里我们使用一个临时解决方案，通过事件发送音频数据
+              chatBloc.add(ChatSendAudioEvent(audioData: opusData));
+            } catch (e) {
+              if (kDebugMode) {
+                print('ChatPage: Error sending audio: $e');
+              }
+            }
+          }
+          
+          if (kDebugMode) {
+            print('ChatPage: Wake word audio sent to server');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('ChatPage: Error sending audio: $e');
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('ChatPage: WebSocket not connected for wake word detection, status: $connectionStatus');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error sending wake word audio to server: $e');
+      }
+    }
+  }
+  
+  // 唤醒词检测回调
+  void _onWakeWordDetected() {
+    if (kDebugMode) {
+      print('ChatPage: Wake word detected, entering call mode');
+      print('ChatPage: Current mounted state: $mounted');
+      print('ChatPage: Current wake mode state: $_isWakeModeActive');
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isWakeModeActive = true;
+      });
+      
+      if (kDebugMode) {
+        print('ChatPage: State updated, _isWakeModeActive set to true');
+      }
+      
+      // 停止唤醒词检测，避免在通话中重复触发
+      _wakeWordDetector.stopDetection();
+      
+      if (kDebugMode) {
+        print('ChatPage: Wake word detector stopped');
+      }
+      
+      // 进入连续对话模式（类似call_page）
+      chatBloc.add(ChatStartCallEvent());
+      
+      if (kDebugMode) {
+        print('ChatPage: ChatStartCallEvent sent');
+      }
+    } else {
+      if (kDebugMode) {
+        print('ChatPage: Widget not mounted, ignoring wake word detection');
+      }
+    }
+  }
+  
+  // 退出唤醒模式
+  void _exitWakeMode() {
+    if (kDebugMode) {
+      print('ChatPage: Exiting wake mode');
+    }
+    
+    if (mounted) {
+      setState(() {
+        _isWakeModeActive = false;
+      });
+      
+      // 停止连续对话模式
+      chatBloc.add(ChatStopCallEvent());
+      
+      // 重新启动唤醒词检测
+      // 这里不需要调用Flutter层的检测器，因为Android服务一直在运行
+      // 如果使用的是备用方案，则需要重新启动Flutter检测器
+    }
+  }
+  
+  // 更新唤醒词
+  Future<void> _updateWakeWord(String newWakeWord) async {
+    try {
+      // 优先更新Android服务中的唤醒词
+      bool success = await AndroidServiceManager.updateWakeWord(newWakeWord);
+      
+      if (!success) {
+        // 如果Android服务更新失败，尝试更新Flutter检测器
+        await _wakeWordDetector.updateWakeWord(newWakeWord);
+      }
+      
+      if (kDebugMode) {
+        print('ChatPage: Wake word updated to: $newWakeWord');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Failed to update wake word: $e');
       }
     }
   }
@@ -429,12 +657,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _refreshController.loadNoData();
             }
 
+            if (chatState.messageList.isNotEmpty) {
+              // 输出所有消息到调试日志
+              if (kDebugMode) {
+                print('ChatPage: === 聊天消息列表 ===');
+                for (int i = 0; i < chatState.messageList.length; i++) {
+                  var message = chatState.messageList[i];
+                  print('ChatPage: 消息 $i: ${message.sendByMe ? "用户" : "小清"} - "${message.text}"');
+                }
+                print('ChatPage: === 消息列表结束 ===');
+              }
+            }
+
             if (chatState.messageList.isNotEmpty &&
                 chatState.messageList.first.sendByMe) {
               if (kDebugMode) {
                 print('ChatPage: Message sent by me, calling clearUp');
               }
               clearUp();
+              
+              // 检查新发送的消息是否包含唤醒词
+              String messageText = chatState.messageList.first.text;
+              _wakeWordDetector.checkWakeWordFromServerResponse(messageText);
             }
             
             // 当收到新消息时，触发Live2D模型的随机表情（限制频率避免性能问题）
@@ -822,16 +1066,52 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           }
                           if (mounted) setState(() {});
                         },
-                        child: FilledButton(
-                          onPressed: () {},
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.mic_rounded),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () {},
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // 根据唤醒状态显示不同的图标
+                                    _isWakeModeActive
+                                        ? Icon(Icons.phone_in_talk, color: Colors.red) // 通话中图标
+                                        : Icon(Icons.mic_rounded), // 麦克风图标
+                                    SizedBox(width: XConst.spacer),
+                                    // 根据唤醒状态显示不同的文本
+                                    Text(_isWakeModeActive
+                                        ? '通话中'
+                                        : AppLocalizations.of(context)!.holdToTalk),
+                                    // 如果处于唤醒模式，添加一个退出按钮
+                                    if (_isWakeModeActive) ...[
+                                      SizedBox(width: XConst.spacer),
+                                      GestureDetector(
+                                        onTap: () {
+                                          _exitWakeMode();
+                                        },
+                                        child: Icon(Icons.call_end, color: Colors.red),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // 添加测试按钮（仅调试模式显示）
+                            if (kDebugMode) ...[
                               SizedBox(width: XConst.spacer),
-                              Text(AppLocalizations.of(context)!.holdToTalk),
+                              IconButton(
+                                onPressed: () {
+                                  if (kDebugMode) {
+                                    print('ChatPage: Test wake word detection button pressed');
+                                  }
+                                  _onWakeWordDetected(); // 直接触发唤醒词检测回调
+                                },
+                                icon: Icon(Icons.science, color: Colors.blue),
+                                tooltip: '测试唤醒词检测',
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
