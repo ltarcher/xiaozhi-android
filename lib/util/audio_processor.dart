@@ -18,8 +18,8 @@ class AudioProcessor {
   final int _sampleRate;
 
   AudioProcessor({
-    double energyThreshold = 0.01,
-    double smoothingFactor = 0.3,
+    double energyThreshold = 0.005, // 降低静音阈值，更敏感
+    double smoothingFactor = 0.1, // 降低平滑因子，使变化更明显
     int sampleRate = 16000,
   })  : _energyThreshold = energyThreshold,
         _smoothingFactor = smoothingFactor,
@@ -60,11 +60,17 @@ class AudioProcessor {
       return 0.0;
     }
 
-    // 将能量映射到 0.0 - 1.0 范围
-    // 使用对数函数使低音量变化更敏感
-    double normalizedEnergy = min(1.0, energy / 0.5);
-    double logEnergy = log(normalizedEnergy + 1) / log(2);
-    return min(1.0, max(0.0, logEnergy));
+    // 使用更激进的能量映射算法，增强口型变化幅度
+    double normalizedEnergy = (energy - _energyThreshold) / (0.3 - _energyThreshold);
+    normalizedEnergy = max(0.0, min(1.0, normalizedEnergy));
+    
+    // 使用平方根函数增强中等音量的敏感性，并添加放大系数
+    double enhancedValue = sqrt(normalizedEnergy) * 1.3; // 放大1.3倍
+    
+    // 应用轻微的S型曲线，使高音量部分更敏感
+    double sigmoidValue = enhancedValue / (1.0 + exp(-4 * (enhancedValue - 0.5)));
+    
+    return min(1.0, max(0.0, sigmoidValue));
   }
 
   /// 平滑口型同步值，避免剧烈变化

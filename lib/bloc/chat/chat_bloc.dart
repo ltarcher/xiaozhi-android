@@ -745,15 +745,23 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   /// 将RMS值转换为口型同步值
   double _rmsToLipSyncValue(double rms) {
-    // 应用对数缩放使低音量更敏感
-    double threshold = 0.01; // 静音阈值
+    // 降低静音阈值，使更多音频信号能够触发口型变化
+    double threshold = 0.005; // 从0.01降低到0.005
     if (rms < threshold) {
       return 0.0;
     }
     
-    // 对数缩放
-    double logRms = log(rms + 1) / log(2);
+    // 使用更激进的缩放算法，增强口型变化幅度
+    double normalizedRms = (rms - threshold) / (0.2 - threshold); // 归一化到0-1范围
+    normalizedRms = max(0.0, min(1.0, normalizedRms));
+    
+    // 使用平方根函数增强中等音量的敏感性，并添加放大系数
+    double enhancedValue = sqrt(normalizedRms) * 1.5; // 放大1.5倍
+    
+    // 应用轻微的S型曲线，使高音量部分更敏感
+    double sigmoidValue = enhancedValue / (1.0 + exp(-5 * (enhancedValue - 0.5)));
+    
     // 限制在0.0-1.0范围内
-    return min(1.0, max(0.0, logRms * 2));
+    return min(1.0, max(0.0, sigmoidValue));
   }
 }

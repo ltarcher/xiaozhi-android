@@ -791,8 +791,10 @@ public class LAppModel extends CubismUserModel {
             for (int i = 0; i < lipSyncIds.size(); i++) {
                 CubismId lipSyncId = lipSyncIds.get(i);
                 if (lipSyncId != null) {
-                    // 使用较大的权重(0.8f)来确保口型同步效果明显
-                    model.addParameterValue(lipSyncId, lipSyncValue, 0.8f);
+                    // 使用更大的权重(1.0f)和更高的灵敏度来增强口型同步效果
+                    // 对口型值应用轻微的放大，使嘴巴开合更明显
+                    float enhancedValue = Math.min(1.0f, lipSyncValue * 1.2f);
+                    model.addParameterValue(lipSyncId, enhancedValue, 1.0f);
                 }
             }
         }

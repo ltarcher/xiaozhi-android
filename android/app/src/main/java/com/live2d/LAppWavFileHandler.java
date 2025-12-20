@@ -142,16 +142,24 @@ public class LAppWavFileHandler extends Thread {
      * @return 口型同步值(0.0-1.0)
      */
     private double rmsToLipSyncValue(double rms) {
-        // 应用对数缩放使低音量更敏感
-        double threshold = 0.01; // 静音阈值
+        // 降低静音阈值，使更多音频信号能够触发口型变化
+        double threshold = 0.005; // 从0.01降低到0.005
         if (rms < threshold) {
             return 0.0;
         }
         
-        // 对数缩放
-        double logRms = Math.log10(rms + 1);
+        // 使用更激进的缩放算法，增强口型变化幅度
+        double normalizedRms = (rms - threshold) / (0.2 - threshold); // 归一化到0-1范围
+        normalizedRms = Math.max(0.0, Math.min(1.0, normalizedRms));
+        
+        // 使用平方根函数增强中等音量的敏感性，并添加放大系数
+        double enhancedValue = Math.sqrt(normalizedRms) * 1.5; // 放大1.5倍
+        
+        // 应用轻微的S型曲线，使高音量部分更敏感
+        double sigmoidValue = enhancedValue / (1.0 + Math.exp(-5 * (enhancedValue - 0.5)));
+        
         // 限制在0.0-1.0范围内
-        return Math.min(1.0, Math.max(0.0, logRms * 2));
+        return Math.min(1.0, Math.max(0.0, sigmoidValue));
     }
     
     /**
