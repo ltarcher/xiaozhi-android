@@ -21,6 +21,7 @@ public class Live2DPlatformView implements PlatformView {
     private Activity activity;
     private String modelPath;
     private String instanceId;
+    private LAppDelegate appDelegate;
 
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
         Log.d(TAG, "Live2DPlatformView constructor called");
@@ -34,10 +35,22 @@ public class Live2DPlatformView implements PlatformView {
             Log.d(TAG, "Creating view with no parameters");
         }
         
-        // 优先通过LAppDelegate获取Activity
-        LAppDelegate appDelegate = LAppDelegate.getInstance();
-        this.activity = appDelegate.getActivity();
-        Log.d(TAG, "Activity from LAppDelegate: " + (this.activity != null ? "Available" : "Null"));
+        // 获取指定实例的LAppDelegate
+        if (this.instanceId != null && !this.instanceId.isEmpty()) {
+            this.appDelegate = LAppDelegate.getInstance(this.instanceId);
+            if (this.appDelegate == null) {
+                Log.w(TAG, "Cannot get LAppDelegate for instance: " + this.instanceId + ", using default instance");
+                this.appDelegate = LAppDelegate.getInstance();
+            }
+        } else {
+            this.appDelegate = LAppDelegate.getInstance();
+        }
+        
+        // 获取Activity
+        if (this.appDelegate != null) {
+            this.activity = this.appDelegate.getActivity();
+            Log.d(TAG, "Activity from LAppDelegate: " + (this.activity != null ? "Available" : "Null"));
+        }
 
         // 如果从LAppDelegate获取不到Activity，则尝试从context获取
         if (this.activity == null) {
@@ -67,21 +80,23 @@ public class Live2DPlatformView implements PlatformView {
         glSurfaceView = new GLSurfaceView(context);
         glSurfaceView.setEGLContextClientVersion(2);
 
-        // 创建渲染器
-        glRenderer = new GLRenderer();
+        // 创建渲染器，并传递实例ID
+        glRenderer = new GLRenderer(this.instanceId);
         glSurfaceView.setRenderer(glRenderer);
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
 
         // 初始化Live2D（如果有activity的话）
-        if (this.activity != null) {
-            appDelegate.onStart(this.activity);
-            Log.d(TAG, "Live2D initialized with Activity context");
+        if (this.activity != null && this.appDelegate != null) {
+            this.appDelegate.onStart(this.activity);
+            Log.d(TAG, "Live2D initialized with Activity context for instance: " + this.instanceId);
         } else {
             Log.w(TAG, "Live2D initialized without Activity context. Some features may not work.");
         }
         
         // 注册到LAppDelegate
-        LAppDelegate.getInstance().setLive2DPlatformView(this);
+        if (this.appDelegate != null) {
+            this.appDelegate.setLive2DPlatformView(this);
+        }
         
         // 现在GLSurfaceView已创建，可以安全地初始化参数
         if (this.modelPath != null || this.instanceId != null) {
@@ -95,29 +110,37 @@ public class Live2DPlatformView implements PlatformView {
                 final float pointX = event.getX();
                 final float pointY = event.getY();
                 String actionName = getActionName(event.getAction());
-                Log.d(TAG, "Touch event received: action=" + actionName + " (" + event.getAction() + "), x=" + pointX + ", y=" + pointY + ", viewWidth=" + v.getWidth() + ", viewHeight=" + v.getHeight());
+                Log.d(TAG, "Touch event received: action=" + actionName + " (" + event.getAction() + "), x=" + pointX + ", y=" + pointY + ", viewWidth=" + v.getWidth() + ", viewHeight=" + v.getHeight() + ", instanceId=" + instanceId);
 
                 // 将触摸事件添加到GL线程队列中
                 glSurfaceView.queueEvent(new Runnable() {
                     @Override
                     public void run() {
                         String actionNameInGL = getActionName(event.getAction());
-                        Log.d(TAG, "Executing in GL thread: " + actionNameInGL + " at (" + pointX + ", " + pointY + ")");
+                        Log.d(TAG, "Executing in GL thread: " + actionNameInGL + " at (" + pointX + ", " + pointY + ") for instance: " + instanceId);
+                        
+                        // 使用当前实例的LAppDelegate处理触摸事件
+                        LAppDelegate currentAppDelegate = getAppDelegateForInstance();
+                        if (currentAppDelegate == null) {
+                            Log.e(TAG, "Cannot get LAppDelegate for touch event processing, instance: " + instanceId);
+                            return;
+                        }
+                        
                         switch (event.getAction()) {
                             case MotionEvent.ACTION_DOWN:
-                                Log.d(TAG, "Processing ACTION_DOWN event - coordinates: (" + pointX + ", " + pointY + ")");
-                                LAppDelegate.getInstance().onTouchBegan(pointX, pointY);
+                                Log.d(TAG, "Processing ACTION_DOWN event - coordinates: (" + pointX + ", " + pointY + ") for instance: " + instanceId);
+                                currentAppDelegate.onTouchBegan(pointX, pointY);
                                 break;
                             case MotionEvent.ACTION_UP:
-                                Log.d(TAG, "Processing ACTION_UP event - coordinates: (" + pointX + ", " + pointY + ")");
-                                LAppDelegate.getInstance().onTouchEnd(pointX, pointY);
+                                Log.d(TAG, "Processing ACTION_UP event - coordinates: (" + pointX + ", " + pointY + ") for instance: " + instanceId);
+                                currentAppDelegate.onTouchEnd(pointX, pointY);
                                 break;
                             case MotionEvent.ACTION_MOVE:
-                                Log.d(TAG, "Processing ACTION_MOVE event - coordinates: (" + pointX + ", " + pointY + ")");
-                                LAppDelegate.getInstance().onTouchMoved(pointX, pointY);
+                                Log.d(TAG, "Processing ACTION_MOVE event - coordinates: (" + pointX + ", " + pointY + ") for instance: " + instanceId);
+                                currentAppDelegate.onTouchMoved(pointX, pointY);
                                 break;
                             default:
-                                Log.d(TAG, "Processing other touch event: " + actionNameInGL);
+                                Log.d(TAG, "Processing other touch event: " + actionNameInGL + " for instance: " + instanceId);
                                 break;
                         }
                     }
@@ -142,30 +165,33 @@ public class Live2DPlatformView implements PlatformView {
                 }
             }
         });
-        Log.d(TAG, "Live2DPlatformView construction completed");
+        Log.d(TAG, "Live2DPlatformView construction completed for instance: " + this.instanceId);
     }
 
     @NonNull
     @Override
     public View getView() {
-        Log.d(TAG, "getView() called");
+        Log.d(TAG, "getView() called for instance: " + instanceId);
         return glSurfaceView;
     }
 
     @Override
     public void dispose() {
-        Log.d(TAG, "dispose() called");
+        Log.d(TAG, "dispose() called for instance: " + instanceId);
         // 清理资源
         if (glSurfaceView != null) {
             glSurfaceView.onPause();
-            Log.d(TAG, "GLSurfaceView paused");
+            Log.d(TAG, "GLSurfaceView paused for instance: " + instanceId);
         }
-        if (LAppDelegate.getInstance() != null) {
-            LAppDelegate.getInstance().onPause();
-            LAppDelegate.getInstance().onStop();
-            Log.d(TAG, "LAppDelegate paused and stopped");
+        
+        // 使用当前实例的LAppDelegate进行清理
+        LAppDelegate currentAppDelegate = getAppDelegateForInstance();
+        if (currentAppDelegate != null) {
+            currentAppDelegate.onPause();
+            currentAppDelegate.onStop();
+            Log.d(TAG, "LAppDelegate paused and stopped for instance: " + instanceId);
         }
-        Log.d(TAG, "dispose() completed");
+        Log.d(TAG, "dispose() completed for instance: " + instanceId);
     }
     
     /**
@@ -174,7 +200,7 @@ public class Live2DPlatformView implements PlatformView {
     public void refreshView() {
         if (glSurfaceView != null) {
             glSurfaceView.requestRender();
-            Log.d(TAG, "View refresh requested");
+            Log.d(TAG, "View refresh requested for instance: " + instanceId);
         }
     }
     
@@ -189,9 +215,9 @@ public class Live2DPlatformView implements PlatformView {
         
         Log.d(TAG, "Initialized with modelPath: " + modelPath + ", instanceId: " + instanceId);
         
-        // 通知Live2D模块参数信息
-        LAppDelegate appDelegate = LAppDelegate.getInstance();
-        if (appDelegate != null) {
+        // 获取指定实例的LAppDelegate
+        LAppDelegate appDelegateForInstance = getAppDelegateForInstance();
+        if (appDelegateForInstance != null) {
             // 可以通过appDelegate传递参数到具体的Live2D实例
             if (instanceId != null) {
                 // 确保MainActivity知道这个实例
@@ -201,23 +227,32 @@ public class Live2DPlatformView implements PlatformView {
             
             // 如果提供了模型路径，可以考虑预加载模型
             if (modelPath != null && !modelPath.isEmpty()) {
-                Log.d(TAG, "Model path provided: " + modelPath);
+                Log.d(TAG, "Model path provided: " + modelPath + " for instance: " + instanceId);
                 
                 // 在GL线程中确保模型加载
                 glSurfaceView.queueEvent(new Runnable() {
                     @Override
                     public void run() {
                         try {
+                            // 获取指定实例的Live2D管理器
+                            LAppLive2DManager live2DManager = null;
+                            if (instanceId != null && !instanceId.isEmpty()) {
+                                live2DManager = LAppLive2DManager.getInstance(instanceId);
+                            }
+                            if (live2DManager == null) {
+                                Log.w(TAG, "Cannot get Live2D manager for instance: " + instanceId + ", using default");
+                                live2DManager = LAppLive2DManager.getInstance();
+                            }
+                            
                             // 确保Live2D管理器已初始化并至少有一个模型
-                            LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
                             if (live2DManager.getModelNum() == 0) {
-                                Log.d(TAG, "No models loaded in Live2DManager, forcing model loading");
+                                Log.d(TAG, "No models loaded in Live2DManager for instance: " + instanceId + ", forcing model loading");
                                 live2DManager.nextScene();
                             }
                             
-                            Log.d(TAG, "Live2D models loaded successfully, count: " + live2DManager.getModelNum());
+                            Log.d(TAG, "Live2D models loaded successfully, count: " + live2DManager.getModelNum() + " for instance: " + instanceId);
                         } catch (Exception e) {
-                            Log.e(TAG, "Error initializing Live2D models in GL thread", e);
+                            Log.e(TAG, "Error initializing Live2D models in GL thread for instance: " + instanceId, e);
                         }
                     }
                 });
@@ -239,5 +274,19 @@ public class Live2DPlatformView implements PlatformView {
      */
     public String getModelPath() {
         return modelPath;
+    }
+    
+    /**
+     * 获取当前实例的LAppDelegate
+     * @return LAppDelegate实例
+     */
+    private LAppDelegate getAppDelegateForInstance() {
+        if (instanceId != null && !instanceId.isEmpty()) {
+            LAppDelegate instanceDelegate = LAppDelegate.getInstance(instanceId);
+            if (instanceDelegate != null) {
+                return instanceDelegate;
+            }
+        }
+        return appDelegate;
     }
 }

@@ -41,7 +41,12 @@ public class LAppModel extends CubismUserModel {
     private static final String TAG = "LAppModel";
     
     public LAppModel() {
-        Log.d(TAG, "LAppModel constructor called");
+        this(null);
+    }
+    
+    public LAppModel(String instanceId) {
+        this.instanceId = instanceId;
+        Log.d(TAG, "LAppModel constructor called with instanceId: " + instanceId);
         if (LAppDefine.MOC_CONSISTENCY_VALIDATION_ENABLE) {
             mocConsistency = true;
         }
@@ -65,6 +70,22 @@ public class LAppModel extends CubismUserModel {
 
         Log.d(TAG, "LAppModel constructor completed");
     }
+    
+    /**
+     * 获取实例ID
+     * @return 实例ID
+     */
+    public String getInstanceId() {
+        return instanceId;
+    }
+    
+    /**
+     * 设置实例ID
+     * @param instanceId 实例ID
+     */
+    public void setInstanceId(String instanceId) {
+        this.instanceId = instanceId;
+    }
 
     public void loadAssets(final String dir, final String fileName) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
@@ -75,7 +96,7 @@ public class LAppModel extends CubismUserModel {
         String filePath = modelHomeDirectory + fileName;
 
         // 读取json
-        byte[] buffer = createBuffer(filePath);
+        byte[] buffer = createBuffer(filePath, instanceId);
 
         ICubismModelSetting setting = new CubismModelSettingJson(buffer);
 
@@ -235,20 +256,44 @@ public class LAppModel extends CubismUserModel {
             if (!fileName.equals("")) {
                 String path = modelHomeDirectory + fileName;
 
-                byte[] buffer;
-                buffer = createBuffer(path);
+                byte[] buffer = null;
+                try {
+                    buffer = createBuffer(path, instanceId);
+                    if (buffer == null) {
+                        Log.e(TAG, "startMotion: Failed to create buffer for motion: " + path);
+                        motionManager.setReservationPriority(LAppDefine.Priority.NONE.getPriority());
+                        return -1;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "startMotion: Exception creating buffer for motion: " + path, e);
+                    motionManager.setReservationPriority(LAppDefine.Priority.NONE.getPriority());
+                    return -1;
+                }
 
                 // 首先尝试使用一致性验证加载动作
                 try {
                     motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, motionConsistency);
+                } catch (AssertionError e) {
+                    Log.w(TAG, "startMotion: AssertionError during motion loading with consistency check: " + path + ", error: " + e.getMessage());
+                    // 如果是断言错误，尝试禁用验证再加载一次
+                    try {
+                        Log.d(TAG, "startMotion: Retrying motion loading without consistency check due to AssertionError");
+                        motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, false);
+                    } catch (AssertionError e2) {
+                        Log.e(TAG, "startMotion: AssertionError still occurs even without consistency check: " + path, e2);
+                        motion = null;
+                    } catch (Exception e2) {
+                        Log.e(TAG, "startMotion: Other exception when loading motion without consistency check: " + path, e2);
+                        motion = null;
+                    }
                 } catch (Exception e) {
-                    Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
+                    Log.w(TAG, "startMotion: Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
                     // 如果一致性验证失败，尝试禁用验证再加载一次
                     try {
-                        Log.d(TAG, "Retrying motion loading without consistency check: " + path);
+                        Log.d(TAG, "startMotion: Retrying motion loading without consistency check: " + path);
                         motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, false);
                     } catch (Exception e2) {
-                        Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
+                        Log.e(TAG, "startMotion: Failed to load motion even without consistency check: " + path, e2);
                         motion = null;
                     }
                 }
@@ -285,7 +330,7 @@ public class LAppModel extends CubismUserModel {
             String path = modelHomeDirectory + voice;
 
             // 在另一个线程中播放声音
-            LAppWavFileHandler voicePlayer = new LAppWavFileHandler(path);
+            LAppWavFileHandler voicePlayer = new LAppWavFileHandler(path, getInstanceId());
             voicePlayer.start();
         }
 
@@ -328,18 +373,52 @@ public class LAppModel extends CubismUserModel {
 
     public void draw(CubismMatrix44 matrix) {
         if (model == null) {
+            Log.w(TAG, "draw: Model is null, cannot draw");
             return;
         }
 
-        // 为避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
-        CubismMatrix44.multiply(
-            modelMatrix.getArray(),
-            matrix.getArray(),
-            matrix.getArray()
-        );
+        try {
+            // 为避免定义缓存变量，使用multiply()而不是multiplyByMatrix()。
+            CubismMatrix44.multiply(
+                modelMatrix.getArray(),
+                matrix.getArray(),
+                matrix.getArray()
+            );
 
-        this.<CubismRendererAndroid>getRenderer().setMvpMatrix(matrix);
-        this.<CubismRendererAndroid>getRenderer().drawModel();
+            CubismRendererAndroid renderer = this.<CubismRendererAndroid>getRenderer();
+            if (renderer == null) {
+                Log.e(TAG, "draw: Renderer is null, cannot draw model");
+                return;
+            }
+            
+            // 检查模型是否已正确初始化
+            if (model == null) {
+                Log.w(TAG, "draw: Model is null, skipping draw");
+                return;
+            }
+            
+            renderer.setMvpMatrix(matrix);
+            
+            // 添加额外的错误处理，防止CubismClippingContext为null
+            try {
+                renderer.drawModel();
+            } catch (NullPointerException e) {
+                Log.e(TAG, "draw: NullPointerException during drawModel, likely CubismClippingContext issue", e);
+                // 尝试重新初始化渲染器
+                try {
+                    Log.d(TAG, "draw: Attempting to reinitialize renderer");
+                    renderer.initialize(model);
+                    // 再次尝试绘制
+                    renderer.drawModel();
+                } catch (Exception e2) {
+                    Log.e(TAG, "draw: Failed to reinitialize renderer", e2);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "draw: Unexpected error during drawModel", e);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "draw: Error during model drawing", e);
+        }
     }
 
     /**
@@ -427,7 +506,7 @@ public class LAppModel extends CubismUserModel {
         String path = mocFileName;
         path = modelHomeDirectory + path;
 
-        byte[] buffer = createBuffer(path);
+        byte[] buffer = createBuffer(path, instanceId);
         boolean consistency = CubismMoc.hasMocConsistency(buffer);
 
         if (!consistency) {
@@ -441,9 +520,19 @@ public class LAppModel extends CubismUserModel {
 
     private static byte[] createBuffer(final String path) {
         if (LAppDefine.DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("create buffer: " + path);
+            LAppPal.printLog("create buffer: " + path + " with instanceId: null (STATIC METHOD)");
         }
-        return LAppPal.loadFileAsBytes(path);
+        return LAppPal.loadFileAsBytes(path, null);
+    }
+    
+    /**
+     * 创建缓冲区（带实例ID版本）
+     */
+    private byte[] createBuffer(final String path, String instanceId) {
+        if (LAppDefine.DEBUG_LOG_ENABLE) {
+            LAppPal.printLog("create buffer: " + path + " with instanceId: " + instanceId);
+        }
+        return LAppPal.loadFileAsBytes(path, instanceId);
     }
 
     /**
@@ -481,7 +570,7 @@ public class LAppModel extends CubismUserModel {
                     LAppPal.printLog("create model: " + modelSetting.getModelFileName());
                 }
 
-                byte[] buffer = createBuffer(path);
+                byte[] buffer = createBuffer(path, instanceId);
                 Log.d(TAG, "setupModel: Buffer created, null=" + (buffer == null));
                 if (buffer != null) {
                     Log.d(TAG, "setupModel: Buffer size: " + buffer.length);
@@ -507,7 +596,7 @@ public class LAppModel extends CubismUserModel {
                     Log.d(TAG, "setupModel: Loading expression - name=" + name + ", path=" + path);
                     path = modelHomeDirectory + path;
 
-                    byte[] buffer = createBuffer(path);
+                    byte[] buffer = createBuffer(path, instanceId);
                     Log.d(TAG, "setupModel: Expression buffer created, null=" + (buffer == null));
                     CubismExpressionMotion motion = loadExpression(buffer);
                     Log.d(TAG, "setupModel: Expression motion loaded, null=" + (motion == null));
@@ -527,7 +616,7 @@ public class LAppModel extends CubismUserModel {
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
                 Log.d(TAG, "setupModel: Loading physics from: " + modelPath);
-                byte[] buffer = createBuffer(modelPath);
+                byte[] buffer = createBuffer(modelPath, instanceId);
                 Log.d(TAG, "setupModel: Physics buffer created, null=" + (buffer == null));
 
                 loadPhysics(buffer);
@@ -542,7 +631,7 @@ public class LAppModel extends CubismUserModel {
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
                 Log.d(TAG, "setupModel: Loading pose from: " + modelPath);
-                byte[] buffer = createBuffer(modelPath);
+                byte[] buffer = createBuffer(modelPath, instanceId);
                 Log.d(TAG, "setupModel: Pose buffer created, null=" + (buffer == null));
 
                 loadPose(buffer);
@@ -572,11 +661,10 @@ public class LAppModel extends CubismUserModel {
             String path = modelSetting.getUserDataFile();
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
-                byte[] buffer = createBuffer(modelPath);
+                byte[] buffer = createBuffer(modelPath, instanceId);
                 loadUserData(buffer);
             }
         }
-
 
         // EyeBlinkIds
         int eyeBlinkIdCount = modelSetting.getEyeBlinkParameterCount();
@@ -625,40 +713,85 @@ public class LAppModel extends CubismUserModel {
      **/
     private void preLoadMotionGroup(final String group) {
         final int count = modelSetting.getMotionCount(group);
+        Log.d(TAG, "preLoadMotionGroup: Loading " + count + " motions for group: " + group);
 
         for (int i = 0; i < count; i++) {
             // ex) idle_0
             String name = group + "_" + i;
+            Log.d(TAG, "preLoadMotionGroup: Processing motion " + name);
 
             String path = modelSetting.getMotionFileName(group, i);
             if (!path.equals("")) {
                 String modelPath = modelHomeDirectory + path;
+                Log.d(TAG, "preLoadMotionGroup: Loading motion from: " + modelPath);
 
                 if (debugMode) {
                     LAppPal.printLog("load motion: " + path + "==>[" + group + "_" + i + "]");
                 }
 
-                byte[] buffer;
-                buffer = createBuffer(modelPath);
+                // 为每个实例创建独立的缓冲区，避免多实例间的缓冲区共享问题
+                byte[] buffer = null;
+                try {
+                    buffer = createBuffer(modelPath, instanceId);
+                    if (buffer == null) {
+                        Log.e(TAG, "preLoadMotionGroup: Failed to create buffer for motion: " + modelPath);
+                        continue;
+                    }
+                    Log.d(TAG, "preLoadMotionGroup: Buffer created, size: " + buffer.length);
+                } catch (Exception e) {
+                    Log.e(TAG, "preLoadMotionGroup: Exception creating buffer for motion: " + modelPath, e);
+                    continue;
+                }
 
                 // 如果无法加载动作，则跳过该过程。
                 // 首先尝试使用一致性验证，如果失败则禁用验证再试一次
                 CubismMotion tmp = null;
+                
+                // 添加更全面的错误处理，特别是针对AssertionError
                 try {
+                    Log.d(TAG, "preLoadMotionGroup: Attempting to load motion with consistency check");
                     tmp = loadMotion(buffer, motionConsistency);
+                    Log.d(TAG, "preLoadMotionGroup: Motion loaded successfully with consistency check");
+                } catch (AssertionError e) {
+                    Log.w(TAG, "preLoadMotionGroup: AssertionError during motion loading with consistency check: " + path + ", error: " + e.getMessage());
+                    // 如果是断言错误，尝试禁用验证再加载一次
+                    try {
+                        Log.d(TAG, "preLoadMotionGroup: Retrying motion loading without consistency check due to AssertionError");
+                        tmp = loadMotion(buffer, false);
+                        Log.d(TAG, "preLoadMotionGroup: Motion loaded successfully without consistency check");
+                    } catch (AssertionError e2) {
+                        Log.e(TAG, "preLoadMotionGroup: AssertionError still occurs even without consistency check: " + path, e2);
+                        // 创建一个空的占位符动作，避免系统崩溃
+                        try {
+                            Log.d(TAG, "preLoadMotionGroup: Creating placeholder motion for: " + path);
+                            tmp = createPlaceholderMotion(name);
+                        } catch (Exception e3) {
+                            Log.e(TAG, "preLoadMotionGroup: Failed to create placeholder motion", e3);
+                        }
+                    } catch (Exception e2) {
+                        Log.e(TAG, "preLoadMotionGroup: Other exception when loading motion without consistency check: " + path, e2);
+                    }
                 } catch (Exception e) {
-                    Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
+                    Log.w(TAG, "preLoadMotionGroup: Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
                     // 如果一致性验证失败，尝试禁用验证再加载一次
                     try {
-                        Log.d(TAG, "Retrying motion loading without consistency check: " + path);
+                        Log.d(TAG, "preLoadMotionGroup: Retrying motion loading without consistency check: " + path);
                         tmp = loadMotion(buffer, false);
+                        Log.d(TAG, "preLoadMotionGroup: Motion loaded successfully without consistency check");
                     } catch (Exception e2) {
-                        Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
+                        Log.e(TAG, "preLoadMotionGroup: Failed to load motion even without consistency check: " + path, e2);
+                        // 创建一个空的占位符动作，避免系统崩溃
+                        try {
+                            Log.d(TAG, "preLoadMotionGroup: Creating placeholder motion for: " + path);
+                            tmp = createPlaceholderMotion(name);
+                        } catch (Exception e3) {
+                            Log.e(TAG, "preLoadMotionGroup: Failed to create placeholder motion", e3);
+                        }
                     }
                 }
                 
                 if (tmp == null) {
-                    Log.w(TAG, "Skipping motion due to loading failure: " + path);
+                    Log.w(TAG, "preLoadMotionGroup: Skipping motion due to loading failure: " + path);
                     continue;
                 }
 
@@ -676,7 +809,45 @@ public class LAppModel extends CubismUserModel {
 
                 tmp.setEffectIds(eyeBlinkIds, lipSyncIds);
                 motions.put(name, tmp);
+                Log.d(TAG, "preLoadMotionGroup: Successfully added motion to map: " + name);
             }
+        }
+    }
+    
+    /**
+     * 创建一个占位符动作，用于在加载失败时避免系统崩溃
+     *
+     * @param name 动作名称
+     * @return 占位符动作，如果创建失败则返回null
+     */
+    private CubismMotion createPlaceholderMotion(String name) {
+        Log.d(TAG, "createPlaceholderMotion: Creating placeholder for motion: " + name);
+        try {
+            // 创建一个最小的有效动作，不包含任何实际的动画数据
+            // 这个方法需要创建一个基本的CubismMotion对象
+            // 由于我们无法直接访问构造函数，我们需要使用其他方法
+            // 这里我们尝试创建一个空的JSON缓冲区
+            String placeholderJson = "{\"Version\":3,\"Meta\":{\"Duration\":0,\"Fps\":30,\"Loop\":false,\"AreBeziersRestricted\":true,\"CurveCount\":0,\"UserDataCount\":0,\"TotalSegmentCount\":0,\"TotalPointCount\":0},\"Curves\":[],\"UserData\":[]}";
+            byte[] buffer = placeholderJson.getBytes("UTF-8");
+            
+            try {
+                CubismMotion motion = loadMotion(buffer, false);
+                if (motion != null) {
+                    Log.d(TAG, "createPlaceholderMotion: Successfully created placeholder motion for: " + name);
+                    return motion;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "createPlaceholderMotion: Failed to load placeholder motion from JSON", e);
+            }
+            
+            // 如果上述方法失败，尝试创建一个最简单的动作
+            // 由于我们无法直接创建CubismMotion对象，这里返回null
+            // 调用者需要处理null的情况
+            Log.w(TAG, "createPlaceholderMotion: Could not create placeholder motion, returning null");
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "createPlaceholderMotion: Exception while creating placeholder motion", e);
+            return null;
         }
     }
 
@@ -694,10 +865,16 @@ public class LAppModel extends CubismUserModel {
             String texturePath = modelSetting.getTextureFileName(modelTextureNumber);
             texturePath = modelHomeDirectory + texturePath;
 
-            LAppTextureManager.TextureInfo texture =
-                LAppDelegate.getInstance()
-                            .getTextureManager()
-                            .createTextureFromPngFile(texturePath);
+            LAppTextureManager textureManager;
+            LAppDelegate appDelegate = LAppDelegate.getInstance(instanceId);
+            if (appDelegate != null) {
+                textureManager = appDelegate.getTextureManager();
+            } else {
+                Log.e(TAG, "setupTextures: Cannot get LAppDelegate for instance: " + instanceId);
+                return;
+            }
+            
+            LAppTextureManager.TextureInfo texture = textureManager.createTextureFromPngFile(texturePath);
             final int glTextureNumber = texture.id;
 
             this.<CubismRendererAndroid>getRenderer().bindTexture(modelTextureNumber, glTextureNumber);
@@ -776,6 +953,11 @@ public class LAppModel extends CubismUserModel {
      * 帧缓冲区以外的绘制目标
      */
     private final CubismOffscreenSurfaceAndroid renderingBuffer = new CubismOffscreenSurfaceAndroid();
+    
+    /**
+     * 实例ID，用于区分不同的Live2D实例
+     */
+    private String instanceId;
 
     /**
      * 设置口型同步值

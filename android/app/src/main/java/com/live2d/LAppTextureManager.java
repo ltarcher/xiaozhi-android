@@ -25,6 +25,26 @@ import java.util.List;
 public class LAppTextureManager {
     private static final String TAG = "LAppTextureManager";
     
+    // 实例ID，用于区分不同的Live2D实例
+    private String instanceId;
+    
+    public LAppTextureManager() {
+        this(null);
+    }
+    
+    public LAppTextureManager(String instanceId) {
+        this.instanceId = instanceId;
+        Log.d(TAG, "LAppTextureManager created with instanceId: " + instanceId);
+    }
+    
+    /**
+     * 设置实例ID
+     * @param instanceId 实例ID
+     */
+    public void setInstanceId(String instanceId) {
+        this.instanceId = instanceId;
+    }
+    
     // 图像信息数据类
     public static class TextureInfo {
         public int id;  // 纹理ID
@@ -47,7 +67,18 @@ public class LAppTextureManager {
         }
 
         // 从assets文件夹的图像创建位图
-        AssetManager assetManager = LAppDelegate.getInstance().getActivity().getAssets();
+        AssetManager assetManager;
+        if (instanceId != null && !instanceId.isEmpty()) {
+            LAppDelegate appDelegate = LAppDelegate.getInstance(instanceId);
+            if (appDelegate != null) {
+                assetManager = appDelegate.getActivity().getAssets();
+            } else {
+                // 回退到默认实例
+                assetManager = LAppDelegate.getInstance().getActivity().getAssets();
+            }
+        } else {
+            assetManager = LAppDelegate.getInstance().getActivity().getAssets();
+        }
         InputStream stream = null;
         try {
             Log.d(TAG, "createTextureFromPngFile: Opening asset file");

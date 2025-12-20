@@ -13,22 +13,68 @@ import android.os.Build;
 import android.util.Log;
 import com.live2d.LAppDefine;
 import com.live2d.sdk.cubism.framework.CubismFramework;
+import com.live2d.Live2DInstanceManager;
+import com.live2d.Live2DInstanceManager.Live2DInstanceData;
 
 import static android.opengl.GLES20.*;
 
 public class LAppDelegate {
     private static final String TAG = "LAppDelegate";
     
-    public static LAppDelegate getInstance() {
-        if (s_instance == null) {
-            Log.d(TAG, "getInstance: Creating new LAppDelegate instance");
-            s_instance = new LAppDelegate();
-        } else {
-            //Log.d(TAG, "getInstance: Returning existing LAppDelegate instance");
+    /**
+     * 实例ID，用于多实例支持
+     */
+    private String instanceId;
+    
+    /**
+     * 获取指定实例的LAppDelegate
+     *
+     * @param instanceId 实例ID，如果为null则返回默认实例
+     * @return LAppDelegate实例
+     */
+    public static LAppDelegate getInstance(String instanceId) {
+        //Log.d(TAG, "getInstance: Requested instance: " + instanceId);
+        
+        // 首先尝试从Live2DInstanceManager获取
+        Live2DInstanceData instanceData =
+            Live2DInstanceManager.getInstance().getInstance(instanceId);
+            
+        if (instanceData != null) {
+            Log.d(TAG, "getInstance: Found instance in manager: " + instanceId);
+            return instanceData.appDelegate;
         }
+        
+        // 如果没有指定ID或找不到实例，返回默认实例（向后兼容）
+        if (instanceId == null) {
+            Live2DInstanceData defaultData =
+                    Live2DInstanceManager.getInstance().getInstance(
+                        Live2DInstanceManager.getInstance().getDefaultInstanceId());
+            if (defaultData != null) {
+                Log.d(TAG, "getInstance: Returning default instance from manager");
+                return defaultData.appDelegate;
+            }
+        }
+        
+        // 如果仍然找不到，创建一个新的单例（向后兼容）
+        if (s_instance == null) {
+            Log.d(TAG, "getInstance: Creating fallback singleton instance");
+            s_instance = new LAppDelegate();
+        }
+        
+        if (instanceId != null) {
+            s_instance.setInstanceId(instanceId);
+        }
+        
         return s_instance;
     }
-
+    
+    /**
+     * 获取默认实例（向后兼容）
+     */
+    public static LAppDelegate getInstance() {
+        return getInstance(null);
+    }
+    
     /**
      * 释放类的实例（单例）。
      */
@@ -37,6 +83,21 @@ public class LAppDelegate {
         if (s_instance != null) {
             s_instance = null;
         }
+    }
+    
+    /**
+     * 设置实例ID
+     */
+    public void setInstanceId(String instanceId) {
+        this.instanceId = instanceId;
+        //Log.d(TAG, "setInstanceId: " + instanceId);
+    }
+    
+    /**
+     * 获取实例ID
+     */
+    public String getInstanceId() {
+        return instanceId;
     }
 
     /**
@@ -55,9 +116,9 @@ public class LAppDelegate {
             Log.d(TAG, "onStart: Activity reference updated");
         }
         
-        textureManager = new LAppTextureManager();
-        Log.d(TAG, "onStart: Created LAppTextureManager");
-        view = new LAppView();
+        textureManager = new LAppTextureManager(instanceId);
+        Log.d(TAG, "onStart: Created LAppTextureManager for instance: " + instanceId);
+        view = new LAppView(instanceId);
         Log.d(TAG, "onStart: Created LAppView");
 
         LAppPal.updateTime();
@@ -65,20 +126,30 @@ public class LAppDelegate {
     }
 
     public void onPause() {
-        Log.d(TAG, "onPause: Pausing LAppDelegate");
-        currentModel = LAppLive2DManager.getInstance().getCurrentModel();
+        Log.d(TAG, "onPause: Pausing LAppDelegate for instance: " + instanceId);
+        LAppLive2DManager manager = LAppLive2DManager.getInstance(instanceId);
+        if (manager != null) {
+            currentModel = manager.getCurrentModel();
+        }
     }
 
     public void onStop() {
-        Log.d(TAG, "onStop: Stopping LAppDelegate");
+        Log.d(TAG, "onStop: Stopping LAppDelegate for instance: " + instanceId);
         if (view != null) {
             view.close();
         }
         textureManager = null;
 
-        LAppLive2DManager.releaseInstance();
-        CubismFramework.dispose();
-        Log.d(TAG, "onStop: Released resources");
+        // 释放特定实例的管理器
+        LAppLive2DManager.releaseInstance(instanceId);
+        
+        // 只在没有其他实例时才释放框架
+        if (Live2DInstanceManager.getInstance().getInstanceCount() <= 1) {
+            CubismFramework.dispose();
+            Log.d(TAG, "onStop: Released CubismFramework - no more instances");
+        }
+        
+        Log.d(TAG, "onStop: Released resources for instance: " + instanceId);
     }
 
     public void onDestroy() {
@@ -96,9 +167,13 @@ public class LAppDelegate {
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Initialize Cubism SDK framework
-        CubismFramework.initialize();
-        Log.d(TAG, "onSurfaceCreated: CubismFramework initialized");
+        // Initialize Cubism SDK framework - 只在第一个实例创建时初始化
+        if (!CubismFramework.isInitialized()) {
+            CubismFramework.initialize();
+            Log.d(TAG, "onSurfaceCreated: CubismFramework initialized for the first time");
+        } else {
+            Log.d(TAG, "onSurfaceCreated: CubismFramework already initialized, skipping");
+        }
     }
 
     public void onSurfaceChanged(int width, int height) {
@@ -108,15 +183,32 @@ public class LAppDelegate {
         windowWidth = width;
         windowHeight = height;
 
-        // AppView的初始化
-        view.initialize();
-        Log.d(TAG, "onSurfaceChanged: View initialized");
-        view.initializeSprite();
-        Log.d(TAG, "onSurfaceChanged: Sprites initialized");
+        // AppView的初始化 - 添加空值检查
+        if (view != null) {
+            try {
+                view.initialize();
+                Log.d(TAG, "onSurfaceChanged: View initialized");
+                view.initializeSprite();
+                Log.d(TAG, "onSurfaceChanged: Sprites initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "onSurfaceChanged: Error initializing view or sprites", e);
+            }
+        } else {
+            Log.e(TAG, "onSurfaceChanged: View is null, cannot initialize");
+        }
 
-        // load models
-        if (LAppLive2DManager.getInstance().getCurrentModel() != currentModel) {
-            LAppLive2DManager.getInstance().changeScene(currentModel);
+        // load models - 添加更安全的处理
+        try {
+            LAppLive2DManager manager = LAppLive2DManager.getInstance(instanceId);
+            if (manager != null) {
+                if (manager.getCurrentModel() != currentModel) {
+                    manager.changeScene(currentModel);
+                }
+            } else {
+                Log.e(TAG, "onSurfaceChanged: LAppLive2DManager is null for instance: " + instanceId);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "onSurfaceChanged: Error loading models", e);
         }
 
         isActive = true;
@@ -142,14 +234,20 @@ public class LAppDelegate {
                 activity.finishAndRemoveTask();
             }
         }
+
+        // 处理模型更新 - 使用实例特定的管理器
+        LAppLive2DManager live2DManager = LAppLive2DManager.getInstance(instanceId);
+        if (live2DManager != null) {
+            live2DManager.onUpdate();
+        }
     }
 
 
     public void onTouchBegan(float x, float y) {
-        Log.d(TAG, "onTouchBegan: x=" + x + ", y=" + y);
+        Log.d(TAG, "onTouchBegan: x=" + x + ", y=" + y + " for instance: " + instanceId);
         mouseX = x;
         mouseY = y;
-        
+
         // 添加额外的调试信息
         Log.d(TAG, "onTouchBegan: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
@@ -163,10 +261,10 @@ public class LAppDelegate {
     }
 
     public void onTouchEnd(float x, float y) {
-        Log.d(TAG, "onTouchEnd: x=" + x + ", y=" + y);
+        Log.d(TAG, "onTouchEnd: x=" + x + ", y=" + y + " for instance: " + instanceId);
         mouseX = x;
         mouseY = y;
-        
+
         // 添加额外的调试信息
         Log.d(TAG, "onTouchEnd: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
@@ -177,13 +275,19 @@ public class LAppDelegate {
         } else {
             Log.e(TAG, "onTouchEnd: View is null, cannot process touch event");
         }
+
+        // 处理点击事件 - 调用Live2DManager的onTap
+        LAppLive2DManager live2DManager = LAppLive2DManager.getInstance(instanceId);
+        if (live2DManager != null) {
+            live2DManager.onTap(x, y);
+        }
     }
 
     public void onTouchMoved(float x, float y) {
-        Log.d(TAG, "onTouchMoved: x=" + x + ", y=" + y);
+        Log.d(TAG, "onTouchMoved: x=" + x + ", y=" + y + " for instance: " + instanceId);
         mouseX = x;
         mouseY = y;
-        
+
         // 添加额外的调试信息
         Log.d(TAG, "onTouchMoved: isCaptured=" + isCaptured + ", view=" + (view != null ? "not null" : "null"));
 
@@ -198,6 +302,12 @@ public class LAppDelegate {
                 Log.e(TAG, "onTouchMoved: View is null, cannot process touch event");
             }
         }
+
+        // 处理拖拽事件 - 调用Live2DManager的onDrag
+        LAppLive2DManager live2DManager = LAppLive2DManager.getInstance(instanceId);
+        if (live2DManager != null) {
+            live2DManager.onDrag(x, y);
+        }
     }
 
     /**
@@ -210,7 +320,7 @@ public class LAppDelegate {
             live2DPlatformView.refreshView();
         }
     }
-    
+
     /**
      * 设置Live2DPlatformView实例引用
      * @param platformView
@@ -243,7 +353,7 @@ public class LAppDelegate {
 
     private static LAppDelegate s_instance;
 
-    private LAppDelegate() {
+    public LAppDelegate() {
         Log.d(TAG, "LAppDelegate constructor called");
         currentModel = 0;
 
@@ -251,13 +361,29 @@ public class LAppDelegate {
         cubismOption.logFunction = new LAppPal.PrintLogFunction();
         cubismOption.loggingLevel = LAppDefine.cubismLoggingLevel;
 
-        CubismFramework.cleanUp();
-        CubismFramework.startUp(cubismOption);
-        Log.d(TAG, "LAppDelegate constructor: CubismFramework started up");
+        // 只在第一次创建时执行清理和启动
+        if (!CubismFramework.isInitialized()) {
+            CubismFramework.cleanUp();
+            CubismFramework.startUp(cubismOption);
+            Log.d(TAG, "LAppDelegate constructor: CubismFramework started up for the first time");
+        } else {
+            Log.d(TAG, "LAppDelegate constructor: CubismFramework already started up, skipping");
+        }
+    }
+
+    /**
+     * 带实例ID的构造函数
+     *
+     * @param instanceId 实例ID
+     */
+    public LAppDelegate(String instanceId) {
+        this();
+        this.instanceId = instanceId;
+        Log.d(TAG, "LAppDelegate constructor with instanceId: " + instanceId);
     }
 
     private Activity activity;
-    
+
     private Live2DPlatformView live2DPlatformView; // 添加对Live2DPlatformView的引用
 
     private final CubismFramework.Option cubismOption = new CubismFramework.Option();
@@ -267,7 +393,7 @@ public class LAppDelegate {
     private int windowWidth;
     private int windowHeight;
     private boolean isActive = true;
-    
+
     // 添加初始化检查方法
     public boolean isInitialized() {
         boolean initialized = (view != null && textureManager != null && activity != null);
@@ -287,10 +413,12 @@ public class LAppDelegate {
      * 是否正在点击
      */
     private boolean isCaptured;
+
     /**
      * 鼠标的X坐标
      */
     private float mouseX;
+
     /**
      * 鼠标的Y坐标
      */

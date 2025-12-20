@@ -27,7 +27,15 @@ public class LAppPal {
 
     // 将应用程序置于中断状态。执行后会发生onPause()事件
     public static void moveTaskToBack() {
-        LAppDelegate.getInstance().getActivity().moveTaskToBack(true);
+        moveTaskToBack(null);
+    }
+    
+    // 将应用程序置于中断状态。执行后会发生onPause()事件（带实例ID版本）
+    public static void moveTaskToBack(String instanceId) {
+        LAppDelegate delegate = LAppDelegate.getInstance(instanceId);
+        if (delegate != null && delegate.getActivity() != null) {
+            delegate.getActivity().moveTaskToBack(true);
+        }
     }
 
     // 更新增量时间
@@ -39,9 +47,20 @@ public class LAppPal {
 
     // 将文件作为字节序列读取
     public static byte[] loadFileAsBytes(final String path) {
+        return loadFileAsBytes(path, null);
+    }
+    
+    // 将文件作为字节序列读取（带实例ID版本）
+    public static byte[] loadFileAsBytes(final String path, String instanceId) {
         InputStream fileData = null;
         try {
-            fileData = LAppDelegate.getInstance().getActivity().getAssets().open(path);
+            LAppDelegate delegate = LAppDelegate.getInstance(instanceId);
+            if (delegate != null && delegate.getActivity() != null) {
+                fileData = delegate.getActivity().getAssets().open(path);
+            } else {
+                Log.e("[APP]", "Cannot get activity or delegate for loading file: " + path + " with instanceId: " + instanceId);
+                return new byte[0];
+            }
 
             int fileSize = fileData.available();
             byte[] fileBuffer = new byte[fileSize];

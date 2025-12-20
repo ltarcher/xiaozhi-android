@@ -22,9 +22,32 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 public class LAppWavFileHandler extends Thread {
+    private String instanceId;
+    
     public LAppWavFileHandler(String filePath) {
+        this(filePath, null);
+    }
+    
+    public LAppWavFileHandler(String filePath, String instanceId) {
         this.filePath = filePath;
-        this.lipSyncContext = new LipSyncContext();
+        this.instanceId = instanceId;
+        this.lipSyncContext = new LipSyncContext(instanceId);
+    }
+    
+    /**
+     * 设置实例ID
+     * @param instanceId 实例ID
+     */
+    public void setInstanceId(String instanceId) {
+        this.instanceId = instanceId;
+    }
+    
+    /**
+     * 获取实例ID
+     * @return 实例ID
+     */
+    public String getInstanceId() {
+        return instanceId;
     }
 
     @Override
@@ -40,8 +63,14 @@ public class LAppWavFileHandler extends Thread {
 
         MediaExtractor mediaExtractor = new MediaExtractor();
         try {
-            AssetFileDescriptor afd = LAppDelegate.getInstance().getActivity().getAssets().openFd(filePath);
-            mediaExtractor.setDataSource(afd);
+            LAppDelegate delegate = getInstanceId() != null ? LAppDelegate.getInstance(getInstanceId()) : LAppDelegate.getInstance();
+            if (delegate != null && delegate.getActivity() != null) {
+                AssetFileDescriptor afd = delegate.getActivity().getAssets().openFd(filePath);
+                mediaExtractor.setDataSource(afd);
+            } else {
+                LAppPal.printLog("Cannot get activity or delegate for audio file: " + filePath);
+                return;
+            }
         } catch (IOException e) {
             // 发生异常时只输出错误并不进行播放直接return。
             e.printStackTrace();
@@ -75,7 +104,7 @@ public class LAppWavFileHandler extends Thread {
 
         // 避免断断续续的声音
         int offset = 100;
-        byte[] voiceBuffer = LAppPal.loadFileAsBytes(filePath);
+        byte[] voiceBuffer = LAppPal.loadFileAsBytes(filePath, instanceId);
         audioTrack.write(voiceBuffer, offset, voiceBuffer.length - offset);
         
         // 处理音频数据用于口型同步
@@ -171,6 +200,11 @@ public class LAppWavFileHandler extends Thread {
     private static class LipSyncContext {
         private volatile float currentLipSyncValue = 0.0f;
         private final Object lock = new Object();
+        private final String instanceId;
+        
+        public LipSyncContext(String instanceId) {
+            this.instanceId = instanceId;
+        }
         
         /**
          * 更新口型同步值
@@ -180,7 +214,14 @@ public class LAppWavFileHandler extends Thread {
             synchronized (lock) {
                 currentLipSyncValue = value;
                 // 通知Live2D模型更新口型
-                LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                LAppLive2DManager live2DManager = null;
+                if (instanceId != null && !instanceId.isEmpty()) {
+                    live2DManager = LAppLive2DManager.getInstance(instanceId);
+                }
+                if (live2DManager == null) {
+                    live2DManager = LAppLive2DManager.getInstance();
+                }
+                
                 if (live2DManager != null) {
                     // 这里应该通知当前活动的模型更新口型同步值
                     // 实际实现中可能需要通过回调或其他机制通知模型

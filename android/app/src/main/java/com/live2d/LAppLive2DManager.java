@@ -18,30 +18,95 @@ import com.live2d.sdk.cubism.framework.motion.IFinishedMotionCallback;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.live2d.LAppDefine.*;
 
 /**
  * 在示例应用程序中管理CubismModel的类
  * 负责模型的创建和销毁、点击事件的处理以及模型切换
+ * 现在支持多实例，通过实例ID区分不同的Live2D实例
  */
 public class LAppLive2DManager {
     private static final String TAG = "LAppLive2DManager";
     
-    public static LAppLive2DManager getInstance() {
-        if (s_instance == null) {
-            Log.d(TAG, "getInstance: 创建新的LAppLive2DManager实例");
-            s_instance = new LAppLive2DManager();
-        } else {
-            //Log.d(TAG, "getInstance: 返回现有的LAppLive2DManager实例");
+    /**
+     * 实例ID到管理器实例的映射
+     */
+    private static final Map<String, LAppLive2DManager> s_instances = new HashMap<>();
+    
+    /**
+     * 获取指定实例ID的LAppLive2DManager
+     *
+     * @param instanceId 实例ID，如果为null则返回默认实例
+     * @return LAppLive2DManager实例
+     */
+    public static LAppLive2DManager getInstance(String instanceId) {
+        //Log.d(TAG, "getInstance: Requested manager for instance: " + instanceId);
+        
+        if (instanceId == null) {
+            instanceId = Live2DInstanceManager.getInstance().getDefaultInstanceId();
+            if (instanceId == null) {
+                Log.w(TAG, "getInstance: No default instance available, using singleton fallback");
+                return getInstance();
+            }
         }
-        return s_instance;
+        
+        LAppLive2DManager manager = s_instances.get(instanceId);
+        if (manager == null) {
+            Log.d(TAG, "getInstance: Creating new LAppLive2DManager for instance: " + instanceId);
+            manager = new LAppLive2DManager(instanceId);
+            s_instances.put(instanceId, manager);
+        }
+        
+        return manager;
     }
-
-    public static void releaseInstance() {
-        Log.d(TAG, "releaseInstance: 释放LAppLive2DManager实例");
-        s_instance = null;
+    
+    /**
+     * 获取默认实例（向后兼容）
+     */
+    public static LAppLive2DManager getInstance() {
+        if (s_instances.isEmpty()) {
+            Log.d(TAG, "getInstance: Creating default singleton manager");
+            LAppLive2DManager manager = new LAppLive2DManager();
+            s_instances.put("default", manager);
+            return manager;
+        }
+        
+        // 返回第一个可用的实例
+        return s_instances.values().iterator().next();
+    }
+    
+    /**
+     * 释放指定实例ID的管理器
+     *
+     * @param instanceId 实例ID
+     */
+    public static void releaseInstance(String instanceId) {
+        Log.d(TAG, "releaseInstance: Releasing manager for instance: " + instanceId);
+        
+        if (instanceId != null) {
+            LAppLive2DManager manager = s_instances.remove(instanceId);
+            if (manager != null) {
+                manager.releaseAllModel();
+                Log.d(TAG, "releaseInstance: Manager released for instance: " + instanceId);
+            }
+        }
+    }
+    
+    /**
+     * 释放所有实例
+     */
+    public static void releaseAllInstances() {
+        Log.d(TAG, "releaseAllInstances: Releasing all managers");
+        
+        for (Map.Entry<String, LAppLive2DManager> entry : s_instances.entrySet()) {
+            entry.getValue().releaseAllModel();
+        }
+        
+        s_instances.clear();
     }
 
     /**
@@ -63,7 +128,13 @@ public class LAppLive2DManager {
         // 如果只有文件夹但没有同名的.model3.json文件，则不包含在列表中
         modelDir.clear();
 
-        final AssetManager assets = LAppDelegate.getInstance().getActivity().getResources().getAssets();
+        LAppDelegate appDelegate = LAppDelegate.getInstance(instanceId);
+        if (appDelegate == null) {
+            Log.e(TAG, "setUpModel: Cannot get app delegate for instance: " + instanceId);
+            return;
+        }
+        
+        final AssetManager assets = appDelegate.getActivity().getResources().getAssets();
         try {
             // Flutter assets的live2d目录内的文件列表
             String[] root = assets.list(LAppDefine.ResourcePath.ROOT.getPath());
@@ -112,8 +183,14 @@ public class LAppLive2DManager {
 
     // 执行模型更新和绘制处理
     public void onUpdate() {
-        int width = LAppDelegate.getInstance().getWindowWidth();
-        int height = LAppDelegate.getInstance().getWindowHeight();
+        LAppDelegate appDelegate = LAppDelegate.getInstance(instanceId);
+        if (appDelegate == null) {
+            Log.e(TAG, "onUpdate: Cannot get app delegate for instance: " + instanceId);
+            return;
+        }
+        
+        int width = appDelegate.getWindowWidth();
+        int height = appDelegate.getWindowHeight();
 
         for (int i = 0; i < models.size(); i++) {
             LAppModel model = models.get(i);
@@ -139,14 +216,19 @@ public class LAppLive2DManager {
             }
 
             // 单个模型绘制前调用
-            LAppDelegate.getInstance().getView().preModelDraw(model);
+            LAppView view = appDelegate.getView();
+            if (view != null) {
+                view.preModelDraw(model);
+            }
 
             model.update();
 
             model.draw(projection);     // 由于是引用传递，projection会发生变化
 
             // 单个模型绘制后调用
-            LAppDelegate.getInstance().getView().postModelDraw(model);
+            if (view != null) {
+                view.postModelDraw(model);
+            }
         }
     }
 
@@ -157,9 +239,13 @@ public class LAppLive2DManager {
      * @param y 屏幕的y坐标
      */
     public void onDrag(float x, float y) {
+        Log.d(TAG, "onDrag: x=" + x + ", y=" + y + " for instance: " + instanceId);
+        
         for (int i = 0; i < models.size(); i++) {
             LAppModel model = getModel(i);
-            model.setDragging(x, y);
+            if (model != null) {
+                model.setDragging(x, y);
+            }
         }
     }
 
@@ -170,24 +256,30 @@ public class LAppLive2DManager {
      * @param y 屏幕的y坐标
      */
     public void onTap(float x, float y) {
+        Log.d(TAG, "onTap: x=" + x + ", y=" + y + " for instance: " + instanceId);
+        
         if (DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("点击点: {" + x + ", y: " + y);
+            LAppPal.printLog("点击点: {" + x + ", y: " + y + " for instance: " + instanceId);
         }
 
         for (int i = 0; i < models.size(); i++) {
             LAppModel model = models.get(i);
+            
+            if (model == null) {
+                continue;
+            }
 
             // 点击头部时随机播放表情
             if (model.hitTest(HitAreaName.HEAD.getId(), x, y)) {
                 if (DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("点击区域: " + HitAreaName.HEAD.getId());
+                    LAppPal.printLog("点击区域: " + HitAreaName.HEAD.getId() + " for instance: " + instanceId);
                 }
                 model.setRandomExpression();
             }
             // 点击身体时开始随机动作
             else if (model.hitTest(HitAreaName.BODY.getId(), x, y)) {
                 if (DEBUG_LOG_ENABLE) {
-                    LAppPal.printLog("点击区域: " + HitAreaName.HEAD.getId());
+                    LAppPal.printLog("点击区域: " + HitAreaName.BODY.getId() + " for instance: " + instanceId);
                 }
 
                 model.startRandomMotion(MotionGroup.TAP_BODY.getId(), Priority.NORMAL.getPriority(), finishedMotion, beganMotion);
@@ -200,9 +292,11 @@ public class LAppLive2DManager {
      * 示例应用程序中执行模型集的切换
      */
     public void nextScene() {
+        Log.d(TAG, "nextScene: Called for instance: " + instanceId);
+        
         // 如果未找到模型则中止处理
         if (modelDir.isEmpty()) {
-            Log.e(TAG, "nextScene: 未找到模型，中止场景切换");
+            Log.e(TAG, "nextScene: 未找到模型，中止场景切换 for instance: " + instanceId);
             return;
         }
         
@@ -216,21 +310,23 @@ public class LAppLive2DManager {
      * @param index 要切换的场景索引
      */
     public void changeScene(int index) {
+        Log.d(TAG, "changeScene: index=" + index + " for instance: " + instanceId);
+        
         // 如果未找到模型则中止处理
         if (modelDir.isEmpty()) {
-            Log.e(TAG, "changeScene: 未找到模型，中止场景切换");
+            Log.e(TAG, "changeScene: 未找到模型，中止场景切换 for instance: " + instanceId);
             return;
         }
         
         // 如果索引超出范围也中止处理
         if (index < 0 || index >= modelDir.size()) {
-            Log.e(TAG, "changeScene: 索引超出范围. index=" + index + ", size=" + modelDir.size());
+            Log.e(TAG, "changeScene: 索引超出范围. index=" + index + ", size=" + modelDir.size() + " for instance: " + instanceId);
             return;
         }
         
         currentModel = index;
         if (DEBUG_LOG_ENABLE) {
-            LAppPal.printLog("模型索引: " + currentModel);
+            LAppPal.printLog("模型索引: " + currentModel + " for instance: " + instanceId);
         }
 
         String modelDirName = modelDir.get(index);
@@ -268,11 +364,17 @@ public class LAppLive2DManager {
         }
 
         // 切换渲染目标
-        LAppDelegate.getInstance().getView().switchRenderingTarget(useRenderingTarget);
-
-        // 选择其他渲染目标时的背景清除颜色
-        float[] clearColor = {0.0f, 0.0f, 0.0f};
-        LAppDelegate.getInstance().getView().setRenderingTargetClearColor(clearColor[0], clearColor[1], clearColor[2]);
+        LAppDelegate appDelegate = LAppDelegate.getInstance(instanceId);
+        if (appDelegate != null) {
+            LAppView view = appDelegate.getView();
+            if (view != null) {
+                view.switchRenderingTarget(useRenderingTarget);
+                
+                // 选择其他渲染目标时的背景清除颜色
+                float[] clearColor = {0.0f, 0.0f, 0.0f};
+                view.setRenderingTargetClearColor(clearColor[0], clearColor[1], clearColor[2]);
+            }
+        }
     }
 
     /**
@@ -334,30 +436,59 @@ public class LAppLive2DManager {
     private static final FinishedMotion finishedMotion = new FinishedMotion();
 
     /**
-     * 单例实例
+     * 实例ID
      */
-    private static LAppLive2DManager s_instance;
+    private final String instanceId;
 
     private LAppLive2DManager() {
-        Log.d(TAG, "LAppLive2DManager: 初始化管理器");
+        this.instanceId = "default";
+        Log.d(TAG, "LAppLive2DManager: Created default manager");
+        initialize();
+    }
+    
+    /**
+     * 带实例ID的构造函数
+     *
+     * @param instanceId 实例ID
+     */
+    private LAppLive2DManager(String instanceId) {
+        this.instanceId = instanceId;
+        Log.d(TAG, "LAppLive2DManager: Created manager for instance: " + instanceId);
+        initialize();
+    }
+    
+    /**
+     * 初始化管理器
+     */
+    private void initialize() {
+        Log.d(TAG, "LAppLive2DManager: 初始化管理器 for instance: " + instanceId);
         try {
             setUpModel();
             // 仅在找到模型时才切换场景
             if (!modelDir.isEmpty()) {
-                Log.d(TAG, "LAppLive2DManager: 找到模型，切换到场景0");
+                Log.d(TAG, "LAppLive2DManager: 找到模型，切换到场景0 for instance: " + instanceId);
                 try {
                     changeScene(0);
                 } catch (Exception e) {
-                    Log.e(TAG, "LAppLive2DManager: 切换场景时发生错误", e);
+                    Log.e(TAG, "LAppLive2DManager: 切换场景时发生错误 for instance: " + instanceId, e);
                     // 即使切换场景失败，也不抛出异常，允许管理器继续初始化
                 }
             } else {
-                Log.e(TAG, "LAppLive2DManager: 初始化期间未找到模型");
+                Log.e(TAG, "LAppLive2DManager: 初始化期间未找到模型 for instance: " + instanceId);
             }
         } catch (Exception e) {
-            Log.e(TAG, "LAppLive2DManager: 初始化过程中发生错误", e);
+            Log.e(TAG, "LAppLive2DManager: 初始化过程中发生错误 for instance: " + instanceId, e);
             // 不抛出异常，允许管理器继续初始化，只是可能没有模型
         }
+    }
+    
+    /**
+     * 获取实例ID
+     *
+     * @return 实例ID
+     */
+    public String getInstanceId() {
+        return instanceId;
     }
 
     private final List<LAppModel> models = new ArrayList<>();

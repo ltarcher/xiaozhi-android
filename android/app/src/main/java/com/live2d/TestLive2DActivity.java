@@ -29,8 +29,8 @@ public class TestLive2DActivity extends Activity {
         glSurfaceView = new GLSurfaceView(this);
         glSurfaceView.setEGLContextClientVersion(2);
 
-        // 创建渲染器
-        glRenderer = new GLRenderer();
+        // 创建渲染器，测试活动使用默认实例
+        glRenderer = new GLRenderer("test_activity");
         glSurfaceView.setRenderer(glRenderer);
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
 
@@ -113,7 +113,11 @@ public class TestLive2DActivity extends Activity {
     protected void onStart() {
         super.onStart();
         Log.d(TAG, "onStart: Activity starting");
-        LAppDelegate.getInstance().onStart(this);
+        LAppDelegate delegate = LAppDelegate.getInstance("test_activity");
+        if (delegate == null) {
+            delegate = LAppDelegate.getInstance();
+        }
+        delegate.onStart(this);
         Log.d(TAG, "onStart: LAppDelegate started");
     }
 
@@ -140,7 +144,11 @@ public class TestLive2DActivity extends Activity {
         super.onPause();
         Log.d(TAG, "onPause: Activity pausing");
         glSurfaceView.onPause();
-        LAppDelegate.getInstance().onPause();
+        LAppDelegate delegate = LAppDelegate.getInstance("test_activity");
+        if (delegate == null) {
+            delegate = LAppDelegate.getInstance();
+        }
+        delegate.onPause();
         Log.d(TAG, "onPause: Activity paused");
     }
 
@@ -148,7 +156,11 @@ public class TestLive2DActivity extends Activity {
     protected void onStop() {
         super.onStop();
         Log.d(TAG, "onStop: Activity stopping");
-        LAppDelegate.getInstance().onStop();
+        LAppDelegate delegate = LAppDelegate.getInstance("test_activity");
+        if (delegate == null) {
+            delegate = LAppDelegate.getInstance();
+        }
+        delegate.onStop();
         Log.d(TAG, "onStop: Activity stopped");
     }
 
@@ -156,7 +168,11 @@ public class TestLive2DActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "onDestroy: Activity destroying");
-        LAppDelegate.getInstance().onDestroy();
+        LAppDelegate delegate = LAppDelegate.getInstance("test_activity");
+        if (delegate == null) {
+            delegate = LAppDelegate.getInstance();
+        }
+        delegate.onDestroy();
         Log.d(TAG, "onDestroy: Activity destroyed");
     }
 
@@ -170,18 +186,23 @@ public class TestLive2DActivity extends Activity {
         glSurfaceView.queueEvent(new Runnable() {
             @Override
             public void run() {
+                LAppDelegate delegate = LAppDelegate.getInstance("test_activity");
+                if (delegate == null) {
+                    delegate = LAppDelegate.getInstance();
+                }
+                
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         Log.d(TAG, "onTouchEvent: ACTION_DOWN");
-                        LAppDelegate.getInstance().onTouchBegan(pointX, pointY);
+                        delegate.onTouchBegan(pointX, pointY);
                         break;
                     case MotionEvent.ACTION_UP:
                         Log.d(TAG, "onTouchEvent: ACTION_UP");
-                        LAppDelegate.getInstance().onTouchEnd(pointX, pointY);
+                        delegate.onTouchEnd(pointX, pointY);
                         break;
                     case MotionEvent.ACTION_MOVE:
                         Log.d(TAG, "onTouchEvent: ACTION_MOVE");
-                        LAppDelegate.getInstance().onTouchMoved(pointX, pointY);
+                        delegate.onTouchMoved(pointX, pointY);
                         break;
                 }
             }
