@@ -700,6 +700,34 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           if (kDebugMode) {
                             print('ChatPage: Tap down on hold-to-talk button');
                           }
+                          
+                          // 获取当前状态，检查WebSocket连接状态
+                          final currentState = chatBloc.state;
+                          final connectionStatus = currentState.connectionStatus.toString();
+                          
+                          // 如果连接状态不是已连接，显示提示信息
+                          if (!connectionStatus.contains('connected')) {
+                            if (kDebugMode) {
+                              print('ChatPage: WebSocket not connected, status: $connectionStatus');
+                            }
+                            
+                            // 显示连接状态提示
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  connectionStatus.contains('connecting') || connectionStatus.contains('reconnecting')
+                                      ? '正在连接服务器，请稍后再试...'
+                                      : '正在连接服务器，请稍候...',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: connectionStatus.contains('connecting') || connectionStatus.contains('reconnecting')
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                          
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           if (!_isPressing) {
                             setState(() {
@@ -728,6 +756,34 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           if (kDebugMode) {
                             print('ChatPage: Long press started on hold-to-talk button');
                           }
+                          
+                          // 获取当前状态，检查WebSocket连接状态
+                          final currentState = chatBloc.state;
+                          final connectionStatus = currentState.connectionStatus.toString();
+                          
+                          // 如果连接状态不是已连接，显示提示信息
+                          if (!connectionStatus.contains('connected')) {
+                            if (kDebugMode) {
+                              print('ChatPage: WebSocket not connected, status: $connectionStatus');
+                            }
+                            
+                            // 显示连接状态提示
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  connectionStatus.contains('connecting') || connectionStatus.contains('reconnecting')
+                                      ? '正在连接服务器，请稍后再试...'
+                                      : '正在连接服务器，请稍候...',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: connectionStatus.contains('connecting') || connectionStatus.contains('reconnecting')
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                          
                           holdToTalkKey.currentState!.setSpeaking(true);
                           if (!_isPressing) {
                             setState(() {

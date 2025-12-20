@@ -434,13 +434,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           }
         }
 
+        // 检查WebSocket连接状态，如果未连接则主动连接
+        if (_websocketChannel == null ||
+            state.connectionStatus == WebSocketConnectionStatus.disconnected ||
+            state.connectionStatus == WebSocketConnectionStatus.error) {
+          _logger.i('___INFO WebSocket not connected, attempting to connect before starting listen');
+          await _connectWebSocket();
+        }
+
         if (null == _websocketStreamSubscription) {
           _initWebsocketListener();
         }
 
         // 确保 _websocketChannel 不为 null
         if (_websocketChannel == null) {
-          _logger.e('___ERROR _websocketChannel is null');
+          _logger.e('___ERROR _websocketChannel is null after connection attempt');
           return;
         }
         
