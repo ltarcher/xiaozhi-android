@@ -143,17 +143,12 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         }
         
         try {
-            // 创建带有唤醒词列表的识别器
-            StringBuilder grammar = new StringBuilder();
-            grammar.append("[");
-            grammar.append("\"").append(currentWakeWord).append("\"");
-            grammar.append(", ");
-            grammar.append("\"[unk]\"");
-            grammar.append("]");
+            // 不使用语法限制，创建自由识别器
+            // 这样可以识别模型词汇表中的任何词，然后在结果中进行关键词匹配
+            Log.i(TAG, "Using free-form recognition without grammar restrictions");
             
-            Log.i(TAG, "Using grammar: " + grammar.toString());
-            
-            Recognizer recognizer = new Recognizer(model, 16000.0f, grammar.toString());
+            // 创建不带语法的识别器，这样可以识别模型支持的所有词汇
+            Recognizer recognizer = new Recognizer(model, 16000.0f);
             speechService = new SpeechService(recognizer, 16000.0f);
             speechService.startListening(this);
             isListening = true;
@@ -243,8 +238,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     // RecognitionListener 实现
     @Override
     public void onResult(String hypothesis) {
-        // 检测是否包含唤醒词
-        if (hypothesis.toLowerCase().contains(currentWakeWord.toLowerCase())) {
+        // 使用更灵活的关键词检测
+        if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected: " + hypothesis);
             
             // 通知Flutter端检测到唤醒词
@@ -258,8 +253,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     
     @Override
     public void onFinalResult(String hypothesis) {
-        // 最终结果，也检查是否包含唤醒词
-        if (hypothesis.toLowerCase().contains(currentWakeWord.toLowerCase())) {
+        // 最终结果，也使用灵活的关键词检测
+        if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected in final result: " + hypothesis);
             
             // 通知Flutter端检测到唤醒词
@@ -269,6 +264,68 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 }
             });
         }
+    }
+    
+    /**
+     * 检测文本中是否包含唤醒词
+     * 使用多种匹配策略提高识别率
+     */
+    private boolean containsWakeWord(String hypothesis) {
+        if (hypothesis == null || hypothesis.trim().isEmpty()) {
+            return false;
+        }
+        
+        String normalizedHypothesis = hypothesis.toLowerCase().trim();
+        String normalizedWakeWord = currentWakeWord.toLowerCase().trim();
+        
+        // 1. 直接匹配
+        if (normalizedHypothesis.contains(normalizedWakeWord)) {
+            Log.i(TAG, "Direct match found: " + hypothesis);
+            return true;
+        }
+        
+        // 2. 分词匹配 - 检查是否包含唤醒词的主要部分
+        String[] wakeWordParts = normalizedWakeWord.split("[,，\\s]+");
+        String[] hypothesisParts = normalizedHypothesis.split("[,，\\s]+");
+        
+        int matchedParts = 0;
+        for (String wakePart : wakeWordParts) {
+            if (wakePart.trim().isEmpty()) continue;
+            
+            for (String hypoPart : hypothesisParts) {
+                if (hypoPart.contains(wakePart) || wakePart.contains(hypoPart)) {
+                    matchedParts++;
+                    break;
+                }
+            }
+        }
+        
+        // 如果匹配了大部分关键词（至少60%），认为可能匹配成功
+        if (wakeWordParts.length > 0 && (double)matchedParts / wakeWordParts.length >= 0.6) {
+            Log.i(TAG, "Partial match found: " + hypothesis + " (matched " + matchedParts + "/" + wakeWordParts.length + " parts)");
+            return true;
+        }
+        
+        // 3. 模糊匹配 - 检查是否包含"你好"和"小清"的关键部分
+        if (normalizedWakeWord.contains("你好") && normalizedWakeWord.contains("小清")) {
+            boolean hasNiHao = normalizedHypothesis.contains("你好") ||
+                             normalizedHypothesis.contains("您好") ||
+                             normalizedHypothesis.contains("你好啊") ||
+                             normalizedHypothesis.contains("小智") ||  // 可能的误识别
+                             normalizedHypothesis.contains("小志");  // 可能的误识别
+                             
+            boolean hasXiaoQing = normalizedHypothesis.contains("小清") ||
+                                normalizedHypothesis.contains("小晴") ||  // 可能的误识别
+                                normalizedHypothesis.contains("小情") ||  // 可能的误识别
+                                normalizedHypothesis.contains("小请");   // 可能的误识别
+            
+            if (hasNiHao && hasXiaoQing) {
+                Log.i(TAG, "Fuzzy match found: " + hypothesis);
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     @Override

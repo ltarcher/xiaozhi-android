@@ -49,3 +49,4 @@ pubspec.lock
 .vscode/
 .gradle/
 build/
+uuid
