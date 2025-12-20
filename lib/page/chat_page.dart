@@ -93,6 +93,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_live2DKey.currentState != null) {
       try {
         (_live2DKey.currentState as dynamic).setLipSyncValue(lipSyncValue);
+        if (kDebugMode) {
+          print('ChatPage: Successfully set lip sync value: $lipSyncValue');
+        }
       } catch (e) {
         if (kDebugMode) {
           print('ChatPage: Error setting server audio lip sync value: $e');

@@ -435,7 +435,7 @@ public class MainActivity extends FlutterActivity {
                                 }
                                 
                                 try {
-                                    // 获取当前模型并设置口型同步值，使用多实例管理
+                                    // 获取Live2D管理器
                                     LAppLive2DManager live2DManager;
                                     try {
                                         live2DManager = LAppLive2DManager.getInstance();
@@ -452,24 +452,46 @@ public class MainActivity extends FlutterActivity {
                                     
                                     // 检查实例是否已经存在映射
                                     if (!instanceMap.containsKey(instanceId)) {
-                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, skipping lip sync value set");
-                                        result.success(null);
-                                        return;
+                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, using default model");
+                                        // 如果实例ID不存在，使用当前活动模型
+                                        if (live2DManager.getModelNum() > 0) {
+                                            int currentModelIndex = live2DManager.getCurrentModel();
+                                            if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
+                                                // 限制value在0.0-1.0范围内
+                                                float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
+                                                live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
+                                                Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for current model " + currentModelIndex);
+                                                result.success(null);
+                                                return;
+                                            }
+                                        }
                                     }
                                     
+                                    // 根据实例映射获取模型索引
                                     int modelIndex = instanceMap.get(instanceId);
                                     Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                     
-                                    if (live2DManager.getModel(modelIndex) != null) {
+                                    if (live2DManager.getModelNum() > 0 && modelIndex >= 0 && modelIndex < live2DManager.getModelNum() && live2DManager.getModel(modelIndex) != null) {
                                         // 限制value在0.0-1.0范围内
                                         float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                         live2DManager.getModel(modelIndex).setLipSyncValue(lipSyncValue);
+                                        Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for model " + modelIndex);
                                         result.success(null);
                                     } else {
-                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
+                                        // 如果指定的模型不可用，使用当前活动模型
+                                        int currentModelIndex = live2DManager.getCurrentModel();
+                                        if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum() && live2DManager.getModel(currentModelIndex) != null) {
+                                            float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
+                                            live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
+                                            Log.d(TAG, "setLipSyncValue: Using current model " + currentModelIndex + " instead of requested " + modelIndex);
+                                            result.success(null);
+                                        } else {
+                                            Log.w(TAG, "setLipSyncValue: No Live2D model available");
+                                            result.error("MODEL_NOT_AVAILABLE", "No Live2D model available", null);
+                                        }
                                     }
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in setLipSyncValue for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in setLipSyncValue", e);
                                     result.error("LIPSYNC_ERROR", "Failed to set lip sync value: " + e.getMessage(), null);
                                 }
                             } else {
@@ -609,44 +631,41 @@ public class MainActivity extends FlutterActivity {
         }
         
         try {
-            // 确保实例映射存在
-            if (!instanceMap.containsKey(instanceId)) {
-                instanceMap.put(instanceId, nextModelIndex++);
+            LAppLive2DManager live2DManager;
+            try {
+                live2DManager = LAppLive2DManager.getInstance();
+                if (live2DManager == null) {
+                    Log.e(TAG, "activateInstance: LAppLive2DManager.getInstance() returned null");
+                    result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                    return;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "activateInstance: Error getting LAppLive2DManager instance", e);
+                result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
+                return;
             }
             
-            // 如果提供了模型路径，初始化模型
+            // 确保至少有一个模型加载
+            if (live2DManager.getModelNum() == 0) {
+                Log.d(TAG, "activateInstance: No models loaded, forcing scene change to index 0");
+                live2DManager.nextScene();
+            }
+            
+            // 如果提供了模型路径，尝试切换到指定模型
             if (modelPath != null && !modelPath.isEmpty()) {
-                try {
-                    LAppLive2DManager live2DManager;
-                    try {
-                        live2DManager = LAppLive2DManager.getInstance();
-                        if (live2DManager == null) {
-                            Log.e(TAG, "activateInstance: LAppLive2DManager.getInstance() returned null");
-                            result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
-                            return;
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "activateInstance: Error getting LAppLive2DManager instance", e);
-                        result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
-                        return;
-                    }
-                    Log.d(TAG, "activateInstance: Attempting to load model from path: " + modelPath);
-                    
-                    // 确保Live2D管理器已初始化
-                    if (live2DManager.getModelNum() == 0) {
-                        Log.d(TAG, "activateInstance: No models loaded, forcing scene change to index 0");
-                        live2DManager.nextScene();
-                    }
-                    
-                    // 尝试直接切换到指定模型
-                    changeToModelByName(modelPath, instanceId);
-                    
-                } catch (Exception e) {
-                    Log.e(TAG, "activateInstance: Error initializing model", e);
-                    // 不抛出异常，允许继续使用默认模型
-                }
+                Log.d(TAG, "activateInstance: Attempting to load model from path: " + modelPath);
+                changeToModelByName(modelPath, instanceId);
+            }
+            
+            // 确保实例映射存在，映射到当前活动模型
+            int currentModelIndex = live2DManager.getCurrentModel();
+            if (!instanceMap.containsKey(instanceId)) {
+                instanceMap.put(instanceId, currentModelIndex);
+                Log.d(TAG, "activateInstance: Created new mapping for instance: " + instanceId + " -> modelIndex: " + currentModelIndex);
             } else {
-                Log.d(TAG, "activateInstance: No model path provided, using default model");
+                // 更新现有映射到当前模型
+                instanceMap.put(instanceId, currentModelIndex);
+                Log.d(TAG, "activateInstance: Updated existing mapping for instance: " + instanceId + " -> modelIndex: " + currentModelIndex);
             }
             
             Log.d(TAG, "Instance activated: " + instanceId + " -> modelIndex: " + instanceMap.get(instanceId));

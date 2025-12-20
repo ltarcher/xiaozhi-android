@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import 'package:logger/logger.dart';
 import 'package:opus_dart/opus_dart.dart';
@@ -719,8 +720,26 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       
       // 通过事件通知Flutter层更新口型同步值
       add(ChatLipSyncUpdateEvent(lipSyncValue: lipSyncValue));
+      
+      // 直接调用Android端的口型同步方法
+      _callAndroidLipSync(lipSyncValue);
     } catch (e) {
       _logger.e('___ERROR Processing audio data for lip sync: $e');
+    }
+  }
+  
+  /// 直接调用Android端的口型同步方法
+  Future<void> _callAndroidLipSync(double lipSyncValue) async {
+    try {
+      // 使用MethodChannel直接调用Android端的setLipSyncValue方法
+      final platform = MethodChannel('live2d_channel');
+      await platform.invokeMethod('setLipSyncValue', {
+        'value': lipSyncValue,
+        'instanceId': 'chat_page_live2d', // 固定实例ID
+      });
+      _logger.i('___INFO Called Android lip sync with value: $lipSyncValue');
+    } catch (e) {
+      _logger.e('___ERROR Failed to call Android lip sync: $e');
     }
   }
 
