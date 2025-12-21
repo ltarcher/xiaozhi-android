@@ -1,4 +1,4 @@
-package com.thinkerror.xiaozhi;
+package io.flutter.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
