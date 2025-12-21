@@ -87,7 +87,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 口型同步更新回调
   void _onLipSyncUpdate(double lipSyncValue) {
     if (kDebugMode) {
-      print('ChatPage: LipSync value updated: $lipSyncValue');
+      //print('ChatPage: LipSync value updated: $lipSyncValue');
     }
     
     // 更新Live2D模型的口型同步值

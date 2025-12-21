@@ -61,7 +61,7 @@ public class MainActivity extends FlutterActivity {
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
                 .setMethodCallHandler(
                         (call, result) -> {
-                            Log.d(TAG, "MethodChannel call received: " + call.method);
+                            //Log.d(TAG, "MethodChannel call received: " + call.method);
                             if (call.method.equals("initLive2D")) {
                                 String modelPath = call.argument("modelPath");
                                 String instanceId = call.argument("instanceId");
@@ -337,7 +337,7 @@ public class MainActivity extends FlutterActivity {
                                 }
                             } else if (call.method.equals("isGearVisible")) {
                                 String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "isGearVisible called: instanceId=" + instanceId);
+                                //Log.d(TAG, "isGearVisible called: instanceId=" + instanceId);
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -363,7 +363,7 @@ public class MainActivity extends FlutterActivity {
                                 }
                             } else if (call.method.equals("isPowerVisible")) {
                                 String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "isPowerVisible called: instanceId=" + instanceId);
+                                //Log.d(TAG, "isPowerVisible called: instanceId=" + instanceId);
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -389,7 +389,7 @@ public class MainActivity extends FlutterActivity {
                                 }
                             } else if (call.method.equals("refreshView")) {
                                 String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "refreshView called: instanceId=" + instanceId);
+                                //Log.d(TAG, "refreshView called: instanceId=" + instanceId);
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -411,7 +411,7 @@ public class MainActivity extends FlutterActivity {
                             } else if (call.method.equals("setLipSyncValue")) {
                                 Double value = call.argument("value");
                                 String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "setLipSyncValue called: value=" + value + ", instanceId=" + instanceId);
+                                //Log.d(TAG, "setLipSyncValue called: value=" + value + ", instanceId=" + instanceId);
                                 
                                 if (value == null) {
                                     Log.e(TAG, "setLipSyncValue: Value argument is null");
@@ -448,12 +448,12 @@ public class MainActivity extends FlutterActivity {
                                         }
                                     }
                                    
-                                    Log.d(TAG, "setLipSyncValue: using current modelIndex=" + modelIndex);
+                                    //Log.d(TAG, "setLipSyncValue: using current modelIndex=" + modelIndex);
                                    
                                     // 限制value在0.0-1.0范围内
                                     float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                     live2DManager.getModel(modelIndex).setLipSyncValue(lipSyncValue);
-                                    Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for model " + modelIndex);
+                                    //Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for model " + modelIndex);
                                     result.success(null);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in setLipSyncValue", e);

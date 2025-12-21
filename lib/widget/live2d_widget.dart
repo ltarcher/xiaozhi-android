@@ -353,7 +353,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _setLipSyncValue(double value) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Setting lip sync value to: $value");
+        //print("Live2DWidget: Setting lip sync value to: $value");
       }
       
       await _channel.invokeMethod('setLipSyncValue', {
@@ -362,7 +362,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       });
       
       if (kDebugMode) {
-        print("Live2DWidget: Lip sync value set successfully");
+        //print("Live2DWidget: Lip sync value set successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
