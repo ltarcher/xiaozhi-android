@@ -9,11 +9,13 @@ import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
+import 'package:xiaozhi/model/storage_message.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
 import 'package:xiaozhi/util/voice_wake_up_service.dart'; // 添加语音唤醒服务导入
+import 'package:uuid/uuid.dart'; // 添加UUID导入
 
 import 'call_page.dart';
 import 'setting_page.dart';
@@ -54,6 +56,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加是否处于唤醒状态（连续对话模式）的标志
   bool _isWakeModeActive = false;
+  
+  // 添加防止重复触发唤醒的保护变量
+  DateTime? _lastWakeUpTime;
+  static const Duration _wakeUpCooldown = Duration(seconds: 3);
 
   @override
   void initState() {
@@ -229,7 +235,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         
         // 当检测到唤醒词时，触发开始录音
-        _handleWakeWordDetected();
+        _handleWakeWordDetected(hypothesis);
       };
       
       // 设置错误回调
@@ -303,11 +309,45 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
   
   // 处理检测到唤醒词的情况
-  void _handleWakeWordDetected() {
+  void _handleWakeWordDetected(String? detectedWakeWord) {
+    if (!mounted) return;
+    
+    // 检查是否已在唤醒模式中，避免重复触发
+    if (_isWakeModeActive) {
+      if (kDebugMode) {
+        print('ChatPage: Already in wake mode, ignoring wake word detection');
+      }
+      return;
+    }
+    
+    // 检查冷却时间，防止短时间内重复触发
+    final now = DateTime.now();
+    if (_lastWakeUpTime != null && now.difference(_lastWakeUpTime!) < _wakeUpCooldown) {
+      if (kDebugMode) {
+        print('ChatPage: Wake word detection in cooldown, ignoring');
+      }
+      return;
+    }
+    
+    // 更新最后唤醒时间
+    _lastWakeUpTime = now;
+    
+    // 获取唤醒词，优先使用检测到的唤醒词，否则获取当前设置的唤醒词
+    if (detectedWakeWord != null && detectedWakeWord.isNotEmpty) {
+      _processWakeWord(detectedWakeWord);
+    } else {
+      _voiceWakeUpService.getWakeWord().then((wakeWord) {
+        _processWakeWord(wakeWord);
+      });
+    }
+  }
+  
+  // 处理唤醒词的逻辑
+  void _processWakeWord(String wakeWord) {
     if (!mounted) return;
     
     if (kDebugMode) {
-      print('ChatPage: Wake word detected, entering continuous conversation mode');
+      print('ChatPage: Wake word detected: $wakeWord');
       print('ChatPage: Current mounted state: $mounted');
       print('ChatPage: Current wake mode state: $_isWakeModeActive');
     }
@@ -334,7 +374,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           children: [
             Icon(Icons.mic, color: Colors.white),
             SizedBox(width: 8),
-            Text('唤醒词已识别，进入连续对话模式...'),
+            Text('唤醒词"$wakeWord"已识别，进入连续对话模式...'),
           ],
         ),
         backgroundColor: Colors.green,
@@ -343,17 +383,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     
     // 开始连续对话模式（使用call模式的逻辑）
-    _startContinuousConversation();
+    _startContinuousConversation(wakeWord);
   }
   
   // 开始连续对话模式
-  void _startContinuousConversation() {
+  void _startContinuousConversation(String wakeWord) {
     if (kDebugMode) {
-      print('ChatPage: Starting continuous conversation mode');
+      print('ChatPage: Starting continuous conversation mode with wake word: $wakeWord');
     }
     
     // 开始连续对话（类似call_page.dart）
     chatBloc.add(ChatStartCallEvent());
+    
+    // 发送唤醒词给服务器端
+    chatBloc.add(ChatOnMessageEvent(
+      message: StorageMessage(
+        id: Uuid().v4(),
+        text: wakeWord, // 使用实际的唤醒词
+        sendByMe: true,
+        createdAt: DateTime.now(),
+      ),
+    ));
+    
+    if (kDebugMode) {
+      print('ChatPage: Sent wake word to server: $wakeWord');
+    }
     
     // 触发录音开始事件，但不显示对话框
     holdToTalkKey.currentState!.setSpeaking(true);
@@ -1133,7 +1187,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   if (kDebugMode) {
                                     print('ChatPage: Test wake word detection button pressed');
                                   }
-                                  _handleWakeWordDetected(); // 直接触发唤醒词检测回调
+                                  // 测试使用默认唤醒词
+                                  _handleWakeWordDetected(null);
                                 },
                                 icon: Icon(Icons.science, color: Colors.blue),
                                 tooltip: '测试唤醒词检测',
