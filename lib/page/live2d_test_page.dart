@@ -169,7 +169,7 @@ class _Live2DTestPageState extends State<Live2DTestPage> with WidgetsBindingObse
                   modelPath: _selectedModel,
                   width: 300,
                   height: 500,
-                  instanceId: 'live2d_test_page_live2d', // 为这个实例指定特定ID
+                  // 移除instanceId参数，使用单实例模式
                 ),
               ),
             ),
