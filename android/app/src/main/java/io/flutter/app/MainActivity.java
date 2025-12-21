@@ -462,7 +462,7 @@ public class MainActivity extends FlutterActivity {
                                 float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                 
                                 // 检查值是否与上次设置的值有显著变化
-                                String modelKey = instanceId != null ? instanceId : "default";
+                                String modelKey = instanceId != null ? instanceId : "live2d_single";
                                 Float lastLipSyncValue = lastLipSyncValueMap.get(modelKey);
                                 
                                 if (lastLipSyncValue != null && Math.abs(lipSyncValue - lastLipSyncValue) < LIPSYNC_THRESHOLD) {
