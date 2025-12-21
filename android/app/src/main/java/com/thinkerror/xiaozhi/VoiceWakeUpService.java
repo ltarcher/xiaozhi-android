@@ -8,6 +8,8 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.vosk.LibVosk;
 import org.vosk.LogLevel;
 import org.vosk.Model;
@@ -18,7 +20,10 @@ import org.vosk.android.StorageService;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -40,6 +45,13 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     private Handler mainHandler;
     private SharedPreferences sharedPreferences;
     
+    // 添加多唤醒词支持
+    private List<String> wakeWords = new ArrayList<>();
+    private Map<String, String> wakeWordPinyins = new HashMap<>();
+    private double similarityThreshold = 0.8;
+    private long lastDetectionTime = 0;
+    private double detectionCooldown = 2.0; // 防重复触发的冷却时间(秒)
+    
     public VoiceWakeUpService(Context context, MethodChannel methodChannel) {
         this.context = context;
         this.methodChannel = methodChannel;
@@ -49,8 +61,72 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         // 初始化Vosk日志级别
         LibVosk.setLogLevel(LogLevel.INFO);
         
+        // 初始化唤醒词列表
+        initializeWakeWords();
+        
         // 加载保存的唤醒词
         loadWakeWord();
+    }
+    
+    /**
+     * 初始化唤醒词列表
+     */
+    private void initializeWakeWords() {
+        // 默认唤醒词列表，参考py-xiaozhi的实现
+        wakeWords.add("你好小清");
+        wakeWords.add("你好小明");
+        wakeWords.add("你好小智");
+        wakeWords.add("你好小天");
+        wakeWords.add("小爱同学");
+        wakeWords.add("贾维斯");
+        
+        // 预计算拼音(简单实现，不使用外部库)
+        for (String wakeWord : wakeWords) {
+            String pinyin = convertToPinyin(wakeWord);
+            wakeWordPinyins.put(wakeWord, pinyin);
+            Log.i(TAG, "Added wake word: " + wakeWord + " (pinyin: " + pinyin + ")");
+        }
+        
+        Log.i(TAG, "Initialized " + wakeWords.size() + " wake words");
+    }
+    
+    /**
+     * 简单的汉字转拼音实现
+     * 这是一个简化的实现，主要用于匹配唤醒词
+     */
+    private String convertToPinyin(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        
+        // 简单的拼音映射表(只包含常用字)
+        Map<Character, String> pinyinMap = new HashMap<>();
+        pinyinMap.put('你', "ni");
+        pinyinMap.put('好', "hao");
+        pinyinMap.put('小', "xiao");
+        pinyinMap.put('清', "qing");
+        pinyinMap.put('明', "ming");
+        pinyinMap.put('智', "zhi");
+        pinyinMap.put('天', "tian");
+        pinyinMap.put('爱', "ai");
+        pinyinMap.put('同', "tong");
+        pinyinMap.put('学', "xue");
+        pinyinMap.put('贾', "jia");
+        pinyinMap.put('维', "wei");
+        pinyinMap.put('斯', "si");
+        
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            String pinyin = pinyinMap.get(c);
+            if (pinyin != null) {
+                result.append(pinyin);
+            } else if (c != '，' && c != ',') { // 跳过标点符号
+                result.append(c); // 保留未映射的字符
+            }
+        }
+        
+        return result.toString().toLowerCase();
     }
     
     private void loadWakeWord() {
@@ -199,6 +275,14 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         
         currentWakeWord = wakeWord.trim();
         
+        // 更新唤醒词列表，添加新的唤醒词
+        if (!wakeWords.contains(currentWakeWord)) {
+            wakeWords.add(currentWakeWord);
+            String pinyin = convertToPinyin(currentWakeWord);
+            wakeWordPinyins.put(currentWakeWord, pinyin);
+            Log.i(TAG, "Added new wake word: " + currentWakeWord + " (pinyin: " + pinyin + ")");
+        }
+        
         // 保存到SharedPreferences
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(WAKE_WORD_KEY, currentWakeWord);
@@ -245,6 +329,23 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected: " + hypothesis);
             
+            // 重置识别器，类似py-xiaozhi中的实现
+            if (speechService != null) {
+                try {
+                    // 创建新的识别器
+                    Recognizer recognizer = new Recognizer(model, 16000.0f);
+                    speechService.stop();
+                    speechService.shutdown();
+                    
+                    // 重新启动识别服务
+                    speechService = new SpeechService(recognizer, 16000.0f);
+                    speechService.startListening(this);
+                    Log.i(TAG, "Recognizer reset after wake word detection");
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to reset recognizer", e);
+                }
+            }
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
@@ -263,6 +364,23 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected in final result: " + hypothesis);
             
+            // 重置识别器，类似py-xiaozhi中的实现
+            if (speechService != null) {
+                try {
+                    // 创建新的识别器
+                    Recognizer recognizer = new Recognizer(model, 16000.0f);
+                    speechService.stop();
+                    speechService.shutdown();
+                    
+                    // 重新启动识别服务
+                    speechService = new SpeechService(recognizer, 16000.0f);
+                    speechService.startListening(this);
+                    Log.i(TAG, "Recognizer reset after wake word detection in final result");
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to reset recognizer", e);
+                }
+            }
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
@@ -274,7 +392,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     
     /**
      * 检测文本中是否包含唤醒词
-     * 使用多种匹配策略提高识别率
+     * 参考py-xiaozhi的实现，使用拼音相似度计算
      */
     private boolean containsWakeWord(String hypothesis) {
         // 添加调试日志
@@ -282,6 +400,13 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         
         if (hypothesis == null || hypothesis.trim().isEmpty()) {
             Log.d(TAG, "Empty hypothesis, no wake word found");
+            return false;
+        }
+        
+        // 防重复触发
+        long currentTime = System.currentTimeMillis() / 1000;
+        if (currentTime - lastDetectionTime < detectionCooldown) {
+            Log.d(TAG, "Detection cooldown active, ignoring");
             return false;
         }
         
@@ -294,64 +419,93 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             return false;
         }
         
-        String normalizedHypothesis = recognizedText.toLowerCase().trim();
-        String normalizedWakeWord = currentWakeWord.toLowerCase().trim();
-        
-        Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
-        Log.d(TAG, "Normalized wake word: " + normalizedWakeWord);
-        
-        // 1. 直接匹配
-        if (normalizedHypothesis.contains(normalizedWakeWord)) {
-            Log.i(TAG, "Direct match found: " + recognizedText);
-            return true;
+        // 只处理长度>=3的文本
+        if (recognizedText.length() < 3) {
+            Log.d(TAG, "Text too short, ignoring: " + recognizedText);
+            return false;
         }
         
-        // 2. 分词匹配 - 检查是否包含唤醒词的主要部分
-        String[] wakeWordParts = normalizedWakeWord.split("[,，\\s]+");
-        String[] hypothesisParts = normalizedHypothesis.split("[,，\\s]+");
+        String normalizedHypothesis = recognizedText.toLowerCase().trim();
+        String hypothesisPinyin = convertToPinyin(normalizedHypothesis);
         
-        int matchedParts = 0;
-        for (String wakePart : wakeWordParts) {
-            if (wakePart.trim().isEmpty()) continue;
+        Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
+        Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
+        
+        // 寻找最佳匹配
+        String bestMatch = null;
+        double bestSimilarity = 0.0;
+        
+        for (String wakeWord : wakeWords) {
+            // 原文匹配
+            double textSimilarity = calculateSimilarity(normalizedHypothesis, wakeWord);
+            if (textSimilarity >= similarityThreshold && textSimilarity > bestSimilarity) {
+                bestSimilarity = textSimilarity;
+                bestMatch = wakeWord;
+            }
             
-            for (String hypoPart : hypothesisParts) {
-                if (hypoPart.contains(wakePart) || wakePart.contains(hypoPart)) {
-                    matchedParts++;
-                    Log.d(TAG, "Matched part: " + wakePart + " with " + hypoPart);
-                    break;
+            // 拼音匹配
+            String wakeWordPinyin = wakeWordPinyins.get(wakeWord);
+            if (wakeWordPinyin != null) {
+                double pinyinSimilarity = calculateSimilarity(hypothesisPinyin, wakeWordPinyin);
+                if (pinyinSimilarity >= similarityThreshold && pinyinSimilarity > bestSimilarity) {
+                    bestSimilarity = pinyinSimilarity;
+                    bestMatch = wakeWord;
                 }
             }
         }
         
-        // 如果匹配了大部分关键词（至少60%），认为可能匹配成功
-        if (wakeWordParts.length > 0 && (double)matchedParts / wakeWordParts.length >= 0.6) {
-            Log.i(TAG, "Partial match found: " + recognizedText + " (matched " + matchedParts + "/" + wakeWordParts.length + " parts)");
+        // 触发检测
+        if (bestMatch != null) {
+            lastDetectionTime = currentTime;
+            Log.i(TAG, "Wake word detected: '" + bestMatch + "' (similarity: " + String.format("%.3f", bestSimilarity) + ")");
+            Log.i(TAG, "Original text: " + recognizedText);
             return true;
-        }
-        
-        // 3. 模糊匹配 - 检查是否包含"你好"和"小清"的关键部分
-        if (normalizedWakeWord.contains("你好") && normalizedWakeWord.contains("小清")) {
-            boolean hasNiHao = normalizedHypothesis.contains("你好") ||
-                             normalizedHypothesis.contains("您好") ||
-                             normalizedHypothesis.contains("你好啊") ||
-                             normalizedHypothesis.contains("小智") ||  // 可能的误识别
-                             normalizedHypothesis.contains("小志");  // 可能的误识别
-                             
-            boolean hasXiaoQing = normalizedHypothesis.contains("小清") ||
-                                normalizedHypothesis.contains("小晴") ||  // 可能的误识别
-                                normalizedHypothesis.contains("小情") ||  // 可能的误识别
-                                normalizedHypothesis.contains("小请");   // 可能的误识别
-            
-            Log.d(TAG, "Ni Hao check: " + hasNiHao + ", Xiao Qing check: " + hasXiaoQing);
-            
-            if (hasNiHao && hasXiaoQing) {
-                Log.i(TAG, "Fuzzy match found: " + recognizedText);
-                return true;
-            }
         }
         
         Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
         return false;
+    }
+    
+    /**
+     * 计算两个文本的相似度
+     * 参考py-xiaozhi的实现
+     */
+    private double calculateSimilarity(String text1, String text2) {
+        if (text1 == null || text2 == null) {
+            return 0.0;
+        }
+        
+        text1 = text1.toLowerCase();
+        text2 = text2.toLowerCase();
+        
+        // 精确匹配
+        if (text1.contains(text2)) {
+            return 1.0;
+        }
+        
+        // 字符重叠度
+        java.util.HashSet<Character> set1 = new java.util.HashSet<>();
+        java.util.HashSet<Character> set2 = new java.util.HashSet<>();
+        
+        for (char c : text1.toCharArray()) {
+            set1.add(c);
+        }
+        
+        for (char c : text2.toCharArray()) {
+            set2.add(c);
+        }
+        
+        java.util.HashSet<Character> intersection = new java.util.HashSet<>(set1);
+        intersection.retainAll(set2);
+        
+        java.util.HashSet<Character> union = new java.util.HashSet<>(set1);
+        union.addAll(set2);
+        
+        if (union.size() == 0) {
+            return 0.0;
+        }
+        
+        return (double) intersection.size() / union.size();
     }
     
     /**
