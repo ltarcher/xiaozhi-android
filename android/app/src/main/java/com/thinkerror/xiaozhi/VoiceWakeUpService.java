@@ -754,7 +754,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 // 首先检查是否有text字段
                 if (jsonObject.has("text")) {
                     String text = jsonObject.getString("text");
-                    if (text != null && !text.trim().isEmpty()) {
+                    if (text != null) {
                         Log.d(TAG, "Successfully extracted JSON text: '" + text + "'");
                         return text.trim();
                     }
@@ -763,7 +763,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 // 然后检查是否有partial字段
                 if (jsonObject.has("partial")) {
                     String partial = jsonObject.getString("partial");
-                    if (partial != null && !partial.trim().isEmpty()) {
+                    // 即使是空字符串也要返回，这是有效的识别结果
+                    if (partial != null) {
                         Log.d(TAG, "Successfully extracted JSON partial: '" + partial + "'");
                         return partial.trim();
                     }
@@ -776,7 +777,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                         JSONObject firstResult = resultArray.getJSONObject(0);
                         if (firstResult.has("word")) {
                             String word = firstResult.getString("word");
-                            if (word != null && !word.trim().isEmpty()) {
+                            if (word != null) {
                                 Log.d(TAG, "Successfully extracted JSON word: '" + word + "'");
                                 return word.trim();
                             }
@@ -788,6 +789,19 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 Log.d(TAG, "JSON parsing failed, trying manual extraction: " + e.getMessage());
                 Log.d(TAG, "JSON parsing failed, stack trace: " + getStackTraceString(e));
                 Log.d(TAG, "Original JSON was: " + jsonResult);
+                
+                // 如果JSON格式看起来正常但解析失败，可能是由于特殊字符或其他格式问题
+                // 检查是否是简单的空partial字段
+                if (normalizedJson.contains("\"partial\"") && normalizedJson.contains("\"\"")) {
+                    Log.d(TAG, "Detected empty partial field, returning empty string");
+                    return "";
+                }
+                
+                // 检查是否是有效的JSON但包含空字段
+                if (normalizedJson.contains("\"partial\"") && normalizedJson.contains(":\"\"")) {
+                    Log.d(TAG, "Detected empty partial field with explicit empty quotes, returning empty string");
+                    return "";
+                }
             }
             
             // 手动解析作为备选方案
@@ -850,15 +864,36 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                         end++;
                     }
                     
-                    // 处理空字符串的情况
+                    // 检查提取的内容是否只是JSON的结束符号或其他无效内容
+                    if (end > start) {
+                        String extractedText = jsonForManualParse.substring(start, end);
+                        // 如果提取的内容是JSON结构的一部分（如}或类似的符号），则忽略
+                        if (extractedText.equals("}") || extractedText.equals("{") ||
+                            extractedText.equals("]") || extractedText.equals("[") ||
+                            extractedText.trim().isEmpty()) {
+                            Log.d(TAG, "Extracted text is JSON structure symbol or empty, ignoring: '" + extractedText + "'");
+                            return null;
+                        }
+                    }
+                    
+                    // 处理空字符串的情况 - 这是关键修复
                     if (end == start) {
                         Log.d(TAG, "Empty partial field detected");
                         return "";
                     }
                     
-                    if (end > start) {
+                    // 检查提取的内容是否在引号外，如果是JSON结构符号则忽略
+                    if (end < jsonForManualParse.length() && end > start) {
                         String extractedText = jsonForManualParse.substring(start, end);
-                        if (extractedText != null && !extractedText.trim().isEmpty()) {
+                        // 如果提取的内容是JSON结构的一部分（如}或类似的符号），则忽略
+                        if (extractedText.equals("}") || extractedText.equals("{") ||
+                            extractedText.equals("]") || extractedText.equals("[") ||
+                            extractedText.trim().isEmpty()) {
+                            Log.d(TAG, "Extracted text is JSON structure symbol or empty, ignoring: '" + extractedText + "'");
+                            return null;
+                        }
+                        
+                        if (extractedText != null) {
                             Log.d(TAG, "Successfully extracted manual partial: '" + extractedText + "'");
                             return extractedText.trim();
                         }
