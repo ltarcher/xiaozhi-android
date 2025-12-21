@@ -19,6 +19,8 @@ import org.vosk.android.SpeechService;
 import org.vosk.android.StorageService;
 
 import java.io.IOException;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,6 +50,11 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     // 添加多唤醒词支持
     private List<String> wakeWords = new ArrayList<>();
     private Map<String, String> wakeWordPinyins = new HashMap<>();
+    
+    // 添加退出唤醒词支持
+    private List<String> exitWakeWords = new ArrayList<>();
+    private Map<String, String> exitWakeWordPinyins = new HashMap<>();
+    
     private double similarityThreshold = 0.8;
     private long lastDetectionTime = 0;
     private double detectionCooldown = 2.0; // 防重复触发的冷却时间(秒)
@@ -87,7 +94,32 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             Log.i(TAG, "Added wake word: " + wakeWord + " (pinyin: " + pinyin + ")");
         }
         
-        Log.i(TAG, "Initialized " + wakeWords.size() + " wake words");
+        // 初始化退出唤醒词列表
+        initializeExitWakeWords();
+        
+        Log.i(TAG, "Initialized " + wakeWords.size() + " wake words and " + exitWakeWords.size() + " exit wake words");
+    }
+    
+    /**
+     * 初始化退出唤醒词列表
+     */
+    private void initializeExitWakeWords() {
+        // 添加常见的退出唤醒词
+        exitWakeWords.add("再见");
+        exitWakeWords.add("拜拜");
+        exitWakeWords.add("睡觉啦");
+        exitWakeWords.add("晚安");
+        exitWakeWords.add("下次再聊");
+        exitWakeWords.add("不聊了");
+        exitWakeWords.add("挂断");
+        exitWakeWords.add("结束对话");
+        
+        // 预计算拼音
+        for (String exitWakeWord : exitWakeWords) {
+            String pinyin = convertToPinyin(exitWakeWord);
+            exitWakeWordPinyins.put(exitWakeWord, pinyin);
+            Log.i(TAG, "Added exit wake word: " + exitWakeWord + " (pinyin: " + pinyin + ")");
+        }
     }
     
     /**
@@ -114,6 +146,26 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         pinyinMap.put('贾', "jia");
         pinyinMap.put('维', "wei");
         pinyinMap.put('斯', "si");
+        
+        // 添加退出唤醒词的拼音映射
+        pinyinMap.put('再', "zai");
+        pinyinMap.put('见', "jian");
+        pinyinMap.put('拜', "bai");
+        pinyinMap.put('睡', "shui");
+        pinyinMap.put('觉', "jiao");
+        pinyinMap.put('啦', "la");
+        pinyinMap.put('晚', "wan");
+        pinyinMap.put('安', "an");
+        pinyinMap.put('下', "xia");
+        pinyinMap.put('次', "ci");
+        pinyinMap.put('聊', "liao");
+        pinyinMap.put('不', "bu");
+        pinyinMap.put('挂', "gua");
+        pinyinMap.put('断', "duan");
+        pinyinMap.put('结', "jie");
+        pinyinMap.put('束', "shu");
+        pinyinMap.put('对', "dui");
+        pinyinMap.put('话', "hua");
         
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
@@ -426,8 +478,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             return false;
         }
         
-        // 只处理长度>=3的文本
-        if (recognizedText.length() < 3) {
+        // 只处理长度>=2的文本，因为退出唤醒词可能较短
+        if (recognizedText.length() < 2) {
             Log.d(TAG, "Text too short, ignoring: " + recognizedText);
             return false;
         }
@@ -438,7 +490,50 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
         Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
         
-        // 寻找最佳匹配
+        // 先检查是否是退出唤醒词
+        String bestExitMatch = null;
+        double bestExitSimilarity = 0.0;
+        
+        for (String exitWakeWord : exitWakeWords) {
+            // 1. 原文匹配
+            double textSimilarity = calculateSimilarity(normalizedHypothesis, exitWakeWord);
+            if (textSimilarity >= similarityThreshold && textSimilarity > bestExitSimilarity) {
+                bestExitSimilarity = textSimilarity;
+                bestExitMatch = exitWakeWord;
+                Log.d(TAG, "Exit text match found: " + exitWakeWord + " with similarity " + textSimilarity);
+            }
+            
+            // 2. 拼音匹配
+            String exitWakeWordPinyin = exitWakeWordPinyins.get(exitWakeWord);
+            if (exitWakeWordPinyin != null) {
+                double pinyinSimilarity = calculateSimilarity(hypothesisPinyin, exitWakeWordPinyin);
+                if (pinyinSimilarity >= similarityThreshold && pinyinSimilarity > bestExitSimilarity) {
+                    bestExitSimilarity = pinyinSimilarity;
+                    bestExitMatch = exitWakeWord;
+                    Log.d(TAG, "Exit pinyin match found: " + exitWakeWord + " with similarity " + pinyinSimilarity);
+                }
+            }
+        }
+        
+        // 如果检测到退出唤醒词，优先处理
+        if (bestExitMatch != null) {
+            lastDetectionTime = currentTime;
+            Log.i(TAG, "Exit wake word detected: '" + bestExitMatch + "' (similarity: " + String.format("%.3f", bestExitSimilarity) + ")");
+            Log.i(TAG, "Original text: " + recognizedText);
+            
+            // 创建final变量用于lambda表达式
+            final String finalBestExitMatch = bestExitMatch;
+            
+            // 通知Flutter端检测到退出唤醒词
+            mainHandler.post(() -> {
+                if (methodChannel != null) {
+                    methodChannel.invokeMethod("onExitWakeWordDetected", finalBestExitMatch);
+                }
+            });
+            return true;
+        }
+        
+        // 寻找普通唤醒词的最佳匹配
         String bestMatch = null;
         double bestSimilarity = 0.0;
         
@@ -629,6 +724,16 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     }
     
     /**
+     * 将异常堆栈跟踪转换为字符串，便于日志记录
+     */
+    private String getStackTraceString(Exception e) {
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+        e.printStackTrace(pw);
+        return sw.toString();
+    }
+    
+    /**
      * 从Vosk识别结果中提取文本
      * 参考py-xiaozhi的实现，直接从JSON中提取text字段
      */
@@ -677,6 +782,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             } catch (Exception e) {
                 // JSON解析失败，尝试手动解析
                 Log.d(TAG, "JSON parsing failed, trying manual extraction: " + e.getMessage());
+                Log.d(TAG, "JSON parsing failed, stack trace: " + getStackTraceString(e));
+                Log.d(TAG, "Original JSON was: " + jsonResult);
             }
             
             // 手动解析作为备选方案
@@ -698,6 +805,12 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                     int end = start;
                     while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
                         end++;
+                    }
+                    
+                    // 处理空字符串的情况
+                    if (end == start) {
+                        Log.d(TAG, "Empty text field detected");
+                        return "";
                     }
                     
                     if (end > start) {
@@ -728,6 +841,12 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                     int end = start;
                     while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
                         end++;
+                    }
+                    
+                    // 处理空字符串的情况
+                    if (end == start) {
+                        Log.d(TAG, "Empty partial field detected");
+                        return "";
                     }
                     
                     if (end > start) {

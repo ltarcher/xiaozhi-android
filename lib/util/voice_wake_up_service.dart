@@ -9,6 +9,7 @@ class VoiceWakeUpService {
   
   // 事件回调
   Function(String)? onWakeWordDetected;
+  Function(String)? onExitWakeWordDetected;
   Function(String)? onError;
   
   VoiceWakeUpService._internal();
@@ -175,6 +176,12 @@ class VoiceWakeUpService {
         final String hypothesis = call.arguments as String;
         print('VoiceWakeUpService: Wake word detected: $hypothesis');
         onWakeWordDetected?.call(hypothesis);
+        break;
+        
+      case 'onExitWakeWordDetected':
+        final String hypothesis = call.arguments as String;
+        print('VoiceWakeUpService: Exit wake word detected: $hypothesis');
+        onExitWakeWordDetected?.call(hypothesis);
         break;
         
       case 'onError':

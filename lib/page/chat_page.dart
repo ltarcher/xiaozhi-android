@@ -238,6 +238,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _handleWakeWordDetected(hypothesis);
       };
       
+      // 设置退出唤醒词检测回调
+      _voiceWakeUpService.onExitWakeWordDetected = (String hypothesis) {
+        if (kDebugMode) {
+          print('ChatPage: Exit wake word detected: $hypothesis');
+        }
+        
+        // 当检测到退出唤醒词时，退出连续对话模式
+        _handleExitWakeWordDetected(hypothesis);
+      };
+      
       // 设置错误回调
       _voiceWakeUpService.onError = (String error) {
         if (kDebugMode) {
@@ -340,6 +350,53 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _processWakeWord(wakeWord);
       });
     }
+  }
+  
+  // 处理检测到退出唤醒词的情况
+  void _handleExitWakeWordDetected(String? detectedExitWakeWord) {
+    if (!mounted) return;
+    
+    // 检查是否在唤醒模式中，只有在唤醒模式中才处理退出唤醒词
+    if (!_isWakeModeActive) {
+      if (kDebugMode) {
+        print('ChatPage: Not in wake mode, ignoring exit wake word detection');
+      }
+      return;
+    }
+    
+    // 检查冷却时间，防止短时间内重复触发
+    final now = DateTime.now();
+    if (_lastWakeUpTime != null && now.difference(_lastWakeUpTime!) < _wakeUpCooldown) {
+      if (kDebugMode) {
+        print('ChatPage: Exit wake word detection in cooldown, ignoring');
+      }
+      return;
+    }
+    
+    // 更新最后唤醒时间
+    _lastWakeUpTime = now;
+    
+    if (kDebugMode) {
+      print('ChatPage: Processing exit wake word: $detectedExitWakeWord');
+    }
+    
+    // 显示提示信息
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.call_end, color: Colors.white),
+            SizedBox(width: 8),
+            Text('退出唤醒词"${detectedExitWakeWord ?? '未知'}"已识别，结束连续对话...'),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    // 退出唤醒模式
+    _exitWakeMode();
   }
   
   // 处理唤醒词的逻辑
