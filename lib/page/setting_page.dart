@@ -334,6 +334,34 @@ class _SettingPageState extends State<SettingPage> {
           ),
           
           SizedBox(height: XConst.spacer * 2),
+
+          // 说明文字
+          Card(
+            elevation: 1,
+            color: Theme.of(context).colorScheme.surfaceVariant,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '使用说明',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: XConst.spacer * 0.5),
+                  Text(
+                    '• 齿轮按钮：用于切换Live2D模型\n'
+                    '• 电源按钮：关闭应用程序\n'
+                    '• 语音唤醒：通过唤醒词启动对话\n'
+                    '• 设置会立即生效并自动保存',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
           
           // 语音唤醒设置部分
           Text(
@@ -413,33 +441,6 @@ class _SettingPageState extends State<SettingPage> {
           
           SizedBox(height: XConst.spacer * 2),
           
-          // 说明文字
-          Card(
-            elevation: 1,
-            color: Theme.of(context).colorScheme.surfaceVariant,
-            child: Padding(
-              padding: EdgeInsets.all(XConst.spacer),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '使用说明',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: XConst.spacer * 0.5),
-                  Text(
-                    '• 齿轮按钮：用于切换Live2D模型\n'
-                    '• 电源按钮：关闭应用程序\n'
-                    '• 语音唤醒：通过唤醒词启动对话\n'
-                    '• 设置会立即生效并自动保存',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );

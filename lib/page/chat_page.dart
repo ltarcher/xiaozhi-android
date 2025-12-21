@@ -610,6 +610,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ],
               ),
               actions: [
+                /*
                 // 添加控制按钮可见性的开关
                 PopupMenuButton<String>(
                   icon: Icon(Icons.visibility),
@@ -668,6 +669,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ];
                   },
                 ),
+                */
                 // 添加语音唤醒开关
                 IconButton(
                   onPressed: () {
@@ -678,6 +680,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     color: _isVoiceWakeUpEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
                   ),
                 ),
+                /*
+                // 去掉通话按钮
                 IconButton(
                   onPressed: () {
                     if (kDebugMode) {
@@ -689,6 +693,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   },
                   icon: Icon(Icons.call_rounded),
                 ),
+                */
               ],
             ),
             body: Stack(
