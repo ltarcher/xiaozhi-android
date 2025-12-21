@@ -755,7 +755,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final platform = MethodChannel('live2d_channel');
       await platform.invokeMethod('setLipSyncValue', {
         'value': lipSyncValue,
-        'instanceId': 'chat_page_live2d', // 固定实例ID
+        'instanceId': 'live2d_single', // 固定实例ID
       });
       _logger.i('___INFO Called Android lip sync with value: $lipSyncValue');
     } catch (e) {

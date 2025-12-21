@@ -971,7 +971,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
                                     width: constraints.maxWidth,
                                     height: constraints.maxHeight,
-                                    instanceId: 'chat_page_live2d', // 为这个实例指定特定ID
+                                    instanceId: 'live2d_single', // 为这个实例指定特定ID
                                     gearVisible: _isGearVisible,    // 传递齿轮按钮可见性状态
                                     powerVisible: _isPowerVisible,  // 传递电源按钮可见性状态
                                   ),
