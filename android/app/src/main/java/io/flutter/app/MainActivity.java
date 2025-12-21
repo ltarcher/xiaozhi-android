@@ -156,7 +156,13 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    int modelIndex = instanceMap.get(instanceId);
+                                    Integer modelIndexObj = instanceMap.get(instanceId);
+                                    if (modelIndexObj == null) {
+                                        Log.w(TAG, "triggerExpression: Instance " + instanceId + " not found in instanceMap, skipping expression trigger");
+                                        result.success(null);
+                                        return;
+                                    }
+                                    int modelIndex = modelIndexObj.intValue();
                                     Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
                                     if (live2DManager.getModel(modelIndex) != null) {
@@ -245,7 +251,13 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    int modelIndex = instanceMap.get(instanceId);
+                                    Integer modelIndexObj = instanceMap.get(instanceId);
+                                    if (modelIndexObj == null) {
+                                        Log.w(TAG, "playMotion: Instance " + instanceId + " not found in instanceMap, skipping motion play");
+                                        result.success(null);
+                                        return;
+                                    }
+                                    int modelIndex = modelIndexObj.intValue();
                                     Log.d(TAG, "playMotion: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
                                     if (live2DManager.getModel(modelIndex) != null) {
@@ -495,7 +507,27 @@ public class MainActivity extends FlutterActivity {
                                     }
                                    
                                     // 根据实例映射获取模型索引
-                                    int modelIndex = instanceMap.get(instanceId);
+                                    Integer modelIndexObj = instanceMap.get(instanceId);
+                                    if (modelIndexObj == null) {
+                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, using default model");
+                                        // 如果实例ID不存在，使用当前活动模型
+                                        if (live2DManager.getModelNum() > 0) {
+                                            int currentModelIndex = live2DManager.getCurrentModel();
+                                            if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum() && live2DManager.getModel(currentModelIndex) != null) {
+                                                live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
+                                                // 更新最后设置的值
+                                                lastLipSyncValueMap.put(modelKey, lipSyncValue);
+                                                Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for current model " + currentModelIndex);
+                                                result.success(null);
+                                                return;
+                                            }
+                                        }
+                                        Log.w(TAG, "setLipSyncValue: No Live2D model available");
+                                        result.error("MODEL_NOT_AVAILABLE", "No Live2D model available", null);
+                                        return;
+                                    }
+                                    
+                                    int modelIndex = modelIndexObj.intValue();
                                     Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
                                     if (live2DManager.getModelNum() > 0 && modelIndex >= 0 && modelIndex < live2DManager.getModelNum() && live2DManager.getModel(modelIndex) != null) {
@@ -733,7 +765,13 @@ public class MainActivity extends FlutterActivity {
         
         try {
             if (instanceMap.containsKey(instanceId)) {
-                int modelIndex = instanceMap.get(instanceId);
+                Integer modelIndexObj = instanceMap.get(instanceId);
+                if (modelIndexObj == null) {
+                    Log.w(TAG, "deactivateInstance: Instance " + instanceId + " not found in instanceMap, skipping");
+                    result.success(null);
+                    return;
+                }
+                int modelIndex = modelIndexObj.intValue();
                 
                 // 释放模型资源
                 LAppLive2DManager live2DManager;
