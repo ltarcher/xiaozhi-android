@@ -158,6 +158,9 @@ class LipSyncController {
 
   /// 更新间隔（毫秒）
   final int _updateInterval;
+  
+  /// 上一次发送的口型同步值
+  double _lastSentValue = -1.0; // 初始值设为-1.0，确保第一次0.0值能被发送
 
   LipSyncController({
     AudioProcessor? audioProcessor,
@@ -171,6 +174,8 @@ class LipSyncController {
   void start() {
     if (_isRunning) return;
     _isRunning = true;
+    // 重置上次发送的值，确保开始时发送一个0.0值
+    _lastSentValue = -1.0;
     if (kDebugMode) {
       print('$TAG: LipSyncController started');
     }
@@ -193,8 +198,12 @@ class LipSyncController {
     // 默认情况下，如果没有外部音频数据输入，则使用静音
     double lipSyncValue = 0.0;
 
-    // 触发更新回调
-    _onLipSyncUpdate?.call(lipSyncValue);
+    // 只有当值有明显变化时才触发更新回调
+    // 使用一个小阈值来避免微小差异导致的频繁更新
+    if ((lipSyncValue - _lastSentValue).abs() > 0.01) {
+      _onLipSyncUpdate?.call(lipSyncValue);
+      _lastSentValue = lipSyncValue;
+    }
 
     // 延迟后继续处理
     await Future.delayed(Duration(milliseconds: _updateInterval));
@@ -206,6 +215,12 @@ class LipSyncController {
     if (!_isRunning) return;
 
     double lipSyncValue = _audioProcessor.processAudio(audioData);
-    _onLipSyncUpdate?.call(lipSyncValue);
+    
+    // 只有当值有明显变化时才触发更新回调
+    // 使用一个小阈值来避免微小差异导致的频繁更新
+    if ((lipSyncValue - _lastSentValue).abs() > 0.01) {
+      _onLipSyncUpdate?.call(lipSyncValue);
+      _lastSentValue = lipSyncValue;
+    }
   }
 }

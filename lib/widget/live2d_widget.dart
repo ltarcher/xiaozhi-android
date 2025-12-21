@@ -70,6 +70,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   bool _needsRebuild = false; // 标记是否需要重建PlatformView
   bool _gearVisible = true; // 跟踪齿轮按钮可见性状态
   bool _powerVisible = false; // 跟踪电源按钮可见性状态
+  double _lastLipSyncValue = -1.0; // 上一次设置的口型同步值，初始值设为-1.0
 
   @override
   void initState() {
@@ -352,30 +353,41 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   
   // 添加设置口型同步值的方法
   Future<void> _setLipSyncValue(double value) async {
-    try {
-      if (kDebugMode) {
-        print("Live2DWidget: Setting lip sync value to: $value for instance: $_actualInstanceId");
+    // 只有当值有明显变化时才调用原生方法
+    if ((value - _lastLipSyncValue).abs() > 0.01) {
+      try {
+        if (kDebugMode) {
+          print("Live2DWidget: Setting lip sync value to: $value for instance: $_actualInstanceId");
+        }
+        
+        await _channel.invokeMethod('setLipSyncValue', {
+          'value': value,
+          'instanceId': _actualInstanceId,
+        });
+        
+        // 更新上次设置的值
+        _lastLipSyncValue = value;
+        
+        if (kDebugMode) {
+          print("Live2DWidget: Lip sync value set successfully");
+        }
+      } on PlatformException catch (e) {
+        if (kDebugMode) {
+          print("Live2DWidget: Failed to set lip sync value due to PlatformException: ${e.message}");
+        }
+      } on MissingPluginException catch (e) {
+        if (kDebugMode) {
+          print("Live2DWidget: Failed to set lip sync value - Missing plugin: ${e.message}");
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Live2DWidget: Unexpected error setting lip sync value: $e");
+        }
       }
-      
-      await _channel.invokeMethod('setLipSyncValue', {
-        'value': value,
-        'instanceId': _actualInstanceId,
-      });
-      
+    } else {
+      // 值没有明显变化，跳过更新
       if (kDebugMode) {
-        print("Live2DWidget: Lip sync value set successfully");
-      }
-    } on PlatformException catch (e) {
-      if (kDebugMode) {
-        print("Live2DWidget: Failed to set lip sync value due to PlatformException: ${e.message}");
-      }
-    } on MissingPluginException catch (e) {
-      if (kDebugMode) {
-        print("Live2DWidget: Failed to set lip sync value - Missing plugin: ${e.message}");
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("Live2DWidget: Unexpected error setting lip sync value: $e");
+        print("Live2DWidget: Skipping lip sync value update - value ($value) unchanged from last value ($_lastLipSyncValue)");
       }
     }
   }

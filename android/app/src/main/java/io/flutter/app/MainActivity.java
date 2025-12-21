@@ -37,6 +37,10 @@ public class MainActivity extends FlutterActivity {
     // 防重复触发表情的机制
     private java.util.Map<String, String> lastExpressionMap = new java.util.HashMap<>();
     private static final long EXPRESSION_COOLDOWN_MS = 500; // 500ms冷却时间
+    
+    // 防重复设置口型同步值的机制
+    private java.util.Map<String, Float> lastLipSyncValueMap = new java.util.HashMap<>();
+    private static final float LIPSYNC_THRESHOLD = 0.01f; // 口型同步值变化阈值
 
     /**
      * 获取模型索引的辅助方法
@@ -442,6 +446,21 @@ public class MainActivity extends FlutterActivity {
                                     return;
                                 }
                                 
+                                // 限制value在0.0-1.0范围内
+                                float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
+                                
+                                // 检查值是否与上次设置的值有显著变化
+                                String modelKey = instanceId != null ? instanceId : "default";
+                                Float lastLipSyncValue = lastLipSyncValueMap.get(modelKey);
+                                
+                                if (lastLipSyncValue != null && Math.abs(lipSyncValue - lastLipSyncValue) < LIPSYNC_THRESHOLD) {
+                                    // 值没有显著变化，跳过更新
+                                    Log.d(TAG, "setLipSyncValue: Skipping update for instance " + instanceId +
+                                         " - value (" + lipSyncValue + ") unchanged from last value (" + lastLipSyncValue + ")");
+                                    result.success(null);
+                                    return;
+                                }
+                                
                                 try {
                                     // 获取Live2D管理器
                                     LAppLive2DManager live2DManager;
@@ -465,9 +484,9 @@ public class MainActivity extends FlutterActivity {
                                         if (live2DManager.getModelNum() > 0) {
                                             int currentModelIndex = live2DManager.getCurrentModel();
                                             if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
-                                                // 限制value在0.0-1.0范围内
-                                                float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                                 live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
+                                                // 更新最后设置的值
+                                                lastLipSyncValueMap.put(modelKey, lipSyncValue);
                                                 Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for current model " + currentModelIndex);
                                                 result.success(null);
                                                 return;
@@ -480,17 +499,18 @@ public class MainActivity extends FlutterActivity {
                                     Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
                                    
                                     if (live2DManager.getModelNum() > 0 && modelIndex >= 0 && modelIndex < live2DManager.getModelNum() && live2DManager.getModel(modelIndex) != null) {
-                                        // 限制value在0.0-1.0范围内
-                                        float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                         live2DManager.getModel(modelIndex).setLipSyncValue(lipSyncValue);
+                                        // 更新最后设置的值
+                                        lastLipSyncValueMap.put(modelKey, lipSyncValue);
                                         Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for model " + modelIndex);
                                         result.success(null);
                                     } else {
                                         // 如果指定的模型不可用，使用当前活动模型
                                         int currentModelIndex = live2DManager.getCurrentModel();
                                         if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum() && live2DManager.getModel(currentModelIndex) != null) {
-                                            float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                             live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
+                                            // 更新最后设置的值
+                                            lastLipSyncValueMap.put(modelKey, lipSyncValue);
                                             Log.d(TAG, "setLipSyncValue: Using current model " + currentModelIndex + " instead of requested " + modelIndex);
                                             result.success(null);
                                         } else {
