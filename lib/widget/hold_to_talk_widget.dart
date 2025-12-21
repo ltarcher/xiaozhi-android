@@ -3,7 +3,9 @@ import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 
 class HoldToTalkWidget extends StatefulWidget {
-  const HoldToTalkWidget({super.key});
+  final bool hideDialog; // 添加参数控制是否显示对话框
+
+  const HoldToTalkWidget({super.key, this.hideDialog = false});
 
   @override
   State<HoldToTalkWidget> createState() => HoldToTalkWidgetState();
@@ -36,6 +38,9 @@ class HoldToTalkWidgetState extends State<HoldToTalkWidget>
     final mediaQuery = MediaQuery.of(context);
 
     if (!_isSpeaking) return const SizedBox.shrink();
+    
+    // 如果隐藏对话框，则不显示任何UI，只保持录音状态
+    if (widget.hideDialog) return const SizedBox.shrink();
 
     return IgnorePointer(
       child: Stack(

@@ -51,6 +51,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 添加语音唤醒服务实例
   late VoiceWakeUpService _voiceWakeUpService;
   bool _isVoiceWakeUpEnabled = true;
+  
+  // 添加是否处于唤醒状态（连续对话模式）的标志
+  bool _isWakeModeActive = false;
 
   @override
   void initState() {
@@ -303,6 +306,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   void _handleWakeWordDetected() {
     if (!mounted) return;
     
+    if (kDebugMode) {
+      print('ChatPage: Wake word detected, entering continuous conversation mode');
+      print('ChatPage: Current mounted state: $mounted');
+      print('ChatPage: Current wake mode state: $_isWakeModeActive');
+    }
+    
+    setState(() {
+      _isWakeModeActive = true;
+    });
+    
+    if (kDebugMode) {
+      print('ChatPage: State updated, _isWakeModeActive set to true');
+    }
+    
+    // 停止唤醒词检测，避免在连续对话中重复触发
+    _voiceWakeUpService.stopListening();
+    
+    if (kDebugMode) {
+      print('ChatPage: Voice wake up service stopped');
+    }
+    
     // 显示提示信息
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -310,7 +334,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           children: [
             Icon(Icons.mic, color: Colors.white),
             SizedBox(width: 8),
-            Text('唤醒词已识别，开始录音...'),
+            Text('唤醒词已识别，进入连续对话模式...'),
           ],
         ),
         backgroundColor: Colors.green,
@@ -318,7 +342,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ),
     );
     
-    // 触发录音开始事件
+    // 开始连续对话模式（使用call模式的逻辑）
+    _startContinuousConversation();
+  }
+  
+  // 开始连续对话模式
+  void _startContinuousConversation() {
+    if (kDebugMode) {
+      print('ChatPage: Starting continuous conversation mode');
+    }
+    
+    // 开始连续对话（类似call_page.dart）
+    chatBloc.add(ChatStartCallEvent());
+    
+    // 触发录音开始事件，但不显示对话框
     holdToTalkKey.currentState!.setSpeaking(true);
     if (!_isPressing) {
       setState(() {
@@ -328,10 +365,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 开始口型同步
     _lipSyncController.start();
+  }
+  
+  // 退出唤醒模式
+  void _exitWakeMode() {
+    if (kDebugMode) {
+      print('ChatPage: Exiting wake mode');
+    }
     
-    // 开始聊天监听
-    chatBloc.add(ChatStartListenEvent());
-
+    if (mounted) {
+      setState(() {
+        _isWakeModeActive = false;
+      });
+      
+      // 停止连续对话模式（使用与call_page.dart相同的逻辑）
+      chatBloc.add(ChatStopCallEvent());
+      clearUp();
+      
+      // 重新启动唤醒词检测
+      if (_isVoiceWakeUpEnabled) {
+        _voiceWakeUpService.startListening();
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up service restarted after exiting wake mode');
+        }
+      }
+    }
   }
 
   clearUp() async {
@@ -911,7 +969,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                         bottom: 12 + MediaQuery.of(context).padding.bottom,
                       ),
                       child: GestureDetector(
-                        onTapDown: (_) {
+                        // 在唤醒模式下禁用所有手势，只显示状态和退出按钮
+                        onTapDown: _isWakeModeActive ? null : (_) {
                           if (kDebugMode) {
                             print('ChatPage: Tap down on hold-to-talk button');
                           }
@@ -953,21 +1012,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           // 开始口型同步
                           _lipSyncController.start();
                         },
-                        onTapUp: (_) {
+                        onTapUp: _isWakeModeActive ? null : (_) {
                           if (kDebugMode) {
                             print('ChatPage: Tap up on hold-to-talk button');
                           }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
-                        onTapCancel: () {
+                        onTapCancel: _isWakeModeActive ? null : () {
                           if (kDebugMode) {
                             print('ChatPage: Tap cancel on hold-to-talk button');
                           }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
-                        onLongPressStart: (_) async {
+                        onLongPressStart: _isWakeModeActive ? null : (_) async {
                           if (kDebugMode) {
                             print('ChatPage: Long press started on hold-to-talk button');
                           }
@@ -1010,20 +1069,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           // 开始口型同步
                           _lipSyncController.start();
                         },
-                        onLongPressEnd: (detail) async {
+                        onLongPressEnd: _isWakeModeActive ? null : (detail) async {
                           if (kDebugMode) {
                             print('ChatPage: Long press ended on hold-to-talk button');
                           }
                           clearUp();
                         },
-                        onLongPressCancel: () {
+                        onLongPressCancel: _isWakeModeActive ? null : () {
                           if (kDebugMode) {
                             print('ChatPage: Long press cancelled on hold-to-talk button');
                           }
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           clearUp();
                         },
-                        onLongPressMoveUpdate: (detail) {
+                        onLongPressMoveUpdate: _isWakeModeActive ? null : (detail) {
                           if (kDebugMode) {
                             print('ChatPage: Long press move update on hold-to-talk button');
                           }
@@ -1037,16 +1096,50 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           }
                           if (mounted) setState(() {});
                         },
-                        child: FilledButton(
-                          onPressed: () {},
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.mic_rounded),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                // 在唤醒模式下，整个按钮都可以点击来退出通话
+                                onPressed: _isWakeModeActive ? () {
+                                  _exitWakeMode();
+                                } : () {},
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // 根据唤醒状态显示不同的图标
+                                    _isWakeModeActive
+                                        ? Icon(Icons.phone_in_talk, color: Colors.red) // 通话中图标
+                                        : Icon(Icons.mic_rounded), // 麦克风图标
+                                    SizedBox(width: XConst.spacer),
+                                    // 根据唤醒状态显示不同的文本
+                                    Text(_isWakeModeActive
+                                        ? '通话中'
+                                        : AppLocalizations.of(context)!.holdToTalk),
+                                    // 如果处于唤醒模式，显示挂断图标
+                                    if (_isWakeModeActive) ...[
+                                      SizedBox(width: XConst.spacer),
+                                      Icon(Icons.call_end, color: Colors.red),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // 添加测试按钮（仅调试模式显示）
+                            if (kDebugMode) ...[
                               SizedBox(width: XConst.spacer),
-                              Text(AppLocalizations.of(context)!.holdToTalk),
+                              IconButton(
+                                onPressed: () {
+                                  if (kDebugMode) {
+                                    print('ChatPage: Test wake word detection button pressed');
+                                  }
+                                  _handleWakeWordDetected(); // 直接触发唤醒词检测回调
+                                },
+                                icon: Icon(Icons.science, color: Colors.blue),
+                                tooltip: '测试唤醒词检测',
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -1054,7 +1147,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 ),
                 
                 // HoldToTalkWidget覆盖在页面上层，确保它始终可见
-                HoldToTalkWidget(key: holdToTalkKey),
+                // 在唤醒模式下隐藏"说点什么"的对话框
+                HoldToTalkWidget(key: holdToTalkKey, hideDialog: _isWakeModeActive),
                 
                 // 授权对话框作为页面的一部分，而不是弹窗
                 if (_showActivationDialog && _activationCode != null)
