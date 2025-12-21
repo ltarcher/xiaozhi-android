@@ -743,9 +743,13 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 return null;
             }
             
+            // 移除换行符和多余空格，确保JSON在一行上，便于解析
+            String normalizedJson = jsonResult.replaceAll("\\s+", " ").trim();
+            Log.d(TAG, "Normalized JSON: " + normalizedJson);
+            
             // 尝试使用JSON对象解析
             try {
-                JSONObject jsonObject = new JSONObject(jsonResult);
+                JSONObject jsonObject = new JSONObject(normalizedJson);
                 
                 // 首先检查是否有text字段
                 if (jsonObject.has("text")) {
@@ -787,23 +791,26 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             }
             
             // 手动解析作为备选方案
+            // 使用标准化后的JSON字符串
+            String jsonForManualParse = normalizedJson;
+            
             // 检查text字段
-            if (jsonResult.contains("\"text\"")) {
-                int textIndex = jsonResult.indexOf("\"text\"");
-                int colonIndex = jsonResult.indexOf(":", textIndex);
+            if (jsonForManualParse.contains("\"text\"")) {
+                int textIndex = jsonForManualParse.indexOf("\"text\"");
+                int colonIndex = jsonForManualParse.indexOf(":", textIndex);
                 if (colonIndex != -1) {
                     int start = colonIndex + 1;
                     
                     // 跳过空格和引号
-                    while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
+                    while (start < jsonForManualParse.length() && (jsonForManualParse.charAt(start) == ' ' || jsonForManualParse.charAt(start) == '\"')) {
                         start++;
                     }
                     
-                    if (start >= jsonResult.length()) return null;
+                    if (start >= jsonForManualParse.length()) return null;
                     
                     // 查找结束引号
                     int end = start;
-                    while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
+                    while (end < jsonForManualParse.length() && jsonForManualParse.charAt(end) != '\"') {
                         end++;
                     }
                     
@@ -814,7 +821,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                     }
                     
                     if (end > start) {
-                        String extractedText = jsonResult.substring(start, end);
+                        String extractedText = jsonForManualParse.substring(start, end);
                         if (extractedText != null && !extractedText.trim().isEmpty()) {
                             Log.d(TAG, "Successfully extracted manual text: '" + extractedText + "'");
                             return extractedText.trim();
@@ -824,22 +831,22 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             }
             
             // 检查partial字段
-            if (jsonResult.contains("\"partial\"")) {
-                int partialIndex = jsonResult.indexOf("\"partial\"");
-                int colonIndex = jsonResult.indexOf(":", partialIndex);
+            if (jsonForManualParse.contains("\"partial\"")) {
+                int partialIndex = jsonForManualParse.indexOf("\"partial\"");
+                int colonIndex = jsonForManualParse.indexOf(":", partialIndex);
                 if (colonIndex != -1) {
                     int start = colonIndex + 1;
                     
                     // 跳过空格和引号
-                    while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
+                    while (start < jsonForManualParse.length() && (jsonForManualParse.charAt(start) == ' ' || jsonForManualParse.charAt(start) == '\"')) {
                         start++;
                     }
                     
-                    if (start >= jsonResult.length()) return null;
+                    if (start >= jsonForManualParse.length()) return null;
                     
                     // 查找结束引号
                     int end = start;
-                    while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
+                    while (end < jsonForManualParse.length() && jsonForManualParse.charAt(end) != '\"') {
                         end++;
                     }
                     
@@ -850,7 +857,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                     }
                     
                     if (end > start) {
-                        String extractedText = jsonResult.substring(start, end);
+                        String extractedText = jsonForManualParse.substring(start, end);
                         if (extractedText != null && !extractedText.trim().isEmpty()) {
                             Log.d(TAG, "Successfully extracted manual partial: '" + extractedText + "'");
                             return extractedText.trim();
