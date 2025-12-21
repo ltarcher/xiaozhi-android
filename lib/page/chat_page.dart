@@ -798,8 +798,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _refreshController.loadNoData();
             }
 
+            // 只有在非唤醒模式下，才对用户发送的消息进行clearUp操作
+            // 这样可以避免在触发表情后错误地停止录音
             if (chatState.messageList.isNotEmpty &&
-                chatState.messageList.first.sendByMe) {
+                chatState.messageList.first.sendByMe &&
+                !_isWakeModeActive) {
               if (kDebugMode) {
                 print('ChatPage: Message sent by me, calling clearUp');
               }
@@ -807,7 +810,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             }
             
             // 当收到新消息时，触发Live2D模型的随机表情（限制频率避免性能问题）
-            if (chatState.messageList.isNotEmpty) {
+            // 只在非唤醒模式下触发表情，避免表情触发导致的循环问题
+            if (chatState.messageList.isNotEmpty && !_isWakeModeActive) {
               // 使用GlobalKey直接访问State方法触发表情
               if (_live2DKey.currentState != null) {
                 if (kDebugMode) {

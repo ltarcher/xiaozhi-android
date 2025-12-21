@@ -502,10 +502,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           }
         });
         
-        // 录音开始，更新录音状态为录音中
-        add(ChatRecordingStartedEvent());
-        // 对话状态更新为录音中
-        add(ChatConversationRecordingEvent());
+        // 只有当前录音状态不是recording时，才更新录音状态为录音中
+        if (state.recordingStatus != RecordingStatus.recording) {
+          // 录音开始，更新录音状态为录音中
+          add(ChatRecordingStartedEvent());
+        }
+        // 只有当前对话状态不是recording时，才更新对话状态为录音中
+        if (state.conversationStatus != ConversationStatus.recording) {
+          // 对话状态更新为录音中
+          add(ChatConversationRecordingEvent());
+        }
       }
 
       if (event is ChatOnMessageEvent) {
@@ -544,10 +550,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         if (null != _audioRecorder && (await _audioRecorder!.isRecording())) {
           await _audioRecorder!.stop();
         }
-        // 录音停止，更新录音状态为初始化
-        add(ChatRecordingInitializedEvent());
-        // 对话状态更新为等待中
-        add(ChatConversationWaitingEvent());
+        // 只有当前录音状态为recording时，才更新录音状态为初始化
+        if (state.recordingStatus == RecordingStatus.recording) {
+          // 录音停止，更新录音状态为初始化
+          add(ChatRecordingInitializedEvent());
+        }
+        // 只有当前对话状态为recording时，才更新对话状态为等待中
+        if (state.conversationStatus == ConversationStatus.recording) {
+          // 对话状态更新为等待中
+          add(ChatConversationWaitingEvent());
+        }
       }
 
       if (event is ChatStartCallEvent) {
