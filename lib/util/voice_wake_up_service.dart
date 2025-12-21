@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
 
 /// 语音唤醒服务，用于处理基于Vosk的语音唤醒功能
@@ -20,6 +21,12 @@ class VoiceWakeUpService {
   /// 初始化语音唤醒服务
   Future<bool> initialize() async {
     try {
+      // 检查并请求录音权限
+      if (!await _checkAndRequestPermission()) {
+        print('VoiceWakeUpService: Microphone permission not granted');
+        return false;
+      }
+      
       // 设置方法调用处理器
       _channel.setMethodCallHandler(_handleMethodCall);
       
@@ -36,9 +43,50 @@ class VoiceWakeUpService {
     }
   }
   
+  /// 检查并请求录音权限
+  Future<bool> _checkAndRequestPermission() async {
+    try {
+      // 检查权限状态
+      PermissionStatus status = await Permission.microphone.status;
+      
+      // 如果已经授权，直接返回true
+      if (status.isGranted) {
+        print('VoiceWakeUpService: Microphone permission already granted');
+        return true;
+      }
+      
+      // 如果权限被永久拒绝，引导用户去设置
+      if (status.isPermanentlyDenied) {
+        print('VoiceWakeUpService: Microphone permission permanently denied');
+        // 可以在这里添加打开设置的逻辑
+        return false;
+      }
+      
+      // 请求权限
+      status = await Permission.microphone.request();
+      
+      if (status.isGranted) {
+        print('VoiceWakeUpService: Microphone permission granted');
+        return true;
+      } else {
+        print('VoiceWakeUpService: Microphone permission denied');
+        return false;
+      }
+    } catch (e) {
+      print('VoiceWakeUpService: Error checking permission: $e');
+      return false;
+    }
+  }
+  
   /// 开始监听唤醒词
   Future<bool> startListening() async {
     try {
+      // 在开始监听前再次检查权限
+      if (!await Permission.microphone.isGranted) {
+        print('VoiceWakeUpService: Microphone permission not granted, cannot start listening');
+        return false;
+      }
+      
       final bool result = await _channel.invokeMethod('startListening');
       print('VoiceWakeUpService: Start listening result: $result');
       return result;

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/bloc/ota/ota_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
@@ -209,6 +210,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 初始化语音唤醒服务
   Future<void> _initializeVoiceWakeUp() async {
     try {
+      // 检查并请求录音权限
+      if (!await _checkAndRequestMicrophonePermission()) {
+        if (kDebugMode) {
+          print('ChatPage: Microphone permission not granted for voice wake up');
+        }
+        // 不显示权限对话框，只记录日志
+        return;
+      }
+      
       // 设置唤醒词检测回调
       _voiceWakeUpService.onWakeWordDetected = (String hypothesis) {
         if (kDebugMode) {
@@ -238,6 +248,50 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('ChatPage: Failed to initialize voice wake up: $e');
       }
+    }
+  }
+  
+  // 检查并请求录音权限
+  Future<bool> _checkAndRequestMicrophonePermission() async {
+    try {
+      // 检查权限状态
+      PermissionStatus status = await Permission.microphone.status;
+      
+      // 如果已经授权，直接返回true
+      if (status.isGranted) {
+        if (kDebugMode) {
+          print('ChatPage: Microphone permission already granted');
+        }
+        return true;
+      }
+      
+      // 如果权限被永久拒绝，引导用户去设置
+      if (status.isPermanentlyDenied) {
+        if (kDebugMode) {
+          print('ChatPage: Microphone permission permanently denied');
+        }
+        return false;
+      }
+      
+      // 请求权限
+      status = await Permission.microphone.request();
+      
+      if (status.isGranted) {
+        if (kDebugMode) {
+          print('ChatPage: Microphone permission granted');
+        }
+        return true;
+      } else {
+        if (kDebugMode) {
+          print('ChatPage: Microphone permission denied');
+        }
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error checking microphone permission: $e');
+      }
+      return false;
     }
   }
   
@@ -394,6 +448,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     try {
       if (enabled) {
+        // 在启用语音唤醒前检查权限
+        if (!await _checkAndRequestMicrophonePermission()) {
+          if (kDebugMode) {
+            print('ChatPage: Cannot enable voice wake up - permission not granted');
+          }
+          // 显示提示信息
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.mic_off, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('语音唤醒需要麦克风权限'),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+        
         await _voiceWakeUpService.startListening();
         if (kDebugMode) {
           print('ChatPage: Voice wake up enabled');
