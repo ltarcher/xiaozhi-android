@@ -18,8 +18,8 @@ class Live2DWidget extends StatefulWidget {
     required this.width,
     required this.height,
     this.instanceId, // 可选的实例ID参数
-    this.gearVisible = true,  // 默认可见
-    this.powerVisible = true, // 默认可见
+    this.gearVisible = false,  // 默认可见
+    this.powerVisible = false, // 默认可见
   });
 
   @override
