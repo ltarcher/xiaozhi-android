@@ -346,10 +346,13 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 }
             }
             
+            // 创建final变量用于lambda表达式
+            final String finalHypothesis = hypothesis;
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
-                    methodChannel.invokeMethod("onWakeWordDetected", hypothesis);
+                    methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
                 }
             });
         }
@@ -381,10 +384,13 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 }
             }
             
+            // 创建final变量用于lambda表达式
+            final String finalHypothesis = hypothesis;
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
-                    methodChannel.invokeMethod("onWakeWordDetected", hypothesis);
+                    methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
                 }
             });
         }
@@ -393,6 +399,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     /**
      * 检测文本中是否包含唤醒词
      * 参考py-xiaozhi的实现，使用拼音相似度计算
+     * 增加了更模糊的匹配策略，解决同音词识别错误问题
      */
     private boolean containsWakeWord(String hypothesis) {
         // 添加调试日志
@@ -436,20 +443,33 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         double bestSimilarity = 0.0;
         
         for (String wakeWord : wakeWords) {
-            // 原文匹配
+            // 1. 原文匹配
             double textSimilarity = calculateSimilarity(normalizedHypothesis, wakeWord);
             if (textSimilarity >= similarityThreshold && textSimilarity > bestSimilarity) {
                 bestSimilarity = textSimilarity;
                 bestMatch = wakeWord;
+                Log.d(TAG, "Text match found: " + wakeWord + " with similarity " + textSimilarity);
             }
             
-            // 拼音匹配
+            // 2. 拼音匹配
             String wakeWordPinyin = wakeWordPinyins.get(wakeWord);
             if (wakeWordPinyin != null) {
                 double pinyinSimilarity = calculateSimilarity(hypothesisPinyin, wakeWordPinyin);
                 if (pinyinSimilarity >= similarityThreshold && pinyinSimilarity > bestSimilarity) {
                     bestSimilarity = pinyinSimilarity;
                     bestMatch = wakeWord;
+                    Log.d(TAG, "Pinyin match found: " + wakeWord + " with similarity " + pinyinSimilarity);
+                }
+            }
+            
+            // 3. 模糊匹配 - 针对"你好 小心"这样的错误识别
+            if (isFuzzyMatch(normalizedHypothesis, wakeWord)) {
+                // 模糊匹配成功，给予较高权重
+                double fuzzySimilarity = 0.9; // 模糊匹配给予高分
+                if (fuzzySimilarity > bestSimilarity) {
+                    bestSimilarity = fuzzySimilarity;
+                    bestMatch = wakeWord;
+                    Log.d(TAG, "Fuzzy match found: " + wakeWord + " with fuzzy similarity");
                 }
             }
         }
@@ -459,10 +479,110 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             lastDetectionTime = currentTime;
             Log.i(TAG, "Wake word detected: '" + bestMatch + "' (similarity: " + String.format("%.3f", bestSimilarity) + ")");
             Log.i(TAG, "Original text: " + recognizedText);
+            
+            // 重置识别器，类似py-xiaozhi中的实现
+            if (speechService != null) {
+                try {
+                    // 创建新的识别器
+                    Recognizer recognizer = new Recognizer(model, 16000.0f);
+                    speechService.stop();
+                    speechService.shutdown();
+                    
+                    // 重新启动识别服务
+                    speechService = new SpeechService(recognizer, 16000.0f);
+                    speechService.startListening(this);
+                    Log.i(TAG, "Recognizer reset after wake word detection");
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to reset recognizer", e);
+                }
+            }
+            
+            // 创建final变量用于lambda表达式
+            final String finalBestMatch = bestMatch;
+            
+            // 通知Flutter端检测到唤醒词
+            mainHandler.post(() -> {
+                if (methodChannel != null) {
+                    methodChannel.invokeMethod("onWakeWordDetected", finalBestMatch);
+                }
+            });
             return true;
         }
         
         Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
+        return false;
+    }
+    
+    /**
+     * 模糊匹配检测
+     * 专门处理同音字、近音字的情况
+     */
+    private boolean isFuzzyMatch(String hypothesis, String wakeWord) {
+        // 针对"你好 小清"这个唤醒词的特殊处理
+        if (wakeWord.contains("你好小清")) {
+            // 检查是否包含"你好"和"小清"的近音字
+            boolean hasNiHao = hypothesis.contains("你好") ||
+                             hypothesis.contains("您好") ||
+                             hypothesis.contains("你好啊") ||
+                             // 处理误识别的情况
+                             hypothesis.contains("小心"); // "小心"可能被误识别为"小清"
+                             
+            boolean hasXiaoQing = hypothesis.contains("小清") ||
+                                hypothesis.contains("小晴") ||  // "晴"是"清"的近音字
+                                hypothesis.contains("小情") ||  // "情"是"清"的近音字
+                                hypothesis.contains("小请") ||  // "请"是"清"的近音字
+                                hypothesis.contains("小庆") ||  // "庆"是"清"的近音字
+                                hypothesis.contains("小静") ||  // "静"是"清"的近音字
+                                hypothesis.contains("小菁") ||  // "菁"是"清"的近音字
+                                hypothesis.contains("小晴") ||  // "晴"是"清"的近音字
+                                hypothesis.contains("小净") ||  // "净"是"清"的近音字
+                                hypothesis.contains("小境") ||  // "境"是"清"的近音字
+                                hypothesis.contains("小青");   // 直接匹配"小清"
+            
+            // 特殊处理：如果检测到"你好 小心"，认为是"你好 小清"的误识别
+            if (hypothesis.contains("你好 小心") || hypothesis.contains("你好小心")) {
+                Log.d(TAG, "Fuzzy match: '你好 小心' considered as '你好 小清'");
+                return true;
+            }
+            
+            // 特殊处理：如果检测到"小心"且前面有"你好"，认为是"你好 小清"的误识别
+            if (hasNiHao && hypothesis.contains("小清")) {
+                Log.d(TAG, "Fuzzy match: '你好' + '小清' combination found");
+                return true;
+            }
+            
+            // 如果同时包含"你好"和"小清"的近音字，认为匹配
+            if (hasNiHao && hasXiaoQing) {
+                Log.d(TAG, "Fuzzy match: ni hao + xiao qing near-homophone found");
+                return true;
+            }
+        }
+        
+        // 对其他唤醒词的模糊匹配
+        if (wakeWord.contains("你好小明")) {
+            return hypothesis.contains("你好") && (
+                   hypothesis.contains("小明") ||
+                   hypothesis.contains("小名") ||  // "名"是"明"的近音字
+                   hypothesis.contains("小民") ||  // "民"是"明"的近音字
+                   hypothesis.contains("小鸣"));   // "鸣"是"明"的近音字
+        }
+        
+        // 对"你好小智"的模糊匹配
+        if (wakeWord.contains("你好小智")) {
+            return hypothesis.contains("你好") && (
+                   hypothesis.contains("小智") ||
+                   hypothesis.contains("小志") ||  // "志"是"智"的近音字
+                   hypothesis.contains("小至"));   // "至"是"智"的近音字
+        }
+        
+        // 对"你好小天"的模糊匹配
+        if (wakeWord.contains("你好小天")) {
+            return hypothesis.contains("你好") && (
+                   hypothesis.contains("小天") ||
+                   hypothesis.contains("小添") ||  // "添"是"天"的近音字
+                   hypothesis.contains("小田"));   // "田"是"天"的近音字
+        }
+        
         return false;
     }
     
@@ -509,38 +629,128 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     }
     
     /**
-     * 从JSON格式的Vosk识别结果中提取文本
+     * 从Vosk识别结果中提取文本
+     * 参考py-xiaozhi的实现，直接从JSON中提取text字段
      */
     private String extractTextFromJson(String jsonResult) {
         try {
-            // 尝试解析JSON格式
+            if (jsonResult == null || jsonResult.trim().isEmpty()) {
+                return null;
+            }
+            
+            // 尝试使用JSON对象解析
+            try {
+                JSONObject jsonObject = new JSONObject(jsonResult);
+                
+                // 首先检查是否有text字段
+                if (jsonObject.has("text")) {
+                    String text = jsonObject.getString("text");
+                    if (text != null && !text.trim().isEmpty()) {
+                        Log.d(TAG, "Successfully extracted JSON text: '" + text + "'");
+                        return text.trim();
+                    }
+                }
+                
+                // 然后检查是否有partial字段
+                if (jsonObject.has("partial")) {
+                    String partial = jsonObject.getString("partial");
+                    if (partial != null && !partial.trim().isEmpty()) {
+                        Log.d(TAG, "Successfully extracted JSON partial: '" + partial + "'");
+                        return partial.trim();
+                    }
+                }
+                
+                // 检查其他可能的字段
+                if (jsonObject.has("result")) {
+                    JSONArray resultArray = jsonObject.getJSONArray("result");
+                    if (resultArray.length() > 0) {
+                        JSONObject firstResult = resultArray.getJSONObject(0);
+                        if (firstResult.has("word")) {
+                            String word = firstResult.getString("word");
+                            if (word != null && !word.trim().isEmpty()) {
+                                Log.d(TAG, "Successfully extracted JSON word: '" + word + "'");
+                                return word.trim();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // JSON解析失败，尝试手动解析
+                Log.d(TAG, "JSON parsing failed, trying manual extraction: " + e.getMessage());
+            }
+            
+            // 手动解析作为备选方案
+            // 检查text字段
             if (jsonResult.contains("\"text\"")) {
-                int start = jsonResult.indexOf("\"text\"") + 7; // 7 = length of "\"text\":"
-                if (start < 7) return null;
-                
-                // 跳过空格和引号
-                while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
-                    start++;
-                }
-                
-                if (start >= jsonResult.length()) return null;
-                
-                // 查找结束引号
-                int end = start;
-                while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
-                    end++;
-                }
-                
-                if (end > start) {
-                    return jsonResult.substring(start, end);
+                int textIndex = jsonResult.indexOf("\"text\"");
+                int colonIndex = jsonResult.indexOf(":", textIndex);
+                if (colonIndex != -1) {
+                    int start = colonIndex + 1;
+                    
+                    // 跳过空格和引号
+                    while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
+                        start++;
+                    }
+                    
+                    if (start >= jsonResult.length()) return null;
+                    
+                    // 查找结束引号
+                    int end = start;
+                    while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
+                        end++;
+                    }
+                    
+                    if (end > start) {
+                        String extractedText = jsonResult.substring(start, end);
+                        if (extractedText != null && !extractedText.trim().isEmpty()) {
+                            Log.d(TAG, "Successfully extracted manual text: '" + extractedText + "'");
+                            return extractedText.trim();
+                        }
+                    }
                 }
             }
             
-            // 如果不是JSON格式，直接返回原始字符串
-            return jsonResult;
+            // 检查partial字段
+            if (jsonResult.contains("\"partial\"")) {
+                int partialIndex = jsonResult.indexOf("\"partial\"");
+                int colonIndex = jsonResult.indexOf(":", partialIndex);
+                if (colonIndex != -1) {
+                    int start = colonIndex + 1;
+                    
+                    // 跳过空格和引号
+                    while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
+                        start++;
+                    }
+                    
+                    if (start >= jsonResult.length()) return null;
+                    
+                    // 查找结束引号
+                    int end = start;
+                    while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
+                        end++;
+                    }
+                    
+                    if (end > start) {
+                        String extractedText = jsonResult.substring(start, end);
+                        if (extractedText != null && !extractedText.trim().isEmpty()) {
+                            Log.d(TAG, "Successfully extracted manual partial: '" + extractedText + "'");
+                            return extractedText.trim();
+                        }
+                    }
+                }
+            }
+            
+            // 如果不是JSON格式，但包含其他识别结果格式，尝试直接使用
+            if (jsonResult != null && !jsonResult.trim().isEmpty() && !jsonResult.contains("{")) {
+                Log.d(TAG, "Not JSON format, using raw text: " + jsonResult);
+                return jsonResult.trim();
+            }
+            
+            Log.d(TAG, "Unable to extract text from JSON, returning null");
+            return null;
         } catch (Exception e) {
             Log.e(TAG, "Error extracting text from JSON: " + e.getMessage());
-            return jsonResult;
+            return null;
         }
     }
     
@@ -548,17 +758,51 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     public void onPartialResult(String hypothesis) {
         // 添加调试日志，打印部分识别结果
         Log.d(TAG, "Received partial recognition result: " + hypothesis);
-        // 部分结果，不用于唤醒词检测
+        
+        // 部分结果也用于唤醒词检测，提高响应速度
+        if (containsWakeWord(hypothesis)) {
+            Log.i(TAG, "Wake word detected in partial result: " + hypothesis);
+            
+            // 重置识别器，类似py-xiaozhi中的实现
+            if (speechService != null) {
+                try {
+                    // 创建新的识别器
+                    Recognizer recognizer = new Recognizer(model, 16000.0f);
+                    speechService.stop();
+                    speechService.shutdown();
+                    
+                    // 重新启动识别服务
+                    speechService = new SpeechService(recognizer, 16000.0f);
+                    speechService.startListening(this);
+                    Log.i(TAG, "Recognizer reset after wake word detection in partial result");
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to reset recognizer", e);
+                }
+            }
+            
+            // 创建final变量用于lambda表达式
+            final String finalHypothesis = hypothesis;
+            
+            // 通知Flutter端检测到唤醒词
+            mainHandler.post(() -> {
+                if (methodChannel != null) {
+                    methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
+                }
+            });
+        }
     }
     
     @Override
     public void onError(Exception e) {
         Log.e(TAG, "Recognition error", e);
         
+        // 创建final变量用于lambda表达式
+        final String errorMessage = e.getMessage();
+        
         // 通知Flutter端发生错误
         mainHandler.post(() -> {
             if (methodChannel != null) {
-                methodChannel.invokeMethod("onError", e.getMessage());
+                methodChannel.invokeMethod("onError", errorMessage);
             }
         });
     }
