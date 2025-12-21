@@ -238,6 +238,9 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     // RecognitionListener 实现
     @Override
     public void onResult(String hypothesis) {
+        // 添加调试日志，打印所有识别结果
+        Log.i(TAG, "Received recognition result: " + hypothesis);
+        
         // 使用更灵活的关键词检测
         if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected: " + hypothesis);
@@ -253,6 +256,9 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     
     @Override
     public void onFinalResult(String hypothesis) {
+        // 添加调试日志，打印所有最终识别结果
+        Log.i(TAG, "Received final recognition result: " + hypothesis);
+        
         // 最终结果，也使用灵活的关键词检测
         if (containsWakeWord(hypothesis)) {
             Log.i(TAG, "Wake word detected in final result: " + hypothesis);
@@ -271,16 +277,32 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
      * 使用多种匹配策略提高识别率
      */
     private boolean containsWakeWord(String hypothesis) {
+        // 添加调试日志
+        Log.d(TAG, "Checking for wake word in hypothesis: " + hypothesis);
+        
         if (hypothesis == null || hypothesis.trim().isEmpty()) {
+            Log.d(TAG, "Empty hypothesis, no wake word found");
             return false;
         }
         
-        String normalizedHypothesis = hypothesis.toLowerCase().trim();
+        // 解析JSON格式的识别结果
+        String recognizedText = extractTextFromJson(hypothesis);
+        Log.d(TAG, "Extracted text from hypothesis: " + recognizedText);
+        
+        if (recognizedText == null || recognizedText.trim().isEmpty()) {
+            Log.d(TAG, "No text extracted from hypothesis");
+            return false;
+        }
+        
+        String normalizedHypothesis = recognizedText.toLowerCase().trim();
         String normalizedWakeWord = currentWakeWord.toLowerCase().trim();
+        
+        Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
+        Log.d(TAG, "Normalized wake word: " + normalizedWakeWord);
         
         // 1. 直接匹配
         if (normalizedHypothesis.contains(normalizedWakeWord)) {
-            Log.i(TAG, "Direct match found: " + hypothesis);
+            Log.i(TAG, "Direct match found: " + recognizedText);
             return true;
         }
         
@@ -295,6 +317,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             for (String hypoPart : hypothesisParts) {
                 if (hypoPart.contains(wakePart) || wakePart.contains(hypoPart)) {
                     matchedParts++;
+                    Log.d(TAG, "Matched part: " + wakePart + " with " + hypoPart);
                     break;
                 }
             }
@@ -302,7 +325,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         
         // 如果匹配了大部分关键词（至少60%），认为可能匹配成功
         if (wakeWordParts.length > 0 && (double)matchedParts / wakeWordParts.length >= 0.6) {
-            Log.i(TAG, "Partial match found: " + hypothesis + " (matched " + matchedParts + "/" + wakeWordParts.length + " parts)");
+            Log.i(TAG, "Partial match found: " + recognizedText + " (matched " + matchedParts + "/" + wakeWordParts.length + " parts)");
             return true;
         }
         
@@ -319,17 +342,58 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                                 normalizedHypothesis.contains("小情") ||  // 可能的误识别
                                 normalizedHypothesis.contains("小请");   // 可能的误识别
             
+            Log.d(TAG, "Ni Hao check: " + hasNiHao + ", Xiao Qing check: " + hasXiaoQing);
+            
             if (hasNiHao && hasXiaoQing) {
-                Log.i(TAG, "Fuzzy match found: " + hypothesis);
+                Log.i(TAG, "Fuzzy match found: " + recognizedText);
                 return true;
             }
         }
         
+        Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
         return false;
+    }
+    
+    /**
+     * 从JSON格式的Vosk识别结果中提取文本
+     */
+    private String extractTextFromJson(String jsonResult) {
+        try {
+            // 尝试解析JSON格式
+            if (jsonResult.contains("\"text\"")) {
+                int start = jsonResult.indexOf("\"text\"") + 7; // 7 = length of "\"text\":"
+                if (start < 7) return null;
+                
+                // 跳过空格和引号
+                while (start < jsonResult.length() && (jsonResult.charAt(start) == ' ' || jsonResult.charAt(start) == '\"')) {
+                    start++;
+                }
+                
+                if (start >= jsonResult.length()) return null;
+                
+                // 查找结束引号
+                int end = start;
+                while (end < jsonResult.length() && jsonResult.charAt(end) != '\"') {
+                    end++;
+                }
+                
+                if (end > start) {
+                    return jsonResult.substring(start, end);
+                }
+            }
+            
+            // 如果不是JSON格式，直接返回原始字符串
+            return jsonResult;
+        } catch (Exception e) {
+            Log.e(TAG, "Error extracting text from JSON: " + e.getMessage());
+            return jsonResult;
+        }
     }
     
     @Override
     public void onPartialResult(String hypothesis) {
+        // 添加调试日志，打印部分识别结果
+        Log.d(TAG, "Received partial recognition result: " + hypothesis);
         // 部分结果，不用于唤醒词检测
     }
     
@@ -373,9 +437,38 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             case "isListening":
                 result.success(isListening);
                 break;
+            case "testRecognition":
+                testRecognition(result);
+                break;
             default:
                 result.notImplemented();
                 break;
+        }
+    }
+    
+    // 测试语音识别功能
+    private void testRecognition(Result result) {
+        Log.i(TAG, "Testing voice recognition...");
+        
+        if (model == null) {
+            Log.e(TAG, "Model not initialized, cannot test recognition");
+            if (result != null) {
+                result.error("MODEL_NOT_INITIALIZED", "Model is not initialized", null);
+            }
+            return;
+        }
+        
+        if (!isListening) {
+            Log.e(TAG, "Not listening, cannot test recognition");
+            if (result != null) {
+                result.error("NOT_LISTENING", "Speech service is not listening", null);
+            }
+            return;
+        }
+        
+        Log.i(TAG, "Recognition test: Model initialized and listening");
+        if (result != null) {
+            result.success(true);
         }
     }
 }

@@ -189,6 +189,16 @@ class VoiceWakeUpService {
     }
   }
   
+  /// 测试语音识别功能
+  Future<void> testRecognition() async {
+    try {
+      final bool result = await _channel.invokeMethod('testRecognition');
+      print('VoiceWakeUpService: Test recognition result: $result');
+    } catch (e) {
+      print('VoiceWakeUpService: Failed to test recognition: $e');
+    }
+  }
+  
   /// 释放资源
   void dispose() {
     onWakeWordDetected = null;
