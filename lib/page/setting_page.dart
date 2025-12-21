@@ -116,15 +116,13 @@ class _SettingPageState extends State<SettingPage> {
         print("SettingPage: Applying Live2D button states - gear: $_isGearVisible, power: $_isPowerVisible");
       }
       
-      // 直接通过MethodChannel控制所有Live2D实例的按钮可见性
+      // 直接通过MethodChannel控制Live2D实例的按钮可见性
       await _live2dChannel.invokeMethod('setGearVisible', {
         'visible': _isGearVisible,
-        'instanceId': null, // null表示应用到所有实例
       });
       
       await _live2dChannel.invokeMethod('setPowerVisible', {
         'visible': _isPowerVisible,
-        'instanceId': null, // null表示应用到所有实例
       });
       
       if (kDebugMode) {

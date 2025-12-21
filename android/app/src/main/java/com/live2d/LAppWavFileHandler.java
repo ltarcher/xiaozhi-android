@@ -190,14 +190,14 @@ public class LAppWavFileHandler extends Thread {
                 // 通知Live2D模型更新口型
                 LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
                 if (live2DManager != null) {
-                    // 通知当前活动的模型更新口型同步值
+                    // 直接使用当前活动的模型更新口型同步值
                     try {
-                        // 获取当前活动的模型索引
                         int currentModelIndex = live2DManager.getCurrentModel();
-                        // 获取当前活动的模型并更新口型同步值
-                        LAppModel model = live2DManager.getModel(currentModelIndex);
-                        if (model != null) {
-                            model.setLipSyncValue(value);
+                        if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
+                            LAppModel model = live2DManager.getModel(currentModelIndex);
+                            if (model != null) {
+                                model.setLipSyncValue(value);
+                            }
                         }
                     } catch (Exception e) {
                         // 静默处理异常，避免影响音频播放

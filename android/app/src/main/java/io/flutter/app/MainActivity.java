@@ -6,8 +6,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.live2d.LAppLive2DManager;
+import com.live2d.LAppModel;
 import com.live2d.LAppDefine.MotionGroup;
-import com.live2d.LAppDefine.Priority;
+import com.live2d.LAppDefine;
 import com.live2d.LAppView;
 import com.live2d.Live2DViewFactory;
 import com.live2d.LAppDelegate;
@@ -27,37 +28,19 @@ public class MainActivity extends FlutterActivity {
     private VoiceWakeUpService voiceWakeUpService;
     private MethodChannel voiceWakeUpChannel;
     
-    // 添加实例映射管理
-    private java.util.Map<String, Integer> instanceMap = new java.util.HashMap<>();
-    private int nextModelIndex = 0;
+    // 单实例支持，不需要实例映射管理
     
     // 表情管理器
     // private ExpressionManager expressionManager = new ExpressionManager();
     
     // 防重复触发表情的机制
-    private java.util.Map<String, String> lastExpressionMap = new java.util.HashMap<>();
+    private String lastExpression = null;
     private static final long EXPRESSION_COOLDOWN_MS = 500; // 500ms冷却时间
     
     // 防重复设置口型同步值的机制
-    private java.util.Map<String, Float> lastLipSyncValueMap = new java.util.HashMap<>();
+    private float lastLipSyncValue = -1.0f;
     private static final float LIPSYNC_THRESHOLD = 0.01f; // 口型同步值变化阈值
 
-    /**
-     * 获取模型索引的辅助方法
-     * @param instanceId 实例ID
-     * @return 模型索引
-     */
-    private int getModelIndex(String instanceId) {
-        if (instanceId == null) {
-            return 0; // 默认索引
-        }
-        
-        if (!instanceMap.containsKey(instanceId)) {
-            instanceMap.put(instanceId, nextModelIndex++);
-        }
-        
-        return instanceMap.get(instanceId);
-    }
 
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
@@ -89,26 +72,23 @@ public class MainActivity extends FlutterActivity {
                             Log.d(TAG, "MethodChannel call received: " + call.method);
                             if (call.method.equals("initLive2D")) {
                                 String modelPath = call.argument("modelPath");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "initLive2D called: modelPath=" + modelPath + ", instanceId=" + instanceId);
+                                Log.d(TAG, "initLive2D called: modelPath=" + modelPath);
                                 
                                 try {
-                                    // 确保实例映射存在
-                                    int modelIndex = getModelIndex(instanceId);
-                                    Log.d(TAG, "initLive2D: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
+                                    // 单实例模式，不需要模型索引
+                                    Log.d(TAG, "initLive2D: initializing single instance");
                                    
                                     // TODO: 实现具体的模型初始化逻辑
                                     // 这里可以根据modelPath加载特定的模型
-                                    result.success(modelIndex);
+                                    result.success(0);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in initLive2D for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in initLive2D", e);
                                     result.error("INIT_ERROR", "Failed to initialize Live2D: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("onTap")) {
                                 Double x = call.argument("x");
                                 Double y = call.argument("y");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "onTap called: x=" + x + ", y=" + y + ", instanceId=" + instanceId);
+                                Log.d(TAG, "onTap called: x=" + x + ", y=" + y);
                                 
                                 try {
                                     // 将触摸事件传递给Live2D模块处理
@@ -122,20 +102,19 @@ public class MainActivity extends FlutterActivity {
                                         appDelegate.onTouchBegan(touchX, touchY);
                                         appDelegate.onTouchEnd(touchX, touchY);
                                         
-                                        Log.d(TAG, "onTap: Successfully processed touch event for instance: " + instanceId);
+                                        Log.d(TAG, "onTap: Successfully processed touch event");
                                         result.success(null);
                                     } else {
                                         Log.e(TAG, "onTap: LAppDelegate is not ready");
                                         result.error("APP_DELEGATE_NOT_READY", "Live2D app delegate is not ready", null);
                                     }
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in onTap for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in onTap", e);
                                     result.error("TAP_ERROR", "Failed to process tap: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("triggerExpression")) {
                                 String expressionName = call.argument("expressionName");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "triggerExpression called: expressionName=" + expressionName + ", instanceId=" + instanceId);
+                                Log.d(TAG, "triggerExpression called: expressionName=" + expressionName);
                                 
                                 // 验证表达式名称
                                 if (expressionName == null || expressionName.isEmpty()) {
@@ -144,8 +123,15 @@ public class MainActivity extends FlutterActivity {
                                     return;
                                 }
                                 
+                                // 检查冷却时间，避免重复触发
+                                long currentTime = System.currentTimeMillis();
+                                if (lastExpression != null && lastExpression.equals(expressionName)) {
+                                    Log.d(TAG, "triggerExpression: Same expression triggered too recently, skipping: " + expressionName);
+                                    result.success(null);
+                                    return;
+                                }
+                                
                                 try {
-                                    // 获取当前模型并触发表情，使用多实例管理
                                     LAppLive2DManager live2DManager;
                                     try {
                                         live2DManager = LAppLive2DManager.getInstance();
@@ -160,87 +146,58 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    // 检查实例是否已经存在映射
-                                    if (!instanceMap.containsKey(instanceId)) {
-                                        Log.w(TAG, "triggerExpression: Instance " + instanceId + " not found in instanceMap, skipping expression trigger");
-                                        result.success(null);
-                                        return;
+                                    // 检查是否有模型加载
+                                    if (live2DManager.getModelNum() == 0) {
+                                        Log.w(TAG, "triggerExpression: No models loaded, forcing scene change to index 0");
+                                        live2DManager.nextScene();
                                     }
-                                   
-                                    Integer modelIndexObj = instanceMap.get(instanceId);
-                                    if (modelIndexObj == null) {
-                                        Log.w(TAG, "triggerExpression: Instance " + instanceId + " not found in instanceMap, skipping expression trigger");
-                                        result.success(null);
-                                        return;
-                                    }
-                                    int modelIndex = modelIndexObj.intValue();
-                                    Log.d(TAG, "triggerExpression: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                   
-                                    if (live2DManager.getModel(modelIndex) != null) {
-                                        // 获取映射后的表达式ID
-                                        String mappedExpressionId = getExpressionId(expressionName);
-                                        Log.d(TAG, "triggerExpression: Mapping '" + expressionName + "' to '" + mappedExpressionId + "'");
-                                       
-                                        // 防重复触发检查
-                                        String instanceKey = instanceId + "_" + modelIndex;
-                                        String lastExpression = lastExpressionMap.get(instanceKey);
-                                        long currentTime = System.currentTimeMillis();
-                                       
-                                        // 如果是相同的表情且在冷却时间内，跳过
-                                        if (lastExpression != null && lastExpression.equals(mappedExpressionId)) {
-                                            Log.d(TAG, "triggerExpression: Skipping duplicate expression '" + mappedExpressionId + "' for instance " + instanceId);
-                                            result.success(null);
-                                            return;
-                                        }
-                                       
-                                        // 检查表达式是否存在
-                                        if (isExpressionAvailable(live2DManager.getModel(modelIndex), mappedExpressionId)) {
-                                            try {
-                                                // 使用映射后的表达式ID
-                                                live2DManager.getModel(modelIndex).setExpression(mappedExpressionId);
-                                               
-                                                // 更新最后触发的表情
-                                                lastExpressionMap.put(instanceKey, mappedExpressionId);
-                                               
-                                                Log.d(TAG, "triggerExpression: Successfully set expression '" + mappedExpressionId + "'");
+                                    
+                                    // 使用当前活动的模型索引
+                                    int currentModelIndex = live2DManager.getCurrentModel();
+                                    if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
+                                        LAppModel model = live2DManager.getModel(currentModelIndex);
+                                        if (model != null) {
+                                            // 检查表达式是否在模型中可用
+                                            if (isExpressionAvailable(model, expressionName)) {
+                                                // 获取表达式ID
+                                                String expressionId = getExpressionId(expressionName);
+                                                Log.d(TAG, "triggerExpression: Using expression ID: " + expressionId + " for expression: " + expressionName);
+                                                
+                                                model.setExpression(expressionId);
+                                                lastExpression = expressionName; // 记录最后触发的表达式
+                                                Log.d(TAG, "triggerExpression: Successfully triggered expression: " + expressionName + " with ID: " + expressionId + " for model index " + currentModelIndex);
                                                 result.success(null);
-                                            } catch (Exception e) {
-                                                Log.e(TAG, "triggerExpression: Error setting expression '" + mappedExpressionId + "'", e);
-                                                // 清除记录，允许下次重试
-                                                lastExpressionMap.remove(instanceKey);
-                                                result.error("EXCEPTION_SET_ERROR", "Failed to set expression: " + e.getMessage(), null);
+                                            } else {
+                                                Log.w(TAG, "triggerExpression: Expression '" + expressionName + "' not available in model, trying random expression");
+                                                model.setRandomExpression(); // 回退到随机表情
+                                                lastExpression = "Random";
+                                                result.success(null);
                                             }
                                         } else {
-                                            Log.w(TAG, "triggerExpression: Expression '" + expressionName + "' (mapped to '" + mappedExpressionId + "') not found in model, using random expression instead");
-                                            // 如果指定的表达式不存在，使用随机表情作为后备
-                                            try {
-                                                live2DManager.getModel(modelIndex).setRandomExpression();
-                                                result.success(null);
-                                            } catch (Exception e) {
-                                                Log.e(TAG, "triggerExpression: Error setting random expression", e);
-                                                result.error("RANDOM_EXPRESSION_ERROR", "Failed to set random expression: " + e.getMessage(), null);
-                                            }
+                                            Log.e(TAG, "triggerExpression: Model is null for index: " + currentModelIndex);
+                                            result.error("MODEL_NULL", "Model is null", null);
                                         }
                                     } else {
-                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
+                                        Log.e(TAG, "triggerExpression: Invalid model index: " + currentModelIndex);
+                                        result.error("INVALID_MODEL_INDEX", "Invalid model index", null);
                                     }
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in triggerExpression for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in triggerExpression for: " + expressionName, e);
                                     result.error("EXPRESSION_ERROR", "Failed to trigger expression: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("playMotion")) {
                                 String motionGroup = call.argument("motionGroup");
                                 Integer priority = call.argument("priority");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "playMotion called: motionGroup=" + motionGroup + ", priority=" + priority + ", instanceId=" + instanceId);
+                                Log.d(TAG, "playMotion called: motionGroup=" + motionGroup + ", priority=" + priority);
                                 
                                 if (motionGroup == null) {
                                     result.error("INVALID_ARGUMENT", "Motion group is null", null);
                                     return;
                                 }
                                 
+                                int motionPriority = (priority != null) ? priority : 1; // 默认优先级为1
+                                
                                 try {
-                                    // 获取当前模型并播放动作，使用多实例管理
                                     LAppLive2DManager live2DManager;
                                     try {
                                         live2DManager = LAppLive2DManager.getInstance();
@@ -255,41 +212,52 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    // 检查实例是否已经存在映射
-                                    if (!instanceMap.containsKey(instanceId)) {
-                                        Log.w(TAG, "playMotion: Instance " + instanceId + " not found in instanceMap, skipping motion play");
-                                        result.success(null);
-                                        return;
+                                    // 检查是否有模型加载
+                                    if (live2DManager.getModelNum() == 0) {
+                                        Log.w(TAG, "playMotion: No models loaded, forcing scene change to index 0");
+                                        live2DManager.nextScene();
                                     }
-                                   
-                                    Integer modelIndexObj = instanceMap.get(instanceId);
-                                    if (modelIndexObj == null) {
-                                        Log.w(TAG, "playMotion: Instance " + instanceId + " not found in instanceMap, skipping motion play");
-                                        result.success(null);
-                                        return;
-                                    }
-                                    int modelIndex = modelIndexObj.intValue();
-                                    Log.d(TAG, "playMotion: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                   
-                                    if (live2DManager.getModel(modelIndex) != null) {
-                                        int prio = priority != null ? priority : Priority.NORMAL.getPriority();
-                                        live2DManager.getModel(modelIndex).startRandomMotion(motionGroup, prio);
-                                        result.success(null);
+                                    
+                                    // 使用当前活动的模型索引
+                                    int currentModelIndex = live2DManager.getCurrentModel();
+                                    if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
+                                        LAppModel model = live2DManager.getModel(currentModelIndex);
+                                        if (model != null) {
+                                            // 触发动作
+                                            Log.d(TAG, "playMotion: Playing motion group: " + motionGroup + " with priority: " + motionPriority);
+                                            
+                                            // 将motionGroup转换为MotionGroup枚举，添加错误处理
+                                            MotionGroup motionGroupEnum;
+                                            try {
+                                                motionGroupEnum = MotionGroup.valueOf(motionGroup.toUpperCase());
+                                            } catch (IllegalArgumentException e) {
+                                                Log.w(TAG, "Unknown motion group: " + motionGroup + ", using IDLE");
+                                                motionGroupEnum = MotionGroup.IDLE;
+                                            }
+                                            // 将优先级整数转换为枚举
+                                            LAppDefine.Priority priorityEnum = motionPriority >= 3 ? LAppDefine.Priority.FORCE :
+                                                                   motionPriority >= 2 ? LAppDefine.Priority.NORMAL :
+                                                                   LAppDefine.Priority.IDLE;
+                                            
+                                            // 使用motionGroupEnum的ID作为动作组名称，number设为0
+                                            model.startMotion(motionGroupEnum.getId(), 0, priorityEnum.getPriority());
+                                            Log.d(TAG, "playMotion: Successfully started motion: " + motionGroup + " with priority: " + motionPriority + " for model index " + currentModelIndex);
+                                            result.success(null);
+                                        } else {
+                                            Log.e(TAG, "playMotion: Model is null for index: " + currentModelIndex);
+                                            result.error("MODEL_NULL", "Model is null", null);
+                                        }
                                     } else {
-                                        result.error("MODEL_NOT_READY", "Live2D model is not ready for instance: " + instanceId, null);
+                                        Log.e(TAG, "playMotion: Invalid model index: " + currentModelIndex);
+                                        result.error("INVALID_MODEL_INDEX", "Invalid model index", null);
                                     }
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in playMotion for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in playMotion for motionGroup: " + motionGroup, e);
                                     result.error("MOTION_ERROR", "Failed to play motion: " + e.getMessage(), null);
                                 }
-                            } else if (call.method.equals("activateInstance")) {
-                                handleActivateInstance(call, result);
-                            } else if (call.method.equals("deactivateInstance")) {
-                                handleDeactivateInstance(call, result);
                             } else if (call.method.equals("setGearVisible")) {
                                 Boolean visible = call.argument("visible");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "setGearVisible called: visible=" + visible + ", instanceId=" + instanceId);
+                                Log.d(TAG, "setGearVisible called: visible=" + visible);
                                 
                                 if (visible == null) {
                                     Log.e(TAG, "setGearVisible: Visible argument is null");
@@ -314,23 +282,22 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    // 设置指定实例的齿轮按钮可见性
+                                    // 设置齿轮按钮可见性
                                     appView.setGearVisible(visible);
-                                    Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ") for instance: " + instanceId);
+                                    Log.d(TAG, "setGearVisible: Called appView.setGearVisible(" + visible + ")");
                                    
                                     // 强制刷新视图
                                     appDelegate.requestRender();
-                                    Log.d(TAG, "setGearVisible: Called appDelegate.requestRender() for instance: " + instanceId);
+                                    Log.d(TAG, "setGearVisible: Called appDelegate.requestRender()");
                                    
                                     result.success(null);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in setGearVisible for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in setGearVisible", e);
                                     result.error("GEAR_VISIBLE_ERROR", "Failed to set gear visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("setPowerVisible")) {
                                 Boolean visible = call.argument("visible");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "setPowerVisible called: visible=" + visible + ", instanceId=" + instanceId);
+                                Log.d(TAG, "setPowerVisible called: visible=" + visible);
                                 
                                 if (visible == null) {
                                     Log.e(TAG, "setPowerVisible: Visible argument is null");
@@ -355,22 +322,21 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    // 设置指定实例的电源按钮可见性
+                                    // 设置电源按钮可见性
                                     appView.setPowerVisible(visible);
-                                    Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ") for instance: " + instanceId);
+                                    Log.d(TAG, "setPowerVisible: Called appView.setPowerVisible(" + visible + ")");
                                    
                                     // 强制刷新视图
                                     appDelegate.requestRender();
-                                    Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender() for instance: " + instanceId);
+                                    Log.d(TAG, "setPowerVisible: Called appDelegate.requestRender()");
                                    
                                     result.success(null);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in setPowerVisible for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in setPowerVisible", e);
                                     result.error("POWER_VISIBLE_ERROR", "Failed to set power visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("isGearVisible")) {
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "isGearVisible called: instanceId=" + instanceId);
+                                Log.d(TAG, "isGearVisible called");
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -388,15 +354,14 @@ public class MainActivity extends FlutterActivity {
                                     }
                                    
                                     boolean visible = appView.isGearVisible();
-                                    Log.d(TAG, "isGearVisible returning: " + visible + " for instance: " + instanceId);
+                                    Log.d(TAG, "isGearVisible returning: " + visible);
                                     result.success(visible);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in isGearVisible for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in isGearVisible", e);
                                     result.error("GEAR_VISIBLE_QUERY_ERROR", "Failed to query gear visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("isPowerVisible")) {
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "isPowerVisible called: instanceId=" + instanceId);
+                                Log.d(TAG, "isPowerVisible called");
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -414,15 +379,14 @@ public class MainActivity extends FlutterActivity {
                                     }
                                    
                                     boolean visible = appView.isPowerVisible();
-                                    Log.d(TAG, "isPowerVisible returning: " + visible + " for instance: " + instanceId);
+                                    Log.d(TAG, "isPowerVisible returning: " + visible);
                                     result.success(visible);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in isPowerVisible for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in isPowerVisible", e);
                                     result.error("POWER_VISIBLE_QUERY_ERROR", "Failed to query power visibility: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("refreshView")) {
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "refreshView called: instanceId=" + instanceId);
+                                Log.d(TAG, "refreshView called");
                                 
                                 try {
                                     LAppDelegate appDelegate = LAppDelegate.getInstance();
@@ -435,16 +399,15 @@ public class MainActivity extends FlutterActivity {
                                    
                                     // 请求重新渲染视图
                                     appDelegate.requestRender();
-                                    Log.d(TAG, "refreshView: Called appDelegate.requestRender() for instance: " + instanceId);
+                                    Log.d(TAG, "refreshView: Called appDelegate.requestRender()");
                                     result.success(null);
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error in refreshView for instance: " + instanceId, e);
+                                    Log.e(TAG, "Error in refreshView", e);
                                     result.error("REFRESH_ERROR", "Failed to refresh view: " + e.getMessage(), null);
                                 }
                             } else if (call.method.equals("setLipSyncValue")) {
                                 Double value = call.argument("value");
-                                String instanceId = call.argument("instanceId");
-                                Log.d(TAG, "setLipSyncValue called: value=" + value + ", instanceId=" + instanceId);
+                                Log.d(TAG, "setLipSyncValue called: value=" + value);
                                 
                                 if (value == null) {
                                     Log.e(TAG, "setLipSyncValue: Value argument is null");
@@ -456,19 +419,14 @@ public class MainActivity extends FlutterActivity {
                                 float lipSyncValue = Math.max(0.0f, Math.min(1.0f, value.floatValue()));
                                 
                                 // 检查值是否与上次设置的值有显著变化
-                                String modelKey = instanceId != null ? instanceId : "live2d_single";
-                                Float lastLipSyncValue = lastLipSyncValueMap.get(modelKey);
-                                
-                                if (lastLipSyncValue != null && Math.abs(lipSyncValue - lastLipSyncValue) < LIPSYNC_THRESHOLD) {
+                                if (Math.abs(lipSyncValue - lastLipSyncValue) < LIPSYNC_THRESHOLD) {
                                     // 值没有显著变化，跳过更新
-                                    Log.d(TAG, "setLipSyncValue: Skipping update for instance " + instanceId +
-                                         " - value (" + lipSyncValue + ") unchanged from last value (" + lastLipSyncValue + ")");
+                                    Log.d(TAG, "setLipSyncValue: Skipping update - value (" + lipSyncValue + ") unchanged from last value (" + lastLipSyncValue + ")");
                                     result.success(null);
                                     return;
                                 }
                                 
                                 try {
-                                    // 获取Live2D管理器
                                     LAppLive2DManager live2DManager;
                                     try {
                                         live2DManager = LAppLive2DManager.getInstance();
@@ -483,66 +441,33 @@ public class MainActivity extends FlutterActivity {
                                         return;
                                     }
                                    
-                                    // 检查实例是否已经存在映射
-                                    if (!instanceMap.containsKey(instanceId)) {
-                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, using default model");
-                                        // 如果实例ID不存在，使用当前活动模型
-                                        if (live2DManager.getModelNum() > 0) {
-                                            int currentModelIndex = live2DManager.getCurrentModel();
-                                            if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum()) {
-                                                live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
-                                                // 更新最后设置的值
-                                                lastLipSyncValueMap.put(modelKey, lipSyncValue);
-                                                Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for current model " + currentModelIndex);
-                                                result.success(null);
-                                                return;
-                                            }
-                                        }
-                                    }
-                                   
-                                    // 根据实例映射获取模型索引
-                                    Integer modelIndexObj = instanceMap.get(instanceId);
-                                    if (modelIndexObj == null) {
-                                        Log.w(TAG, "setLipSyncValue: Instance " + instanceId + " not found in instanceMap, using default model");
-                                        // 如果实例ID不存在，使用当前活动模型
-                                        if (live2DManager.getModelNum() > 0) {
-                                            int currentModelIndex = live2DManager.getCurrentModel();
-                                            if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum() && live2DManager.getModel(currentModelIndex) != null) {
-                                                live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
-                                                // 更新最后设置的值
-                                                lastLipSyncValueMap.put(modelKey, lipSyncValue);
-                                                Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for current model " + currentModelIndex);
-                                                result.success(null);
-                                                return;
-                                            }
-                                        }
-                                        Log.w(TAG, "setLipSyncValue: No Live2D model available");
-                                        result.error("MODEL_NOT_AVAILABLE", "No Live2D model available", null);
-                                        return;
+                                    // 检查是否有模型加载
+                                    if (live2DManager.getModelNum() == 0) {
+                                        Log.w(TAG, "setLipSyncValue: No models loaded, forcing scene change to index 0");
+                                        live2DManager.nextScene();
                                     }
                                     
-                                    int modelIndex = modelIndexObj.intValue();
-                                    Log.d(TAG, "setLipSyncValue: instanceId=" + instanceId + " -> modelIndex=" + modelIndex);
-                                   
-                                    if (live2DManager.getModelNum() > 0 && modelIndex >= 0 && modelIndex < live2DManager.getModelNum() && live2DManager.getModel(modelIndex) != null) {
-                                        live2DManager.getModel(modelIndex).setLipSyncValue(lipSyncValue);
-                                        // 更新最后设置的值
-                                        lastLipSyncValueMap.put(modelKey, lipSyncValue);
-                                        Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue + " for model " + modelIndex);
-                                        result.success(null);
-                                    } else {
-                                        // 如果指定的模型不可用，使用当前活动模型
-                                        int currentModelIndex = live2DManager.getCurrentModel();
-                                        if (currentModelIndex >= 0 && currentModelIndex < live2DManager.getModelNum() && live2DManager.getModel(currentModelIndex) != null) {
-                                            live2DManager.getModel(currentModelIndex).setLipSyncValue(lipSyncValue);
-                                            // 更新最后设置的值
-                                            lastLipSyncValueMap.put(modelKey, lipSyncValue);
-                                            Log.d(TAG, "setLipSyncValue: Using current model " + currentModelIndex + " instead of requested " + modelIndex);
+                                    // 在单实例模式下，直接使用当前活动模型
+                                    // 不依赖索引，而是直接获取当前活动的模型
+                                    LAppModel model = null;
+                                    try {
+                                        // 尝试获取第一个可用的模型
+                                        if (live2DManager.getModelNum() > 0) {
+                                            model = live2DManager.getModel(0);
+                                        }
+                                        
+                                        if (model != null) {
+                                            model.setLipSyncValue(lipSyncValue);
+                                            lastLipSyncValue = lipSyncValue; // 更新最后设置的值
+                                            Log.d(TAG, "setLipSyncValue: Successfully set lip sync value " + lipSyncValue);
                                             result.success(null);
                                         } else {
-                                            Log.w(TAG, "setLipSyncValue: No Live2D model available");
-                                            result.error("MODEL_NOT_AVAILABLE", "No Live2D model available", null);
+                                            Log.e(TAG, "setLipSyncValue: No available model found");
+                                            result.error("MODEL_NULL", "No available model", null);
                                         }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "setLipSyncValue: Error accessing model", e);
+                                        result.error("MODEL_ACCESS_ERROR", "Error accessing model: " + e.getMessage(), null);
                                     }
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in setLipSyncValue", e);
@@ -572,9 +497,8 @@ public class MainActivity extends FlutterActivity {
     /**
      * 根据模型名称切换到指定模型
      * @param modelPath 模型路径（通常是模型名称）
-     * @param instanceId 实例ID
      */
-    private void changeToModelByName(String modelPath, String instanceId) {
+    private void changeToModelByName(String modelPath) {
         try {
             LAppLive2DManager live2DManager;
             try {
@@ -605,7 +529,7 @@ public class MainActivity extends FlutterActivity {
                 live2DManager.nextScene();
             }
             
-            Log.d(TAG, "changeToModelByName: Model loading completed for instance: " + instanceId);
+            Log.d(TAG, "changeToModelByName: Model loading completed");
             
         } catch (Exception e) {
             Log.e(TAG, "changeToModelByName: Error changing model", e);
@@ -678,123 +602,4 @@ public class MainActivity extends FlutterActivity {
         return expressionName;
     }
 
-    /**
-     * 处理实例激活请求
-     *
-     * @param call MethodCall对象
-     * @param result 结果回调
-     */
-    private void handleActivateInstance(MethodCall call, MethodChannel.Result result) {
-        String instanceId = call.argument("instanceId");
-        String modelPath = call.argument("modelPath");
-        
-        Log.d(TAG, "activateInstance called: instanceId=" + instanceId + ", modelPath=" + modelPath);
-        
-        if (instanceId == null) {
-            result.error("INVALID_ARGUMENT", "Instance ID is null", null);
-            return;
-        }
-        
-        try {
-            LAppLive2DManager live2DManager;
-            try {
-                live2DManager = LAppLive2DManager.getInstance();
-                if (live2DManager == null) {
-                    Log.e(TAG, "activateInstance: LAppLive2DManager.getInstance() returned null");
-                    result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
-                    return;
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "activateInstance: Error getting LAppLive2DManager instance", e);
-                result.error("MANAGER_ERROR", "Failed to get Live2D manager: " + e.getMessage(), null);
-                return;
-            }
-            
-            // 确保至少有一个模型加载
-            if (live2DManager.getModelNum() == 0) {
-                Log.d(TAG, "activateInstance: No models loaded, forcing scene change to index 0");
-                live2DManager.nextScene();
-            }
-            
-            // 如果提供了模型路径，尝试切换到指定模型
-            if (modelPath != null && !modelPath.isEmpty()) {
-                Log.d(TAG, "activateInstance: Attempting to load model from path: " + modelPath);
-                changeToModelByName(modelPath, instanceId);
-            }
-            
-            // 确保实例映射存在，映射到当前活动模型
-            int currentModelIndex = live2DManager.getCurrentModel();
-            if (!instanceMap.containsKey(instanceId)) {
-                instanceMap.put(instanceId, currentModelIndex);
-                Log.d(TAG, "activateInstance: Created new mapping for instance: " + instanceId + " -> modelIndex: " + currentModelIndex);
-            } else {
-                // 更新现有映射到当前模型
-                instanceMap.put(instanceId, currentModelIndex);
-                Log.d(TAG, "activateInstance: Updated existing mapping for instance: " + instanceId + " -> modelIndex: " + currentModelIndex);
-            }
-            
-            Log.d(TAG, "Instance activated: " + instanceId + " -> modelIndex: " + instanceMap.get(instanceId));
-            result.success(instanceMap.get(instanceId));
-        } catch (Exception e) {
-            Log.e(TAG, "Error in activateInstance for: " + instanceId, e);
-            result.error("ACTIVATE_INSTANCE_ERROR", "Failed to activate instance: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * 处理实例停用请求
-     *
-     * @param call MethodCall对象
-     * @param result 结果回调
-     */
-    private void handleDeactivateInstance(MethodCall call, MethodChannel.Result result) {
-        String instanceId = call.argument("instanceId");
-        
-        Log.d(TAG, "deactivateInstance called: instanceId=" + instanceId);
-        
-        if (instanceId == null) {
-            result.error("INVALID_ARGUMENT", "Instance ID is null", null);
-            return;
-        }
-        
-        try {
-            if (instanceMap.containsKey(instanceId)) {
-                Integer modelIndexObj = instanceMap.get(instanceId);
-                if (modelIndexObj == null) {
-                    Log.w(TAG, "deactivateInstance: Instance " + instanceId + " not found in instanceMap, skipping");
-                    result.success(null);
-                    return;
-                }
-                int modelIndex = modelIndexObj.intValue();
-                
-                // 释放模型资源
-                LAppLive2DManager live2DManager;
-                try {
-                    live2DManager = LAppLive2DManager.getInstance();
-                    if (live2DManager == null) {
-                        Log.e(TAG, "deactivateInstance: LAppLive2DManager.getInstance() returned null");
-                        result.success(null);
-                        return;
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "deactivateInstance: Error getting LAppLive2DManager instance", e);
-                    result.success(null); // 不报错，只是记录
-                    return;
-                }
-                if (live2DManager.getModel(modelIndex) != null) {
-                    live2DManager.getModel(modelIndex).deleteModel();
-                }
-                
-                // 从映射中移除
-                instanceMap.remove(instanceId);
-                
-                Log.d(TAG, "Instance deactivated: " + instanceId);
-            }
-            
-            result.success(null);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in deactivateInstance for: " + instanceId, e);
-            result.error("DEACTIVATE_INSTANCE_ERROR", "Failed to deactivate instance: " + e.getMessage(), null);
-        }
-    }
 }

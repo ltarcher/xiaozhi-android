@@ -20,7 +20,6 @@ public class Live2DPlatformView implements PlatformView {
     private final GLRenderer glRenderer;
     private Activity activity;
     private String modelPath;
-    private String instanceId;
 
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
         Log.d(TAG, "Live2DPlatformView constructor called");
@@ -28,8 +27,7 @@ public class Live2DPlatformView implements PlatformView {
         // 解析创建参数
         if (creationParams != null) {
             this.modelPath = (String) creationParams.get("modelPath");
-            this.instanceId = (String) creationParams.get("instanceId");
-            Log.d(TAG, "Creating view with modelPath: " + this.modelPath + ", instanceId: " + this.instanceId);
+            Log.d(TAG, "Creating view with modelPath: " + this.modelPath);
         } else {
             Log.d(TAG, "Creating view with no parameters");
         }
@@ -84,8 +82,8 @@ public class Live2DPlatformView implements PlatformView {
         LAppDelegate.getInstance().setLive2DPlatformView(this);
         
         // 现在GLSurfaceView已创建，可以安全地初始化参数
-        if (this.modelPath != null || this.instanceId != null) {
-            initializeWithParams(this.modelPath, this.instanceId);
+        if (this.modelPath != null) {
+            initializeWithParams(this.modelPath);
         }
         
         // 设置触摸事件处理
@@ -181,24 +179,15 @@ public class Live2DPlatformView implements PlatformView {
     /**
      * 使用参数初始化Live2D平台视图
      * @param modelPath 模型路径
-     * @param instanceId 实例ID
      */
-    public void initializeWithParams(String modelPath, String instanceId) {
+    public void initializeWithParams(String modelPath) {
         this.modelPath = modelPath;
-        this.instanceId = instanceId;
         
-        Log.d(TAG, "Initialized with modelPath: " + modelPath + ", instanceId: " + instanceId);
+        Log.d(TAG, "Initialized with modelPath: " + modelPath);
         
         // 通知Live2D模块参数信息
         LAppDelegate appDelegate = LAppDelegate.getInstance();
         if (appDelegate != null) {
-            // 可以通过appDelegate传递参数到具体的Live2D实例
-            if (instanceId != null) {
-                // 确保MainActivity知道这个实例
-                // 这里可以通过某种方式通知MainActivity
-                Log.d(TAG, "Instance ID registered with Live2D module: " + instanceId);
-            }
-            
             // 如果提供了模型路径，可以考虑预加载模型
             if (modelPath != null && !modelPath.isEmpty()) {
                 Log.d(TAG, "Model path provided: " + modelPath);
@@ -225,13 +214,6 @@ public class Live2DPlatformView implements PlatformView {
         }
     }
     
-    /**
-     * 获取当前实例ID
-     * @return 实例ID
-     */
-    public String getInstanceId() {
-        return instanceId;
-    }
     
     /**
      * 获取当前模型路径

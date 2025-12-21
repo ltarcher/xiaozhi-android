@@ -365,7 +365,7 @@ public class LAppLive2DManager {
     /**
      * 显示场景的索引值
      */
-    private int currentModel;
+    private int currentModel = 0; // 默认初始化为0
 
     /**
      * 模型目录名称

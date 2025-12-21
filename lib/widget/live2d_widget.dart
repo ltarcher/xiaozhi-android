@@ -8,7 +8,6 @@ class Live2DWidget extends StatefulWidget {
   final String modelPath;
   final double width;
   final double height;
-  final String? instanceId; // 新增：实例ID，用于区分不同页面的Live2D实例
   final bool gearVisible;   // 齿轮按钮可见性
   final bool powerVisible;  // 电源按钮可见性
 
@@ -17,7 +16,6 @@ class Live2DWidget extends StatefulWidget {
     required this.modelPath,
     required this.width,
     required this.height,
-    this.instanceId, // 可选的实例ID参数
     this.gearVisible = false,  // 默认可见
     this.powerVisible = false, // 默认可见
   });
@@ -63,7 +61,6 @@ class Live2DWidget extends StatefulWidget {
 
 class _Live2DWidgetState extends State<Live2DWidget> {
   static const MethodChannel _channel = MethodChannel('live2d_channel');
-  String? _actualInstanceId; // 实际使用的实例ID
   int? _viewId; // 用于存储平台视图的ID
   bool _isActive = false; // 标记当前实例是否处于激活状态
   bool _isDisposed = false; // 标记当前组件是否已被销毁
@@ -80,10 +77,8 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     _gearVisible = widget.gearVisible;
     _powerVisible = widget.powerVisible;
     
-    // 如果没有提供instanceId，则使用widget的hashCode作为唯一标识
-    _actualInstanceId = widget.instanceId ?? 'live2d_${widget.hashCode}';
     if (kDebugMode) {
-      print("Live2DWidget: initState called with instanceId: $_actualInstanceId, gearVisible: $_gearVisible, powerVisible: $_powerVisible");
+      print("Live2DWidget: initState called with gearVisible: $_gearVisible, powerVisible: $_powerVisible");
     }
     
     // 延迟初始化，确保Widget完全构建后再初始化Live2D
@@ -121,7 +116,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         await _setGearVisible(_gearVisible);
         await _setPowerVisible(_powerVisible);
         if (kDebugMode) {
-          print("Live2DWidget: Applied updated visibility states for instance: $_actualInstanceId");
+          print("Live2DWidget: Applied updated visibility states");
         }
       } catch (e) {
         if (kDebugMode) {
@@ -134,12 +129,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _initLive2D() async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Initializing Live2D with model path: ${widget.modelPath}, instanceId: $_actualInstanceId");
+        print("Live2DWidget: Initializing Live2D with model path: ${widget.modelPath}");
       }
       
       await _channel.invokeMethod('initLive2D', {
         'modelPath': widget.modelPath,
-        'instanceId': _actualInstanceId,
       });
       
       // 等待一小段时间确保原生日志流完成
@@ -160,7 +154,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       }
       
       if (kDebugMode) {
-        print("Live2DWidget: Live2D initialized successfully for instance: $_actualInstanceId");
+        print("Live2DWidget: Live2D initialized successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -189,16 +183,13 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     try {
       _isActive = true;
       if (kDebugMode) {
-        print("Activating Live2D instance: $_actualInstanceId with gear: $_gearVisible, power: $_powerVisible");
+        print("Activating Live2D with gear: $_gearVisible, power: $_powerVisible");
       }
       
       // 重新初始化Live2D，因为PlatformView可能已被销毁
       await _initLive2D();
       
-      // 激活实例
-      await _channel.invokeMethod('activateInstance', {
-        'instanceId': _actualInstanceId,
-      });
+      // 单实例模式不需要激活实例
       
       // 应用当前的按钮可见性状态
       await _applyVisibilityStates();
@@ -206,7 +197,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       // 强制刷新UI，但只在必要时
       if (mounted) {
         if (kDebugMode) {
-          print("Refreshing UI for Live2D instance: $_actualInstanceId");
+          print("Refreshing UI for Live2D");
         }
         // 标记需要重建PlatformView
         _needsRebuild = true;
@@ -214,7 +205,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       }
       
       if (kDebugMode) {
-        print("Live2D instance activated successfully: $_actualInstanceId");
+        print("Live2D activated successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -250,15 +241,13 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     try {
       _isActive = false;
       if (kDebugMode) {
-        print("Deactivating Live2D instance: $_actualInstanceId");
+        print("Deactivating Live2D");
       }
       
-      await _channel.invokeMethod('deactivateInstance', {
-        'instanceId': _actualInstanceId,
-      });
+      // 单实例模式不需要停用实例
       
       if (kDebugMode) {
-        print("Live2D instance deactivated successfully: $_actualInstanceId");
+        print("Live2D deactivated successfully");
       }
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -278,12 +267,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> onTap(double x, double y) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: onTap called with x:$x, y:$y for instance: $_actualInstanceId");
+        print("Live2DWidget: onTap called with x:$x, y:$y");
       }
       await _channel.invokeMethod('onTap', {
         'x': x,
         'y': y,
-        'instanceId': _actualInstanceId, // 传递实例ID
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -304,11 +292,10 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _triggerExpression(String expressionName) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Triggering expression: $expressionName for instance: $_actualInstanceId");
+        print("Live2DWidget: Triggering expression: $expressionName");
       }
       await _channel.invokeMethod('triggerExpression', {
         'expressionName': expressionName,
-        'instanceId': _actualInstanceId, // 传递实例ID
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -329,12 +316,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _playMotion(String motionGroup, [int priority = 1]) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Playing motion: $motionGroup with priority: $priority for instance: $_actualInstanceId");
+        print("Live2DWidget: Playing motion: $motionGroup with priority: $priority");
       }
       await _channel.invokeMethod('playMotion', {
         'motionGroup': motionGroup,
         'priority': priority,
-        'instanceId': _actualInstanceId, // 传递实例ID
       });
     } on PlatformException catch (e) {
       if (kDebugMode) {
@@ -357,12 +343,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     if ((value - _lastLipSyncValue).abs() > 0.01) {
       try {
         if (kDebugMode) {
-          print("Live2DWidget: Setting lip sync value to: $value for instance: $_actualInstanceId");
+          print("Live2DWidget: Setting lip sync value to: $value");
         }
         
         await _channel.invokeMethod('setLipSyncValue', {
           'value': value,
-          'instanceId': _actualInstanceId,
         });
         
         // 更新上次设置的值
@@ -396,7 +381,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _setGearVisible(bool visible) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Setting gear visible to: $visible for instance: $_actualInstanceId");
+        print("Live2DWidget: Setting gear visible to: $visible");
       }
       
       // 更新内部状态
@@ -404,7 +389,6 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       
       await _channel.invokeMethod('setGearVisible', {
         'visible': visible,
-        'instanceId': _actualInstanceId,
       });
       
       if (kDebugMode) {
@@ -428,7 +412,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _setPowerVisible(bool visible) async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Setting power visible to: $visible for instance: $_actualInstanceId");
+        print("Live2DWidget: Setting power visible to: $visible");
       }
       
       // 更新内部状态
@@ -436,7 +420,6 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       
       await _channel.invokeMethod('setPowerVisible', {
         'visible': visible,
-        'instanceId': _actualInstanceId,
       });
       
       if (kDebugMode) {
@@ -460,11 +443,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<bool?> _isGearVisible() async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Getting gear visible state for instance: $_actualInstanceId");
+        print("Live2DWidget: Getting gear visible state");
       }
-      final result = await _channel.invokeMethod('isGearVisible', {
-        'instanceId': _actualInstanceId,
-      });
+      final result = await _channel.invokeMethod('isGearVisible');
       if (kDebugMode) {
         print("Live2DWidget: Gear visible state: $result");
       }
@@ -490,11 +471,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<bool?> _isPowerVisible() async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Getting power visible state for instance: $_actualInstanceId");
+        print("Live2DWidget: Getting power visible state");
       }
-      final result = await _channel.invokeMethod('isPowerVisible', {
-        'instanceId': _actualInstanceId,
-      });
+      final result = await _channel.invokeMethod('isPowerVisible');
       if (kDebugMode) {
         print("Live2DWidget: Power visible state: $result");
       }
@@ -521,12 +500,10 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _refreshView() async {
     try {
       if (kDebugMode) {
-        print("Live2DWidget: Refreshing view for instance: $_actualInstanceId");
+        print("Live2DWidget: Refreshing view");
       }
       
-      await _channel.invokeMethod('refreshView', {
-        'instanceId': _actualInstanceId,
-      });
+      await _channel.invokeMethod('refreshView');
     } on PlatformException catch (e) {
       if (kDebugMode) {
         print("Live2DWidget: Failed to refresh view: ${e.message}");
@@ -544,7 +521,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
 
   void _onPlatformViewCreated(int id) {
     if (kDebugMode) {
-      print("Live2DWidget: Live2D platform view created with id: $id, instanceId: $_actualInstanceId");
+      print("Live2DWidget: Live2D platform view created with id: $id");
     }
     _viewId = id;
   }
@@ -553,7 +530,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   void dispose() {
     // 组件销毁时通知原生层清理资源
     if (kDebugMode) {
-      print("Live2DWidget: Disposing widget for instance: $_actualInstanceId");
+      print("Live2DWidget: Disposing widget");
     }
     
     _isDisposed = true;
@@ -564,20 +541,19 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> _cleanup() async {
     if (_viewId == null) {
       if (kDebugMode) {
-        print("Skipping cleanup - no viewId for instance: $_actualInstanceId");
+        print("Skipping cleanup - no viewId");
       }
       return;
     }
     
     try {
       if (kDebugMode) {
-        print("Cleaning up Live2D instance: $_actualInstanceId with viewId: $_viewId");
+        print("Cleaning up Live2D with viewId: $_viewId");
       }
       
       // 只有在插件可用时才调用cleanupInstance
       try {
         await _channel.invokeMethod('cleanupInstance', {
-          'instanceId': _actualInstanceId,
           'viewId': _viewId,
         });
       } catch (e) {
@@ -588,11 +564,11 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       }
       
       if (kDebugMode) {
-        print("Live2D instance cleanup call completed: $_actualInstanceId");
+        print("Live2D cleanup call completed");
       }
     } catch (e) {
       if (kDebugMode) {
-        print("Error cleaning up Live2D instance: $e");
+        print("Error cleaning up Live2D: $e");
       }
     }
   }
@@ -601,12 +577,10 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> refresh() async {
     try {
       if (kDebugMode) {
-        print("Refreshing Live2D instance: $_actualInstanceId");
+        print("Refreshing Live2D");
       }
       
-      await _channel.invokeMethod('refreshView', {
-        'instanceId': _actualInstanceId,
-      });
+      await _channel.invokeMethod('refreshView');
     } on PlatformException catch (e) {
       if (kDebugMode) {
         print("Failed to refresh Live2D instance: ${e.message}");
@@ -634,7 +608,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     // 在Android平台上使用AndroidView来嵌入原生视图
     if (defaultTargetPlatform == TargetPlatform.android) {
       if (kDebugMode) {
-        print("Live2DWidget: Building Live2D AndroidView with params: ${widget.modelPath}, instanceId: $_actualInstanceId, needsRebuild: $_needsRebuild");
+        print("Live2DWidget: Building Live2D AndroidView with params: ${widget.modelPath}, needsRebuild: $_needsRebuild");
       }
       
       // 如果需要重建，先返回一个空容器然后在下一帧重建
@@ -643,7 +617,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             if (kDebugMode) {
-              print("Live2DWidget: Rebuilding after delay for instance: $_actualInstanceId");
+              print("Live2DWidget: Rebuilding after delay");
             }
             setState(() {});
           }
@@ -665,7 +639,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
         child: GestureDetector(
           onTapUp: (details) {
             if (kDebugMode) {
-              print("Live2DWidget: Live2D widget tapped on instance: $_actualInstanceId");
+              print("Live2DWidget: Live2D widget tapped");
             }
             
             final RenderBox renderBox = context.findRenderObject() as RenderBox;
@@ -676,7 +650,6 @@ class _Live2DWidgetState extends State<Live2DWidget> {
             viewType: 'live2d_view',
             creationParams: {
               'modelPath': widget.modelPath,
-              'instanceId': _actualInstanceId, // 传递实例ID给原生层
             },
             creationParamsCodec: const StandardMessageCodec(),
             onPlatformViewCreated: _onPlatformViewCreated,
