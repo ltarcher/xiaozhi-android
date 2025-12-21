@@ -76,14 +76,6 @@ flutter:
     - assets/live2d/Wanko/motions/
     - assets/live2d/Wanko/Wanko.1024/
     - assets/live2d/Shaders/
-    - assets/vosk/
-    - assets/vosk/models/
-    - assets/vosk/models/vosk-model-small-cn-0.22/
-    - assets/vosk/models/vosk-model-small-cn-0.22/am/
-    - assets/vosk/models/vosk-model-small-cn-0.22/conf/
-    - assets/vosk/models/vosk-model-small-cn-0.22/graph/
-    - assets/vosk/models/vosk-model-small-cn-0.22/graph/phones/
-    - assets/vosk/models/vosk-model-small-cn-0.22/ivector/
 
 flutter_intl:
   enabled: true
