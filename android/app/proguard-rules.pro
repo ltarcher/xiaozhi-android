@@ -49,3 +49,39 @@
 
 # Keep Flutter plugin classes
 -keep class com.plugin.flutter_live2d.FlutterLive2dPlugin
+
+# Keep JNA (Java Native Access) classes and methods
+-keep class com.sun.jna.** { *; }
+-keep class com.sun.jna.internal.** { *; }
+-keepclassmembers class * {
+    native <methods>;
+}
+
+# Keep JNA Pointer and related classes
+-keep class com.sun.jna.Pointer
+-keep class com.sun.jna.Pointer$*
+-keep class com.sun.jna.Structure
+-keep class com.sun.jna.Structure$*
+-keep class com.sun.jna.Memory
+-keep class com.sun.jna.Callback
+-keep class com.sun.jna.Library
+
+# Keep Vosk speech recognition library classes
+-keep class org.vosk.** { *; }
+-keep class com.alphacephei.** { *; }
+
+# Suppress warnings for JNA and Vosk
+-dontwarn com.sun.jna.**
+-dontwarn org.vosk.**
+-dontwarn com.alphacephei.**
+
+# Preserve all native methods in Vosk
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Keep classes that might be accessed via reflection by Vosk and JNA
+-keep class org.vosk.LibVosk { *; }
+-keep class org.vosk.Recognizer { *; }
+-keep class org.vosk.Model { *; }
+-keep class org.vosk.SpeakerModel { *; }
