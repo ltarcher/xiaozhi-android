@@ -1005,7 +1005,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   color: Colors.transparent,
                                   child: Live2DWidget(
                                     key: _live2DKey, // 添加key以便访问widget状态
-                                    modelPath: "assets/live2d/Haru/Haru.model3.json",
+                                    modelPath: "", // 使用空路径，让原生端从索引加载模型
                                     // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
                                     width: constraints.maxWidth,
                                     height: constraints.maxHeight,

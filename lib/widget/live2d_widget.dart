@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:xiaozhi/util/shared_preferences_util.dart';
 
 class Live2DWidget extends StatefulWidget {
   final String modelPath;
@@ -144,6 +145,9 @@ class _Live2DWidgetState extends State<Live2DWidget> {
       // 等待一小段时间确保原生日志流完成
       await Future.delayed(Duration(milliseconds: 200));
       
+      // 获取并应用模型索引
+      await _applyStoredModelIndex();
+      
       // 强制应用当前按钮可见性状态，无论_isActive状态如何
       try {
         await _setGearVisible(_gearVisible);
@@ -172,6 +176,35 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     } catch (e) {
       if (kDebugMode) {
         print("Live2DWidget: Unexpected error initializing Live2D: $e");
+      }
+    }
+  }
+  
+  // 获取并应用存储的模型索引
+  Future<void> _applyStoredModelIndex() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      int? modelIndex = await prefsUtil.getLive2DModelIndex();
+      
+      if (modelIndex != null) {
+        if (kDebugMode) {
+          print("Live2DWidget: Applying stored model index: $modelIndex");
+        }
+        
+        // 应用存储的模型索引
+        await _changeModel(modelIndex);
+        
+        if (kDebugMode) {
+          print("Live2DWidget: Successfully applied stored model index: $modelIndex");
+        }
+      } else {
+        if (kDebugMode) {
+          print("Live2DWidget: No stored model index found, using default");
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Error applying stored model index: $e");
       }
     }
   }
