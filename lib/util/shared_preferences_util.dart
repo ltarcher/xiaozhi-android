@@ -24,6 +24,8 @@ class SharedPreferencesUtil {
 
   final String _keyWakeWord = 'WAKE_WORD';
 
+  final String _keyLive2DModelIndex = 'LIVE2D_MODEL_INDEX';
+
   Future<void> init() async {
     String? otaUrl = await getOtaUrl();
     if (null == otaUrl) {
@@ -110,5 +112,13 @@ class SharedPreferencesUtil {
 
   Future<bool> setWakeWord(String value) async {
     return (await SharedPreferences.getInstance()).setString(_keyWakeWord, value);
+  }
+
+  Future<int?> getLive2DModelIndex() async {
+    return (await SharedPreferences.getInstance()).getInt(_keyLive2DModelIndex);
+  }
+
+  Future<bool> setLive2DModelIndex(int value) async {
+    return (await SharedPreferences.getInstance()).setInt(_keyLive2DModelIndex, value);
   }
 }

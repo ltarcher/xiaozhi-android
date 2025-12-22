@@ -72,6 +72,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 从持久化存储恢复按钮可见性状态
     _restoreButtonStates();
     
+    // 从持久化存储恢复Live2D模型索引
+    _restoreModelIndex();
+    
     // 初始化口型同步控制器
     _lipSyncController = LipSyncController(
       onLipSyncUpdate: _onLipSyncUpdate,
@@ -155,6 +158,41 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } catch (e) {
       if (kDebugMode) {
         print('ChatPage: Error restoring button states: $e');
+      }
+    }
+  }
+  
+  // 从持久化存储恢复模型索引
+  Future<void> _restoreModelIndex() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      int? modelIndex = await prefsUtil.getLive2DModelIndex();
+      
+      if (kDebugMode) {
+        print('ChatPage: Restored model index: $modelIndex');
+      }
+      
+      // 延迟设置模型索引，确保Live2D组件已完全初始化
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _live2DKey.currentState != null) {
+          // 通过MethodChannel通知原生Android切换到指定模型
+          if (modelIndex != null) {
+            try {
+              (_live2DKey.currentState as dynamic).changeModel(modelIndex);
+              if (kDebugMode) {
+                print('ChatPage: Successfully changed to model index: $modelIndex');
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('ChatPage: Error changing model index: $e');
+              }
+            }
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error restoring model index: $e');
       }
     }
   }
@@ -1001,9 +1039,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                           text,
                                           style: TextStyle(
                                             color: Theme.of(context)
-                                                .colorScheme
-                                                .onPrimaryContainer
-                                                .withValues(alpha: 0.5),
+                                                  .colorScheme
+                                                  .onPrimaryContainer
+                                                  .withValues(alpha: 0.5),
                                           ),
                                         ),
                                       );
@@ -1056,13 +1094,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                                       e.text,
                                                       style: TextStyle(
                                                         color:
-                                                            e.sendByMe
-                                                                ? Theme.of(context)
-                                                                    .colorScheme
-                                                                    .onPrimaryContainer
-                                                                : Theme.of(context)
-                                                                    .colorScheme
-                                                                    .onTertiaryContainer,
+                                                              e.sendByMe
+                                                                  ? Theme.of(context)
+                                                                      .colorScheme
+                                                                      .onPrimaryContainer
+                                                                  : Theme.of(context)
+                                                                      .colorScheme
+                                                                      .onTertiaryContainer,
                                                       ),
                                                     ),
                                                   ),

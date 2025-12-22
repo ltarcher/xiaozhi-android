@@ -57,6 +57,11 @@ class Live2DWidget extends StatefulWidget {
   Future<bool?> isPowerVisible() async {
     return Future.value(null);
   }
+  
+  // 切换模型的方法
+  Future<void> changeModel(int index) async {
+    return Future.value();
+  }
 }
 
 class _Live2DWidgetState extends State<Live2DWidget> {
@@ -496,6 +501,35 @@ class _Live2DWidgetState extends State<Live2DWidget> {
     }
   }
   
+  // 添加切换模型的方法
+  Future<void> _changeModel(int index) async {
+    try {
+      if (kDebugMode) {
+        print("Live2DWidget: Changing model to index: $index");
+      }
+      
+      await _channel.invokeMethod('changeModel', {
+        'index': index,
+      });
+      
+      if (kDebugMode) {
+        print("Live2DWidget: Model changed successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to change model due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to change model - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Unexpected error changing model: $e");
+      }
+    }
+  }
+  
   // 添加刷新视图的方法
   Future<void> _refreshView() async {
     try {
@@ -602,6 +636,7 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> setPowerVisible(bool visible) => _setPowerVisible(visible);
   Future<bool?> isGearVisible() => _isGearVisible();
   Future<bool?> isPowerVisible() => _isPowerVisible();
+  Future<void> changeModel(int index) => _changeModel(index);
   
   @override
   Widget build(BuildContext context) {

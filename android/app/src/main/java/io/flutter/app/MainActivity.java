@@ -21,6 +21,10 @@ import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends FlutterActivity {
     private static final String CHANNEL = "live2d_channel";
     private static final String TAG = "MainActivity";
@@ -473,6 +477,66 @@ public class MainActivity extends FlutterActivity {
                                     Log.e(TAG, "Error in setLipSyncValue", e);
                                     result.error("LIPSYNC_ERROR", "Failed to set lip sync value: " + e.getMessage(), null);
                                 }
+                            } else if (call.method.equals("getModelList")) {
+                                Log.d(TAG, "getModelList called");
+                                
+                                try {
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    if (live2DManager == null) {
+                                        Log.e(TAG, "getModelList: LAppLive2DManager.getInstance() returned null");
+                                        result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                                        return;
+                                    }
+                                    
+                                    // 获取模型目录列表
+                                    List<String> modelList = getModelListFromManager(live2DManager);
+                                    Log.d(TAG, "getModelList: Returning model list: " + modelList.toString());
+                                    result.success(modelList);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in getModelList", e);
+                                    result.error("MODEL_LIST_ERROR", "Failed to get model list: " + e.getMessage(), null);
+                                }
+                            } else if (call.method.equals("changeModel")) {
+                                Integer index = call.argument("index");
+                                Log.d(TAG, "changeModel called: index=" + index);
+                                
+                                if (index == null) {
+                                    Log.e(TAG, "changeModel: Index argument is null");
+                                    result.error("INVALID_ARGUMENT", "Index argument is null", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                                    if (live2DManager == null) {
+                                        Log.e(TAG, "changeModel: LAppLive2DManager.getInstance() returned null");
+                                        result.error("MANAGER_NOT_INITIALIZED", "Live2D manager is not initialized", null);
+                                        return;
+                                    }
+                                    
+                                    // 先检查Live2DManager是否已经初始化
+                                    if (live2DManager.getModelNum() == 0) {
+                                        Log.w(TAG, "changeModel: No models loaded in Live2DManager, calling nextScene to load first model");
+                                        live2DManager.nextScene();
+                                        result.success(null);
+                                        return;
+                                    }
+                                    
+                                    // 检查索引是否有效
+                                    if (index < 0 || index >= live2DManager.getModelNum()) {
+                                        Log.e(TAG, "changeModel: Invalid model index: " + index + ", model count: " + live2DManager.getModelNum());
+                                        result.error("INVALID_MODEL_INDEX", "Invalid model index: " + index, null);
+                                        return;
+                                    }
+                                    
+                                    // 切换到指定模型
+                                    live2DManager.changeScene(index);
+                                    Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                    result.success(null);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in changeModel", e);
+                                    result.error("CHANGE_MODEL_ERROR", "Failed to change model: " + e.getMessage(), null);
+                                }
                             } else {
                                 Log.w(TAG, "Unknown method called: " + call.method);
                                 result.notImplemented();
@@ -600,6 +664,30 @@ public class MainActivity extends FlutterActivity {
         
         // 如果不在常见映射中，返回原始名称
         return expressionName;
+    }
+    
+    /**
+     * 从LAppLive2DManager获取模型列表
+     * @param live2DManager Live2D管理器实例
+     * @return 模型名称列表
+     */
+    private List<String> getModelListFromManager(LAppLive2DManager live2DManager) {
+        List<String> modelList = new ArrayList<>();
+        
+        try {
+            // 使用反射获取modelDir私有字段
+            Field modelDirField = LAppLive2DManager.class.getDeclaredField("modelDir");
+            modelDirField.setAccessible(true);
+            List<String> modelDir = (List<String>) modelDirField.get(live2DManager);
+            
+            if (modelDir != null) {
+                modelList.addAll(modelDir);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting model list from manager: " + e.getMessage(), e);
+        }
+        
+        return modelList;
     }
 
 }

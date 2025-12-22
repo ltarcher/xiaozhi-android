@@ -27,6 +27,11 @@ class _SettingPageState extends State<SettingPage> {
   // 语音唤醒状态
   bool _isVoiceWakeUpEnabled = false;
   
+  // Live2D模型选择相关
+  List<String> _modelList = [];
+  int _currentModelIndex = 0;
+  bool _modelListLoaded = false;
+  
   // Live2D控制通道
   static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
 
@@ -59,6 +64,9 @@ class _SettingPageState extends State<SettingPage> {
     
     // 加载Live2D按钮配置
     _loadLive2DButtonSettings();
+    
+    // 加载Live2D模型列表和当前选择的模型
+    _loadLive2DModelSettings();
     
     super.initState();
   }
@@ -105,6 +113,170 @@ class _SettingPageState extends State<SettingPage> {
           _wakeWordController.text = '你好，小清';
           _isVoiceWakeUpEnabled = true; // 默认启用语音唤醒
         });
+      }
+    }
+  }
+  
+  // 加载Live2D模型设置
+  Future<void> _loadLive2DModelSettings() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      int? modelIndex = await prefsUtil.getLive2DModelIndex();
+      
+      if (mounted) {
+        setState(() {
+          _currentModelIndex = modelIndex ?? 0; // 默认选择第一个模型
+        });
+      }
+      
+      // 获取模型列表
+      await _getModelList();
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Error loading Live2D model settings: $e");
+      }
+    }
+  }
+  
+  // 从原生Android获取模型列表
+  Future<void> _getModelList() async {
+    try {
+      if (kDebugMode) {
+        print("SettingPage: Getting model list from native Android");
+      }
+      
+      final List<dynamic>? modelList = await _live2dChannel.invokeListMethod('getModelList');
+      
+      if (modelList != null && mounted) {
+        setState(() {
+          _modelList = modelList.cast<String>();
+          _modelListLoaded = true;
+          
+          // 如果当前模型索引超出范围，重置为0
+          if (_currentModelIndex >= _modelList.length) {
+            _currentModelIndex = 0;
+          }
+        });
+        
+        if (kDebugMode) {
+          print("SettingPage: Model list loaded: $_modelList");
+        }
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to get model list due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to get model list - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Unexpected error getting model list: $e");
+      }
+    }
+  }
+  
+  // 切换模型
+  Future<void> _changeModel(int index) async {
+    try {
+      if (kDebugMode) {
+        print("SettingPage: Changing model to index: $index");
+        print("SettingPage: Available models: $_modelList");
+        print("SettingPage: Total model count: ${_modelList.length}");
+      }
+      
+      // 检查索引是否有效
+      if (index < 0 || index >= _modelList.length) {
+        if (kDebugMode) {
+          print("SettingPage: Invalid model index: $index, model count: ${_modelList.length}");
+          print("SettingPage: Model list details: ${_modelList.map((m) => '$m').join(', ')}");
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('无效的模型索引'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      if (kDebugMode) {
+        print("SettingPage: About to call native changeModel with index: $index, model: ${_modelList[index]}");
+      }
+      
+      // 通知原生Android切换模型
+      await _live2dChannel.invokeMethod('changeModel', {
+        'index': index,
+      });
+      
+      if (kDebugMode) {
+        print("SettingPage: Native changeModel call completed successfully");
+      }
+      
+      // 保存新的模型索引
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      await prefsUtil.setLive2DModelIndex(index);
+      
+      if (mounted) {
+        setState(() {
+          _currentModelIndex = index;
+        });
+        
+        // 显示成功提示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('模型已切换到: ${_modelList[index]}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      if (kDebugMode) {
+        print("SettingPage: Model changed successfully to index: $index, model: ${_modelList[index]}");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to change model due to PlatformException: ${e.message}");
+        print("SettingPage: PlatformException details: ${e.details}");
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('模型切换失败: ${e.message ?? "未知错误"}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to change model - Missing plugin: ${e.message}");
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('模型切换功能不可用'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Unexpected error changing model: $e");
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('模型切换失败，请重试'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -174,6 +346,8 @@ class _SettingPageState extends State<SettingPage> {
                 await prefsUtil.setLive2DGearVisible(_isGearVisible);
                 await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
                 await prefsUtil.setWakeWord(_wakeWordController.text.trim());
+                // 保存Live2D模型索引
+                await prefsUtil.setLive2DModelIndex(_currentModelIndex);
                  
                 if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
@@ -239,6 +413,82 @@ class _SettingPageState extends State<SettingPage> {
               helperText: AppLocalizations.of(context)!.macAddressEditTips,
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.pin_rounded),
+            ),
+          ),
+          
+          // Live2D 模型选择部分
+          SizedBox(height: XConst.spacer * 3),
+          Text(
+            'Live2D 模型设置',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: XConst.spacer),
+          
+          // 模型选择下拉框
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.face_rounded,
+                        color: primaryColor,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Live2D模型',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  _modelListLoaded
+                      ? DropdownButtonFormField<int>(
+                          value: _currentModelIndex,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.person_outline),
+                            helperText: '选择要显示的Live2D模型',
+                          ),
+                          items: _modelList.asMap().entries.map<DropdownMenuItem<int>>((entry) {
+                            return DropdownMenuItem<int>(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            );
+                          }).toList(),
+                          onChanged: (int? newIndex) {
+                            if (newIndex != null && newIndex != _currentModelIndex) {
+                              _changeModel(newIndex);
+                            }
+                          },
+                        )
+                      : Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                              ),
+                            ),
+                            SizedBox(width: 16),
+                            Text('加载模型列表中...'),
+                          ],
+                        ),
+                ],
+              ),
             ),
           ),
           
@@ -350,6 +600,7 @@ class _SettingPageState extends State<SettingPage> {
                   ),
                   SizedBox(height: XConst.spacer * 0.5),
                   Text(
+                    '• Live2D模型：选择要显示的Live2D角色模型\n'
                     '• 齿轮按钮：用于切换Live2D模型\n'
                     '• 电源按钮：关闭应用程序\n'
                     '• 语音唤醒：通过唤醒词启动对话\n'
