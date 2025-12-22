@@ -375,7 +375,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     @Override
     public void onResult(String hypothesis) {
         // 添加调试日志，打印所有识别结果
-        Log.i(TAG, "Received recognition result: " + hypothesis);
+        //Log.i(TAG, "Received recognition result: " + hypothesis);
         
         // 使用更灵活的关键词检测
         if (containsWakeWord(hypothesis)) {
