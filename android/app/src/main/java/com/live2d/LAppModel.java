@@ -54,16 +54,61 @@ public class LAppModel extends CubismUserModel {
             debugMode = true;
         }
         
-        CubismIdManager idManager = CubismFramework.getIdManager();
-
-        idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
-        idParamAngleY = idManager.getId(ParameterId.ANGLE_Y.getId());
-        idParamAngleZ = idManager.getId(ParameterId.ANGLE_Z.getId());
-        idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
-        idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
-        idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
-
+        // 延迟初始化参数ID，等待CubismFramework完全初始化
+        initializeParameterIds();
+        
         Log.d(TAG, "LAppModel constructor completed");
+    }
+    
+    /**
+     * 初始化参数ID，确保CubismFramework已完全初始化
+     */
+    private void initializeParameterIds() {
+        try {
+            CubismIdManager idManager = CubismFramework.getIdManager();
+            
+            if (idManager != null) {
+                idParamAngleX = idManager.getId(ParameterId.ANGLE_X.getId());
+                idParamAngleY = idManager.getId(ParameterId.ANGLE_Y.getId());
+                idParamAngleZ = idManager.getId(ParameterId.ANGLE_Z.getId());
+                idParamBodyAngleX = idManager.getId(ParameterId.BODY_ANGLE_X.getId());
+                idParamEyeBallX = idManager.getId(ParameterId.EYE_BALL_X.getId());
+                idParamEyeBallY = idManager.getId(ParameterId.EYE_BALL_Y.getId());
+                Log.d(TAG, "initializeParameterIds: All parameter IDs initialized successfully");
+            } else {
+                Log.w(TAG, "initializeParameterIds: CubismIdManager is null, parameter IDs will be initialized later");
+                // 设置为null，稍后在setupModel中再次尝试初始化
+                idParamAngleX = null;
+                idParamAngleY = null;
+                idParamAngleZ = null;
+                idParamBodyAngleX = null;
+                idParamEyeBallX = null;
+                idParamEyeBallY = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "initializeParameterIds: Error initializing parameter IDs", e);
+            // 设置为null，稍后在setupModel中再次尝试初始化
+            idParamAngleX = null;
+            idParamAngleY = null;
+            idParamAngleZ = null;
+            idParamBodyAngleX = null;
+            idParamEyeBallX = null;
+            idParamEyeBallY = null;
+        }
+    }
+    
+    /**
+     * 确保参数ID已初始化，如果没有则尝试再次初始化
+     */
+    private void ensureParameterIdsInitialized() {
+        // 检查是否已经初始化
+        if (idParamAngleX != null && idParamAngleY != null && idParamAngleZ != null &&
+            idParamBodyAngleX != null && idParamEyeBallX != null && idParamEyeBallY != null) {
+            return; // 已经初始化
+        }
+        
+        Log.d(TAG, "ensureParameterIdsInitialized: Re-attempting to initialize parameter IDs");
+        initializeParameterIds();
     }
 
     public void loadAssets(final String dir, final String fileName) {
@@ -146,18 +191,27 @@ public class LAppModel extends CubismUserModel {
             expressionManager.updateMotion(model, deltaTimeSeconds);
         }
 
+        // 确保参数ID已初始化
+        ensureParameterIdsInitialized();
+
         // 拖拽跟随功能
         // 通过拖拽调整面部朝向
-        model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
-        model.addParameterValue(idParamAngleY, dragY * 30);
-        model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
+        if (idParamAngleX != null && idParamAngleY != null && idParamAngleZ != null) {
+            model.addParameterValue(idParamAngleX, dragX * 30); // 添加-30到30的值
+            model.addParameterValue(idParamAngleY, dragY * 30);
+            model.addParameterValue(idParamAngleZ, dragX * dragY * (-30));
+        }
 
         // 通过拖拽调整身体朝向
-        model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
+        if (idParamBodyAngleX != null) {
+            model.addParameterValue(idParamBodyAngleX, dragX * 10); // 添加-10到10的值
+        }
 
         // 通过拖拽调整眼部朝向
-        model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
-        model.addParameterValue(idParamEyeBallY, dragY);
+        if (idParamEyeBallX != null && idParamEyeBallY != null) {
+            model.addParameterValue(idParamEyeBallX, dragX);  // 添加-1到1的值
+            model.addParameterValue(idParamEyeBallY, dragY);
+        }
 
         // Breath Function
         if (breath != null) {
@@ -241,12 +295,22 @@ public class LAppModel extends CubismUserModel {
                 // 首先尝试使用一致性验证加载动作
                 try {
                     motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, motionConsistency);
+                } catch (AssertionError e) {
+                    Log.e(TAG, "AssertionError loading motion: " + path + ", error: " + e.getMessage());
+                    // AssertionError通常表示motion文件格式问题或SDK不兼容，跳过此motion
+                    Log.w(TAG, "Skipping incompatible motion file: " + path);
+                    motion = null;
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
                     // 如果一致性验证失败，尝试禁用验证再加载一次
                     try {
                         Log.d(TAG, "Retrying motion loading without consistency check: " + path);
                         motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, false);
+                    } catch (AssertionError e2) {
+                        Log.e(TAG, "AssertionError loading motion without consistency check: " + path + ", error: " + e2.getMessage());
+                        // 即使禁用一致性验证也出现AssertionError，说明motion文件有严重问题
+                        Log.w(TAG, "Skipping incompatible motion file: " + path);
+                        motion = null;
                     } catch (Exception e2) {
                         Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
                         
@@ -262,9 +326,14 @@ public class LAppModel extends CubismUserModel {
                                 if (modelSetting.getMotionCount(group) > 1) {
                                     String nextPath = modelHomeDirectory + modelSetting.getMotionFileName(group, 1);
                                     byte[] nextBuffer = createBuffer(nextPath);
-                                    motion = loadMotion(nextBuffer, onFinishedMotionHandler, onBeganMotionHandler, false);
-                                    if (motion != null) {
-                                        Log.i(TAG, "Successfully loaded alternative idle motion");
+                                    try {
+                                        motion = loadMotion(nextBuffer, onFinishedMotionHandler, onBeganMotionHandler, false);
+                                        if (motion != null) {
+                                            Log.i(TAG, "Successfully loaded alternative idle motion");
+                                        }
+                                    } catch (AssertionError e3) {
+                                        Log.w(TAG, "Alternative idle motion also incompatible: " + nextPath);
+                                        motion = null;
                                     }
                                 }
                             } catch (Exception e3) {
@@ -493,6 +562,9 @@ public class LAppModel extends CubismUserModel {
         isInitialized = false;
         Log.d(TAG, "setupModel: Initial flags set - isUpdated=" + isUpdated + ", isInitialized=" + isInitialized);
 
+        // 确保参数ID已初始化
+        ensureParameterIdsInitialized();
+
         // Load Cubism Model
         {
             String fileName = modelSetting.getModelFileName();
@@ -583,11 +655,26 @@ public class LAppModel extends CubismUserModel {
         breath = CubismBreath.create();
         List<CubismBreath.BreathParameterData> breathParameters = new ArrayList<CubismBreath.BreathParameterData>();
 
+        // 确保参数ID已初始化
+        ensureParameterIdsInitialized();
+        
         breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleX, 0.0f, 15.0f, 6.5345f, 0.5f));
         breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleY, 0.0f, 8.0f, 3.5345f, 0.5f));
         breathParameters.add(new CubismBreath.BreathParameterData(idParamAngleZ, 0.0f, 10.0f, 5.5345f, 0.5f));
         breathParameters.add(new CubismBreath.BreathParameterData(idParamBodyAngleX, 0.0f, 4.0f, 15.5345f, 0.5f));
-        breathParameters.add(new CubismBreath.BreathParameterData(CubismFramework.getIdManager().getId(ParameterId.BREATH.getId()), 0.5f, 0.5f, 3.2345f, 0.5f));
+        
+        // 尝试获取BREATH参数ID，如果失败则跳过
+        try {
+            CubismIdManager idManager = CubismFramework.getIdManager();
+            if (idManager != null) {
+                CubismId breathId = idManager.getId(ParameterId.BREATH.getId());
+                breathParameters.add(new CubismBreath.BreathParameterData(breathId, 0.5f, 0.5f, 3.2345f, 0.5f));
+            } else {
+                Log.w(TAG, "setupModel: CubismIdManager is null, skipping BREATH parameter");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "setupModel: Error getting BREATH parameter ID, skipping", e);
+        }
 
         breath.setParameters(breathParameters);
 
@@ -670,16 +757,27 @@ public class LAppModel extends CubismUserModel {
                 CubismMotion tmp = null;
                 try {
                     tmp = loadMotion(buffer, motionConsistency);
+                } catch (AssertionError e) {
+                    Log.e(TAG, "AssertionError loading motion: " + path + ", error: " + e.getMessage());
+                    // AssertionError通常表示motion文件格式问题或SDK不兼容，跳过此motion
+                    Log.w(TAG, "Skipping incompatible motion file: " + path);
+                    tmp = null;
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to load motion with consistency check: " + path + ", error: " + e.getMessage());
                     // 如果一致性验证失败，尝试禁用验证再加载一次
                     try {
                         Log.d(TAG, "Retrying motion loading without consistency check: " + path);
                         tmp = loadMotion(buffer, false);
+                    } catch (AssertionError e2) {
+                        Log.e(TAG, "AssertionError loading motion without consistency check: " + path + ", error: " + e2.getMessage());
+                        // 即使禁用一致性验证也出现AssertionError，说明motion文件有严重问题
+                        Log.w(TAG, "Skipping incompatible motion file: " + path);
+                        tmp = null;
                     } catch (Exception e2) {
                         Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
                         // 对于特别有问题的motion文件，尝试跳过加载但记录警告
                         Log.w(TAG, "Skipping problematic motion file: " + path + " due to parsing errors");
+                        tmp = null;
                         
                         // 如果是Idle组的第一个motion（通常是默认motion），尝试使用备用motion
                         if (group.equals(LAppDefine.MotionGroup.IDLE.getId()) && i == 0) {
@@ -689,9 +787,14 @@ public class LAppModel extends CubismUserModel {
                                 if (modelSetting.getMotionCount(group) > 1) {
                                     String nextPath = modelHomeDirectory + modelSetting.getMotionFileName(group, 1);
                                     byte[] nextBuffer = createBuffer(nextPath);
-                                    tmp = loadMotion(nextBuffer, false);
-                                    if (tmp != null) {
-                                        Log.i(TAG, "Successfully loaded alternative idle motion");
+                                    try {
+                                        tmp = loadMotion(nextBuffer, false);
+                                        if (tmp != null) {
+                                            Log.i(TAG, "Successfully loaded alternative idle motion");
+                                        }
+                                    } catch (AssertionError e3) {
+                                        Log.w(TAG, "Alternative idle motion also incompatible: " + nextPath);
+                                        tmp = null;
                                     }
                                 }
                             } catch (Exception e3) {
@@ -794,27 +897,27 @@ public class LAppModel extends CubismUserModel {
     /**
      * 参数ID: ParamAngleX
      */
-    private final CubismId idParamAngleX;
+    private CubismId idParamAngleX;
     /**
      * 参数ID: ParamAngleY
      */
-    private final CubismId idParamAngleY;
+    private CubismId idParamAngleY;
     /**
      * 参数ID: ParamAngleZ
      */
-    private final CubismId idParamAngleZ;
+    private CubismId idParamAngleZ;
     /**
      * 参数ID: ParamBodyAngleX
      */
-    private final CubismId idParamBodyAngleX;
+    private CubismId idParamBodyAngleX;
     /**
      * 参数ID: ParamEyeBallX
      */
-    private final CubismId idParamEyeBallX;
+    private CubismId idParamEyeBallX;
     /**
      * 参数ID: ParamEyeBallY
      */
-    private final CubismId idParamEyeBallY;
+    private CubismId idParamEyeBallY;
 
     /**
      * 帧缓冲区以外的绘制目标

@@ -114,9 +114,29 @@ public class LAppDelegate {
         view.initializeSprite();
         Log.d(TAG, "onSurfaceChanged: Sprites initialized");
 
-        // load models
-        if (LAppLive2DManager.getInstance().getCurrentModel() != currentModel) {
-            LAppLive2DManager.getInstance().changeScene(currentModel);
+        // 通知Live2DPlatformView surface已准备好
+        if (live2DPlatformView != null) {
+            live2DPlatformView.setSurfaceInitialized();
+        }
+
+        // load models - 确保只加载一次，并在CubismFramework完全初始化后进行
+        LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+        if (live2DManager.getModelNum() == 0) {
+            // 如果还没有加载任何模型，则加载第一个模型
+            Log.d(TAG, "onSurfaceChanged: No models loaded, loading first model");
+            try {
+                live2DManager.changeScene(0);
+            } catch (Exception e) {
+                Log.e(TAG, "onSurfaceChanged: Error loading first model", e);
+            }
+        } else if (live2DManager.getCurrentModel() != currentModel) {
+            // 如果当前模型与期望的不同，则切换到期望的模型
+            Log.d(TAG, "onSurfaceChanged: Switching to model index: " + currentModel);
+            try {
+                live2DManager.changeScene(currentModel);
+            } catch (Exception e) {
+                Log.e(TAG, "onSurfaceChanged: Error switching model", e);
+            }
         }
 
         isActive = true;

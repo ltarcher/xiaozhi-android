@@ -240,8 +240,21 @@ public class LAppLive2DManager {
 
         releaseAllModel();
 
-        models.add(new LAppModel());
-        models.get(0).loadAssets(modelPath, modelJsonName);
+        // 延迟创建模型，确保CubismFramework已完全初始化
+        try {
+            // 检查CubismFramework是否已经初始化
+            if (com.live2d.sdk.cubism.framework.CubismFramework.getIdManager() != null) {
+                Log.d(TAG, "changeScene: CubismFramework已初始化，创建模型");
+                models.add(new LAppModel());
+                models.get(0).loadAssets(modelPath, modelJsonName);
+            } else {
+                Log.e(TAG, "changeScene: CubismFramework尚未初始化，无法创建模型");
+                return;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "changeScene: 创建模型时发生错误", e);
+            return;
+        }
 
         /*
          * 提供模型半透明显示的示例
@@ -262,9 +275,18 @@ public class LAppLive2DManager {
 
         if (USE_RENDER_TARGET || USE_MODEL_RENDER_TARGET) {
             // 作为单独设置alpha的模型示例，再创建一个模型并稍微移动位置
-            models.add(new LAppModel());
-            models.get(1).loadAssets(modelPath, modelJsonName);
-            models.get(1).getModelMatrix().translateX(0.2f);
+            try {
+                // 检查CubismFramework是否已经初始化
+                if (com.live2d.sdk.cubism.framework.CubismFramework.getIdManager() != null) {
+                    models.add(new LAppModel());
+                    models.get(1).loadAssets(modelPath, modelJsonName);
+                    models.get(1).getModelMatrix().translateX(0.2f);
+                } else {
+                    Log.e(TAG, "changeScene: CubismFramework尚未初始化，无法创建第二个模型");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "changeScene: 创建第二个模型时发生错误", e);
+            }
         }
 
         // 切换渲染目标
@@ -342,15 +364,10 @@ public class LAppLive2DManager {
         Log.d(TAG, "LAppLive2DManager: 初始化管理器");
         try {
             setUpModel();
-            // 仅在找到模型时才切换场景
+            // 注意：不再在构造函数中立即调用 changeScene(0)
+            // 这样可以避免在 CubismFramework 完全初始化之前创建 LAppModel
             if (!modelDir.isEmpty()) {
-                Log.d(TAG, "LAppLive2DManager: 找到模型，切换到场景0");
-                try {
-                    changeScene(0);
-                } catch (Exception e) {
-                    Log.e(TAG, "LAppLive2DManager: 切换场景时发生错误", e);
-                    // 即使切换场景失败，也不抛出异常，允许管理器继续初始化
-                }
+                Log.d(TAG, "LAppLive2DManager: 找到模型，将延迟到 CubismFramework 初始化后切换场景");
             } else {
                 Log.e(TAG, "LAppLive2DManager: 初始化期间未找到模型");
             }

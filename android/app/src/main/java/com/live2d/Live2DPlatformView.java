@@ -20,6 +20,7 @@ public class Live2DPlatformView implements PlatformView {
     private final GLRenderer glRenderer;
     private Activity activity;
     private String modelPath;
+    private boolean surfaceInitialized = false;
 
     public Live2DPlatformView(@NonNull Context context, @Nullable Map<String, Object> creationParams) {
         Log.d(TAG, "Live2DPlatformView constructor called");
@@ -80,11 +81,6 @@ public class Live2DPlatformView implements PlatformView {
         
         // 注册到LAppDelegate
         LAppDelegate.getInstance().setLive2DPlatformView(this);
-        
-        // 现在GLSurfaceView已创建，可以安全地初始化参数
-        if (this.modelPath != null) {
-            initializeWithParams(this.modelPath);
-        }
         
         // 设置触摸事件处理
         glSurfaceView.setOnTouchListener(new View.OnTouchListener() {
@@ -177,43 +173,60 @@ public class Live2DPlatformView implements PlatformView {
     }
     
     /**
+     * 标记surface已初始化，可以安全加载模型
+     */
+    public void setSurfaceInitialized() {
+        Log.d(TAG, "setSurfaceInitialized: Surface is now initialized");
+        surfaceInitialized = true;
+        
+        // 现在surface已初始化，可以安全地加载模型
+        if (modelPath != null && !modelPath.isEmpty()) {
+            Log.d(TAG, "setSurfaceInitialized: Loading model with path: " + modelPath);
+            loadModelAfterSurfaceReady();
+        }
+    }
+    
+    /**
+     * 在surface准备好后加载模型
+     */
+    private void loadModelAfterSurfaceReady() {
+        // 在GL线程中确保模型加载
+        glSurfaceView.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 确保Live2D管理器已初始化并至少有一个模型
+                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                    if (live2DManager.getModelNum() == 0) {
+                        Log.d(TAG, "loadModelAfterSurfaceReady: No models loaded, loading first model");
+                        live2DManager.nextScene();
+                    }
+                    
+                    Log.d(TAG, "loadModelAfterSurfaceReady: Live2D models loaded, count: " + live2DManager.getModelNum());
+                } catch (Exception e) {
+                    Log.e(TAG, "loadModelAfterSurfaceReady: Error initializing Live2D models in GL thread", e);
+                }
+            }
+        });
+    }
+    
+    /**
      * 使用参数初始化Live2D平台视图
      * @param modelPath 模型路径
      */
     public void initializeWithParams(String modelPath) {
         this.modelPath = modelPath;
         
-        Log.d(TAG, "Initialized with modelPath: " + modelPath);
+        Log.d(TAG, "initializeWithParams: Initialized with modelPath: " + modelPath);
         
-        // 通知Live2D模块参数信息
-        LAppDelegate appDelegate = LAppDelegate.getInstance();
-        if (appDelegate != null) {
-            // 如果提供了模型路径，可以考虑预加载模型
-            if (modelPath != null && !modelPath.isEmpty()) {
-                Log.d(TAG, "Model path provided: " + modelPath);
-                
-                // 在GL线程中确保模型加载
-                glSurfaceView.queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            // 确保Live2D管理器已初始化并至少有一个模型
-                            LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
-                            if (live2DManager.getModelNum() == 0) {
-                                Log.d(TAG, "No models loaded in Live2DManager, forcing model loading");
-                                live2DManager.nextScene();
-                            }
-                            
-                            Log.d(TAG, "Live2D models loaded successfully, count: " + live2DManager.getModelNum());
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error initializing Live2D models in GL thread", e);
-                        }
-                    }
-                });
-            }
+        // 如果surface已经初始化，立即加载模型
+        if (surfaceInitialized) {
+            Log.d(TAG, "initializeWithParams: Surface already initialized, loading model now");
+            loadModelAfterSurfaceReady();
+        } else {
+            Log.d(TAG, "initializeWithParams: Surface not yet initialized, will load after surface is ready");
         }
     }
-    
     
     /**
      * 获取当前模型路径
