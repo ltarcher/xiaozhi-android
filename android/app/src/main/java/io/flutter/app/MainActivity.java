@@ -11,6 +11,7 @@ import com.live2d.LAppDefine.MotionGroup;
 import com.live2d.LAppDefine;
 import com.live2d.LAppView;
 import com.live2d.Live2DViewFactory;
+import com.live2d.Live2DPlatformView;
 import com.live2d.LAppDelegate;
 import com.thinkerror.xiaozhi.AudioPlayerCompat;
 import com.thinkerror.xiaozhi.DeviceInfoCompat;
@@ -515,24 +516,128 @@ public class MainActivity extends FlutterActivity {
                                     }
                                     
                                     // 先检查Live2DManager是否已经初始化
-                                    if (live2DManager.getModelNum() == 0) {
+                                    int modelNum = live2DManager.getModelNum();
+                                    Log.d(TAG, "changeModel: Current model count: " + modelNum);
+                                    
+                                    if (modelNum == 0) {
                                         Log.w(TAG, "changeModel: No models loaded in Live2DManager, calling nextScene to load first model");
                                         live2DManager.nextScene();
-                                        result.success(null);
-                                        return;
+                                        
+                                        // 等待模型加载完成，并尝试多次加载
+                                        int maxRetries = 5;
+                                        int retryCount = 0;
+                                        boolean modelsLoaded = false;
+                                        
+                                        while (retryCount < maxRetries && !modelsLoaded) {
+                                            try {
+                                                Thread.sleep(300); // 每次等待300ms
+                                                retryCount++;
+                                                
+                                                if (live2DManager.getModelNum() > 0) {
+                                                    modelsLoaded = true;
+                                                    Log.d(TAG, "changeModel: Models loaded after " + (retryCount * 300) + "ms");
+                                                }
+                                            } catch (InterruptedException e) {
+                                                Thread.currentThread().interrupt();
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // 如果重试后仍然没有模型，尝试强制加载第一个模型
+                                        if (live2DManager.getModelNum() == 0) {
+                                            Log.w(TAG, "changeModel: Still no models loaded after retries, trying to force load first model");
+                                            try {
+                                                live2DManager.changeScene(0);
+                                                Thread.sleep(500); // 再等待500ms
+                                            } catch (Exception e) {
+                                                Log.e(TAG, "changeModel: Error forcing model load", e);
+                                            }
+                                        }
+                                        
+                                        // 最后检查
+                                        if (live2DManager.getModelNum() == 0) {
+                                            Log.e(TAG, "changeModel: Failed to load any models");
+                                            result.error("NO_MODELS_LOADED", "No models could be loaded", null);
+                                            return;
+                                        }
+                                        
+                                        // 重新获取加载后的模型数量
+                                        modelNum = live2DManager.getModelNum();
+                                        Log.d(TAG, "changeModel: Model count after loading: " + modelNum);
                                     }
                                     
-                                    // 检查索引是否有效
-                                    if (index < 0 || index >= live2DManager.getModelNum()) {
-                                        Log.e(TAG, "changeModel: Invalid model index: " + index + ", model count: " + live2DManager.getModelNum());
+                                    // 获取模型目录列表，用于验证索引
+                                    List<String> modelDirs = getModelListFromManager(live2DManager);
+                                    
+                                    // 检查索引是否有效（使用modelDir大小而不是getModelNum）
+                                    if (index < 0 || index >= modelDirs.size()) {
+                                        Log.e(TAG, "changeModel: Invalid model index: " + index + ", model dir size: " + modelDirs.size() + ", loaded model count: " + live2DManager.getModelNum());
                                         result.error("INVALID_MODEL_INDEX", "Invalid model index: " + index, null);
                                         return;
                                     }
                                     
-                                    // 切换到指定模型
-                                    live2DManager.changeScene(index);
-                                    Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
-                                    result.success(null);
+                                    // 通过Live2DPlatformView在GL线程中安全地切换模型
+                                    LAppDelegate appDelegate = LAppDelegate.getInstance();
+                                    if (appDelegate != null) {
+                                        // 获取Live2DPlatformView实例
+                                        Live2DPlatformView platformView = null;
+                                        try {
+                                            // 通过反射获取Live2DPlatformView
+                                            java.lang.reflect.Field platformViewField = appDelegate.getClass().getDeclaredField("live2DPlatformView");
+                                            platformViewField.setAccessible(true);
+                                            platformView = (Live2DPlatformView) platformViewField.get(appDelegate);
+                                        } catch (Exception e) {
+                                            Log.w(TAG, "Could not get Live2DPlatformView via reflection: " + e.getMessage());
+                                        }
+                                        
+                                        if (platformView != null) {
+                                            // 获取GLSurfaceView并在GL线程中执行模型切换
+                                            try {
+                                                java.lang.reflect.Field glSurfaceViewField = platformView.getClass().getDeclaredField("glSurfaceView");
+                                                glSurfaceViewField.setAccessible(true);
+                                                Object glSurfaceView = glSurfaceViewField.get(platformView);
+                                                
+                                                if (glSurfaceView != null) {
+                                                    // 使用反射调用queueEvent方法
+                                                    java.lang.reflect.Method queueEventMethod = glSurfaceView.getClass().getMethod("queueEvent", Runnable.class);
+                                                    queueEventMethod.invoke(glSurfaceView, (Runnable) () -> {
+                                                        try {
+                                                            live2DManager.changeScene(index);
+                                                            Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                                            
+                                                            // 在主线程中返回结果
+                                                            runOnUiThread(() -> result.success(null));
+                                                        } catch (Exception e) {
+                                                            Log.e(TAG, "Error changing model in GL thread", e);
+                                                            // 在主线程中返回错误
+                                                            runOnUiThread(() -> result.error("CHANGE_MODEL_ERROR", "Failed to change model: " + e.getMessage(), null));
+                                                        }
+                                                    });
+                                                } else {
+                                                    // 如果无法获取GLSurfaceView，则直接调用
+                                                    live2DManager.changeScene(index);
+                                                    Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                                    result.success(null);
+                                                }
+                                            } catch (Exception e) {
+                                                Log.w(TAG, "Could not use GL thread via reflection: " + e.getMessage());
+                                                // 如果反射失败，则直接调用
+                                                live2DManager.changeScene(index);
+                                                Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                                result.success(null);
+                                            }
+                                        } else {
+                                            // 如果无法获取platformView，则直接调用
+                                            live2DManager.changeScene(index);
+                                            Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                            result.success(null);
+                                        }
+                                    } else {
+                                        // 如果无法获取appDelegate，则直接调用
+                                        live2DManager.changeScene(index);
+                                        Log.d(TAG, "changeModel: Successfully changed to model index: " + index);
+                                        result.success(null);
+                                    }
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error in changeModel", e);
                                     result.error("CHANGE_MODEL_ERROR", "Failed to change model: " + e.getMessage(), null);
@@ -675,6 +780,10 @@ public class MainActivity extends FlutterActivity {
         List<String> modelList = new ArrayList<>();
         
         try {
+            // 先检查实际加载的模型数量
+            int modelNum = live2DManager.getModelNum();
+            Log.d(TAG, "getModelListFromManager: Current loaded model count: " + modelNum);
+            
             // 使用反射获取modelDir私有字段
             Field modelDirField = LAppLive2DManager.class.getDeclaredField("modelDir");
             modelDirField.setAccessible(true);
@@ -682,7 +791,28 @@ public class MainActivity extends FlutterActivity {
             
             if (modelDir != null) {
                 modelList.addAll(modelDir);
+                Log.d(TAG, "getModelListFromManager: Model directory list size: " + modelDir.size());
+                Log.d(TAG, "getModelListFromManager: Model directories: " + modelDir.toString());
+            } else {
+                Log.w(TAG, "getModelListFromManager: modelDir is null");
             }
+            
+            // 检查是否有其他字段可能包含模型信息
+            try {
+                // 尝试获取models字段（如果存在）
+                Field modelsField = LAppLive2DManager.class.getDeclaredField("models");
+                modelsField.setAccessible(true);
+                Object modelsObj = modelsField.get(live2DManager);
+                if (modelsObj instanceof List) {
+                    List<?> modelsList = (List<?>) modelsObj;
+                    Log.d(TAG, "getModelListFromManager: Models list size: " + modelsList.size());
+                }
+            } catch (NoSuchFieldException e) {
+                Log.d(TAG, "getModelListFromManager: No 'models' field found in LAppLive2DManager");
+            } catch (Exception e) {
+                Log.w(TAG, "getModelListFromManager: Error accessing models field: " + e.getMessage());
+            }
+            
         } catch (Exception e) {
             Log.e(TAG, "Error getting model list from manager: " + e.getMessage(), e);
         }
