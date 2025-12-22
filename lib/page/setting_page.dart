@@ -6,6 +6,7 @@ import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
+import 'dart:io';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -26,6 +27,10 @@ class _SettingPageState extends State<SettingPage> {
   
   // 语音唤醒状态
   bool _isVoiceWakeUpEnabled = false;
+  
+  // Live2D模型选择
+  String _selectedLive2DModel = 'Haru';
+  List<String> _availableLive2DModels = [];
   
   // Live2D控制通道
   static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
@@ -60,7 +65,76 @@ class _SettingPageState extends State<SettingPage> {
     // 加载Live2D按钮配置
     _loadLive2DButtonSettings();
     
+    // 加载Live2D模型配置
+    _loadLive2DModelSettings();
+    
+    // 扫描可用的Live2D模型
+    _scanAvailableLive2DModels();
+    
     super.initState();
+  }
+  
+  // 扫描可用的Live2D模型
+  Future<void> _scanAvailableLive2DModels() async {
+    try {
+      List<String> models = [];
+      
+      // Live2D模型目录
+      final live2dDir = Directory('assets/live2d');
+      
+      if (await live2dDir.exists()) {
+        await for (final entity in live2dDir.list()) {
+          if (entity is Directory && !entity.path.startsWith('.')) {
+            final dirName = entity.path.split('/').last;
+            // 检查目录是否包含模型文件
+            final modelFile = File('${entity.path}/${dirName}.model3.json');
+            if (await modelFile.exists()) {
+              models.add(dirName);
+            }
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _availableLive2DModels = models;
+          if (!_availableLive2DModels.contains(_selectedLive2DModel)) {
+            _selectedLive2DModel = _availableLive2DModels.isNotEmpty ? _availableLive2DModels.first : 'Haru';
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Error scanning Live2D models: $e");
+      }
+      
+      // 如果扫描失败，使用默认模型列表
+      if (mounted) {
+        setState(() {
+          _availableLive2DModels = ['Hiyori', 'Haru', 'Mao', 'Mark', 'Natori', 'Rice', 'Wanko'];
+        });
+      }
+    }
+  }
+  
+  // 加载Live2D模型设置
+  Future<void> _loadLive2DModelSettings() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      String? live2dModel = await prefsUtil.getLive2DModel();
+      
+      if (mounted) {
+        setState(() {
+          _selectedLive2DModel = live2dModel ?? 'Haru';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selectedLive2DModel = 'Haru';
+        });
+      }
+    }
   }
   
   // 加载Live2D按钮设置
@@ -142,6 +216,37 @@ class _SettingPageState extends State<SettingPage> {
       }
     }
   }
+  
+  // 立即应用Live2D模型更改的方法
+  Future<void> _applyLive2DModelChange() async {
+    try {
+      if (kDebugMode) {
+        print("SettingPage: Applying Live2D model change to: $_selectedLive2DModel");
+      }
+      
+      // 直接通过MethodChannel更新Live2D模型
+      final newModelPath = "assets/live2d/$_selectedLive2DModel/$_selectedLive2DModel.model3.json";
+      await _live2dChannel.invokeMethod('updateModel', {
+        'modelPath': newModelPath,
+      });
+      
+      if (kDebugMode) {
+        print("SettingPage: Live2D model applied successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply Live2D model due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Failed to apply Live2D model - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Unexpected error applying Live2D model: $e");
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,12 +274,16 @@ class _SettingPageState extends State<SettingPage> {
                   _macAddressController.text,
                 );
                 
-                // 保存Live2D按钮配置和唤醒词配置
+                // 保存Live2D按钮配置、唤醒词配置和模型配置
                 SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
                 await prefsUtil.setLive2DGearVisible(_isGearVisible);
                 await prefsUtil.setLive2DPowerVisible(_isPowerVisible);
                 await prefsUtil.setWakeWord(_wakeWordController.text.trim());
-                 
+                await prefsUtil.setLive2DModel(_selectedLive2DModel);
+                
+                // 立即应用Live2D模型更改
+                await _applyLive2DModelChange();
+                  
                 if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
@@ -182,7 +291,7 @@ class _SettingPageState extends State<SettingPage> {
                     behavior: snackBarStyle,
                   ),
                 );
-                 
+                  
                 if (!mounted) return;
                 chatBloc.add(ChatInitialEvent());
               } catch (_) {
@@ -242,8 +351,77 @@ class _SettingPageState extends State<SettingPage> {
             ),
           ),
           
-          // Live2D 按钮控制部分
+          // Live2D 模型选择部分
           SizedBox(height: XConst.spacer * 3),
+          Text(
+            'Live2D 模型设置',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
+          SizedBox(height: XConst.spacer),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_rounded,
+                        color: primaryColor,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Live2D模型',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  DropdownButtonFormField<String>(
+                    value: _selectedLive2DModel,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.face),
+                      hintText: '选择Live2D模型',
+                    ),
+                    items: _availableLive2DModels.map((String model) {
+                      return DropdownMenuItem<String>(
+                        value: model,
+                        child: Text(model),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedLive2DModel = newValue;
+                        });
+                      }
+                    },
+                  ),
+                  SizedBox(height: XConst.spacer * 0.5),
+                  Text(
+                    '选择Live2D模型后会立即生效',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(height: XConst.spacer * 2),
+          
+          // Live2D 按钮控制部分
           Text(
             'Live2D 界面设置',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -350,6 +528,7 @@ class _SettingPageState extends State<SettingPage> {
                   ),
                   SizedBox(height: XConst.spacer * 0.5),
                   Text(
+                    '• Live2D模型：选择不同的虚拟角色形象（立即生效）\n'
                     '• 齿轮按钮：用于切换Live2D模型\n'
                     '• 电源按钮：关闭应用程序\n'
                     '• 语音唤醒：通过唤醒词启动对话\n'

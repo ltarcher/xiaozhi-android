@@ -42,6 +42,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _isGearVisible = false;
   bool _isPowerVisible = false;
   
+  // 添加Live2D模型选择状态变量
+  String _selectedLive2DModel = 'Haru';
+  
   // 添加口型同步控制器
   late LipSyncController _lipSyncController;
   
@@ -69,8 +72,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _refreshController = RefreshController();
     WidgetsBinding.instance.addObserver(this); // 添加观察者以监听页面可见性变化
     
-    // 从持久化存储恢复按钮可见性状态
-    _restoreButtonStates();
+    // 从持久化存储恢复按钮可见性状态和Live2D模型
+    _restoreButtonStatesAndModel();
     
     // 初始化口型同步控制器
     _lipSyncController = LipSyncController(
@@ -123,22 +126,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  // 从持久化存储恢复按钮状态
-  Future<void> _restoreButtonStates() async {
+  // 从持久化存储恢复按钮状态和Live2D模型
+  Future<void> _restoreButtonStatesAndModel() async {
     try {
       SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
       
       bool? gearVisible = await prefsUtil.getLive2DGearVisible();
       bool? powerVisible = await prefsUtil.getLive2DPowerVisible();
+      String? live2dModel = await prefsUtil.getLive2DModel();
       
       if (kDebugMode) {
-        print('ChatPage: Restored button states - gearVisible: $gearVisible, powerVisible: $powerVisible');
+        print('ChatPage: Restored states - gearVisible: $gearVisible, powerVisible: $powerVisible, live2dModel: $live2dModel');
       }
       
       if (mounted) {
         setState(() {
           _isGearVisible = gearVisible ?? true; // 默认可见
           _isPowerVisible = powerVisible ?? false; // 默认不可见
+          _selectedLive2DModel = live2dModel ?? 'Haru'; // 默认使用Haru模型
         });
         
         // 延迟设置Live2D按钮状态，确保Widget已完全初始化
@@ -154,7 +159,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('ChatPage: Error restoring button states: $e');
+        print('ChatPage: Error restoring button states and model: $e');
       }
     }
   }
@@ -967,7 +972,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   color: Colors.transparent,
                                   child: Live2DWidget(
                                     key: _live2DKey, // 添加key以便访问widget状态
-                                    modelPath: "assets/live2d/Haru/Haru.model3.json",
+                                    modelPath: "assets/live2d/$_selectedLive2DModel/$_selectedLive2DModel.model3.json",
                                     // 使用LayoutBuilder提供的约束来设置Live2DWidget的尺寸
                                     width: constraints.maxWidth,
                                     height: constraints.maxHeight,
@@ -1383,7 +1388,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 添加调试日志
     if (kDebugMode) {
-      print('ChatPage: _buildStatusIndicators - connectionStatus: $connectionString, authorizationStatus: $authorizationString, recordingStatus: $recordingString, conversationStatus: $conversationString');
+      print('ChatPage: _buildStatusIndicators - connectionStatus: $connectionString, authorizationStatus: $authorizationString, recordingStatus: $recordingString, conversationString: $conversationString');
     }
     
     // 构建状态指示器列表

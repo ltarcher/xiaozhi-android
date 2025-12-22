@@ -218,6 +218,14 @@ public class LAppDelegate {
     public void setLive2DPlatformView(Live2DPlatformView platformView) {
         this.live2DPlatformView = platformView;
     }
+    
+    /**
+     * 获取Live2DPlatformView实例引用
+     * @return Live2DPlatformView实例
+     */
+    public Live2DPlatformView getLive2DPlatformView() {
+        return live2DPlatformView;
+    }
 
     // getter, setter群
     public Activity getActivity() {

@@ -23,11 +23,24 @@ public class Live2DViewFactory extends PlatformViewFactory {
         this.context = context;
     }
 
+    private Live2DPlatformView currentLive2DView;
+    
     @NonNull
     @Override
     public PlatformView create(Context context, int viewId, @Nullable Object args) {
         @SuppressWarnings("unchecked")
         Map<String, Object> creationParams = (Map<String, Object>) args;
-        return new Live2DPlatformView(context, creationParams);
+        currentLive2DView = new Live2DPlatformView(context, creationParams);
+        return currentLive2DView;
+    }
+    
+    /**
+     * 更新Live2D模型
+     * @param modelPath 新的模型路径
+     */
+    public void updateModel(String modelPath) {
+        if (currentLive2DView != null) {
+            currentLive2DView.updateModel(modelPath);
+        }
     }
 }

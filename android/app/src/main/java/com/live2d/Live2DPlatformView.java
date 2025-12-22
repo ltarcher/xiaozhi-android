@@ -222,4 +222,85 @@ public class Live2DPlatformView implements PlatformView {
     public String getModelPath() {
         return modelPath;
     }
+    
+    /**
+     * 更新Live2D模型
+     * @param newModelPath 新的模型路径
+     */
+    public void updateModel(String newModelPath) {
+        this.modelPath = newModelPath;
+        Log.d(TAG, "Updating model to: " + newModelPath);
+        
+        // 在GL线程中更新模型
+        glSurfaceView.queueEvent(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    LAppLive2DManager live2DManager = LAppLive2DManager.getInstance();
+                    
+                    // 直接使用changeScene方法切换到新模型
+                    // 从modelPath中提取模型名称
+                    String modelName = "";
+                    if (newModelPath.contains("/")) {
+                        String[] parts = newModelPath.split("/");
+                        if (parts.length > 0) {
+                            modelName = parts[parts.length - 1]; // 获取最后一部分作为模型名
+                            if (modelName.contains(".")) {
+                                modelName = modelName.substring(0, modelName.lastIndexOf(".")); // 去掉扩展名
+                            }
+                        }
+                    }
+                    
+                    // 查找模型索引
+                    int modelIndex = -1;
+                    java.util.List<String> modelDirs = getModelDirectories();
+                    for (int i = 0; i < modelDirs.size(); i++) {
+                        if (modelDirs.get(i).equals(modelName)) {
+                            modelIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (modelIndex >= 0) {
+                        live2DManager.changeScene(modelIndex);
+                        Log.d(TAG, "Model changed to index: " + modelIndex + " (" + modelName + ")");
+                    } else {
+                        Log.e(TAG, "Model not found: " + modelName);
+                    }
+                    
+                    // 请求刷新视图
+                    glSurfaceView.requestRender();
+                    
+                    Log.d(TAG, "Model update completed for: " + newModelPath);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error updating Live2D model", e);
+                }
+            }
+        });
+    }
+    
+    /**
+     * 获取模型目录列表
+     * @return 模型目录列表
+     */
+    private java.util.List<String> getModelDirectories() {
+        java.util.List<String> modelDirs = new java.util.ArrayList<>();
+        try {
+            // 尝试使用assets目录扫描
+            if (activity != null) {
+                android.content.res.AssetManager assets = activity.getAssets();
+                String[] root = assets.list("live2d");
+                if (root != null) {
+                    for (String item : root) {
+                        if (!item.startsWith(".") && !item.contains(".")) { // 不是隐藏文件或文件
+                            modelDirs.add(item);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting model directories", e);
+        }
+        return modelDirs;
+    }
 }

@@ -57,6 +57,11 @@ class Live2DWidget extends StatefulWidget {
   Future<bool?> isPowerVisible() async {
     return Future.value(null);
   }
+  
+  // 添加更新模型路径的方法
+  Future<void> updateModel(String newModelPath) async {
+    return Future.value();
+  }
 }
 
 class _Live2DWidgetState extends State<Live2DWidget> {
@@ -602,6 +607,42 @@ class _Live2DWidgetState extends State<Live2DWidget> {
   Future<void> setPowerVisible(bool visible) => _setPowerVisible(visible);
   Future<bool?> isGearVisible() => _isGearVisible();
   Future<bool?> isPowerVisible() => _isPowerVisible();
+  
+  // 添加更新模型路径的实际实现
+  Future<void> updateModel(String newModelPath) => _updateModel(newModelPath);
+  
+  // 实际的更新模型方法
+  Future<void> _updateModel(String newModelPath) async {
+    try {
+      if (kDebugMode) {
+        print("Live2DWidget: Updating model to: $newModelPath");
+      }
+      
+      // 更新模型路径
+      await _channel.invokeMethod('updateModel', {
+        'modelPath': newModelPath,
+      });
+      
+      // 刷新视图以应用新模型
+      await _refreshView();
+      
+      if (kDebugMode) {
+        print("Live2DWidget: Model updated successfully");
+      }
+    } on PlatformException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to update model due to PlatformException: ${e.message}");
+      }
+    } on MissingPluginException catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Failed to update model - Missing plugin: ${e.message}");
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Live2DWidget: Unexpected error updating model: $e");
+      }
+    }
+  }
   
   @override
   Widget build(BuildContext context) {

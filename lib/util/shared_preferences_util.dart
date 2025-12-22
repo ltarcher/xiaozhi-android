@@ -23,6 +23,8 @@ class SharedPreferencesUtil {
   final String _keyLive2DPowerVisible = 'LIVE2D_POWER_VISIBLE';
 
   final String _keyWakeWord = 'WAKE_WORD';
+  
+  final String _keyLive2DModel = 'LIVE2D_MODEL';
 
   Future<void> init() async {
     String? otaUrl = await getOtaUrl();
@@ -55,6 +57,12 @@ class SharedPreferencesUtil {
     String? wakeWord = await getWakeWord();
     if (wakeWord == null || wakeWord.isEmpty) {
       await setWakeWord('你好，小清'); // 默认唤醒词
+    }
+    
+    // 初始化Live2D模型默认值
+    String? live2dModel = await getLive2DModel();
+    if (live2dModel == null || live2dModel.isEmpty) {
+      await setLive2DModel('Haru'); // 默认使用Haru模型
     }
   }
 
@@ -110,5 +118,13 @@ class SharedPreferencesUtil {
 
   Future<bool> setWakeWord(String value) async {
     return (await SharedPreferences.getInstance()).setString(_keyWakeWord, value);
+  }
+
+  Future<String?> getLive2DModel() async {
+    return (await SharedPreferences.getInstance()).getString(_keyLive2DModel);
+  }
+
+  Future<bool> setLive2DModel(String value) async {
+    return (await SharedPreferences.getInstance()).setString(_keyLive2DModel, value);
   }
 }

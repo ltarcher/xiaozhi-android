@@ -473,6 +473,31 @@ public class MainActivity extends FlutterActivity {
                                     Log.e(TAG, "Error in setLipSyncValue", e);
                                     result.error("LIPSYNC_ERROR", "Failed to set lip sync value: " + e.getMessage(), null);
                                 }
+                            } else if (call.method.equals("updateModel")) {
+                                String modelPath = call.argument("modelPath");
+                                Log.d(TAG, "updateModel called: modelPath=" + modelPath);
+                                
+                                if (modelPath == null || modelPath.isEmpty()) {
+                                    Log.e(TAG, "updateModel: Model path is null or empty");
+                                    result.error("INVALID_ARGUMENT", "Model path is null or empty", null);
+                                    return;
+                                }
+                                
+                                try {
+                                    // 获取Live2DPlatformView实例并更新模型
+                                    if (live2DViewFactory != null) {
+                                        // 直接通过Live2DViewFactory的updateModel方法更新模型
+                                        live2DViewFactory.updateModel(modelPath);
+                                        Log.d(TAG, "updateModel: Model updated successfully to: " + modelPath);
+                                        result.success(null);
+                                    } else {
+                                        Log.e(TAG, "updateModel: Live2DViewFactory is null");
+                                        result.error("FACTORY_NULL", "Live2D view factory is null", null);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error in updateModel", e);
+                                    result.error("UPDATE_MODEL_ERROR", "Failed to update model: " + e.getMessage(), null);
+                                }
                             } else {
                                 Log.w(TAG, "Unknown method called: " + call.method);
                                 result.notImplemented();

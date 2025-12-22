@@ -196,6 +196,66 @@ public class LAppLive2DManager {
     }
 
     /**
+     * 加载指定路径的模型
+     * @param modelPath 模型路径（包含完整路径）
+     */
+    public void loadModel(String modelPath) {
+        Log.d(TAG, "loadModel: Loading model from path: " + modelPath);
+        
+        try {
+            // 从完整路径中提取模型目录和模型文件名
+            String modelDirName = "";
+            String modelJsonName = "";
+            
+            if (modelPath.contains("/")) {
+                String pathParts[] = modelPath.split("/");
+                if (pathParts.length >= 2) {
+                    modelDirName = pathParts[pathParts.length - 2]; // 倒数第二个部分是目录名
+                    modelJsonName = pathParts[pathParts.length - 1]; // 最后一个部分是文件名
+                }
+            }
+            
+            if (modelDirName.isEmpty()) {
+                Log.e(TAG, "loadModel: Cannot extract model directory name from path: " + modelPath);
+                return;
+            }
+            
+            // 释放当前所有模型
+            releaseAllModel();
+            
+            // 加载新模型
+            models.add(new LAppModel());
+            models.get(0).loadAssets(modelDirName + "/", modelJsonName);
+            
+            Log.d(TAG, "loadModel: Model loaded successfully. Model count: " + models.size());
+            
+            // 更新当前模型索引
+            currentModel = 0;
+            
+            // 重置视图
+            LAppDelegate appDelegate = LAppDelegate.getInstance();
+            if (appDelegate != null && appDelegate.getView() != null) {
+                LAppView.RenderingTarget useRenderingTarget;
+                if (USE_RENDER_TARGET) {
+                    useRenderingTarget = LAppView.RenderingTarget.VIEW_FRAME_BUFFER;
+                } else if (USE_MODEL_RENDER_TARGET) {
+                    useRenderingTarget = LAppView.RenderingTarget.MODEL_FRAME_BUFFER;
+                } else {
+                    useRenderingTarget = LAppView.RenderingTarget.NONE;
+                }
+                
+                appDelegate.getView().switchRenderingTarget(useRenderingTarget);
+                
+                float[] clearColor = {0.0f, 0.0f, 0.0f};
+                appDelegate.getView().setRenderingTargetClearColor(clearColor[0], clearColor[1], clearColor[2]);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "loadModel: Error loading model", e);
+        }
+    }
+
+    /**
      * 切换到下一个场景
      * 示例应用程序中执行模型集的切换
      */
