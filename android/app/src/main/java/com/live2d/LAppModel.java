@@ -249,7 +249,31 @@ public class LAppModel extends CubismUserModel {
                         motion = loadMotion(buffer, onFinishedMotionHandler, onBeganMotionHandler, false);
                     } catch (Exception e2) {
                         Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
-                        motion = null;
+                        
+                        // 对于特别有问题的motion文件，标记为null但记录详细错误信息
+                        Log.w(TAG, "Motion file has parsing errors: " + path);
+                        Log.w(TAG, "Error details: " + e2.getClass().getSimpleName() + ": " + e2.getMessage());
+                        
+                        // 如果是Idle组的第一个motion（通常是默认motion），尝试使用备用motion
+                        if (group.equals(LAppDefine.MotionGroup.IDLE.getId()) && number == 0) {
+                            Log.i(TAG, "Attempting to use alternative idle motion for model stability");
+                            try {
+                                // 尝试加载同组的下一个motion
+                                if (modelSetting.getMotionCount(group) > 1) {
+                                    String nextPath = modelHomeDirectory + modelSetting.getMotionFileName(group, 1);
+                                    byte[] nextBuffer = createBuffer(nextPath);
+                                    motion = loadMotion(nextBuffer, onFinishedMotionHandler, onBeganMotionHandler, false);
+                                    if (motion != null) {
+                                        Log.i(TAG, "Successfully loaded alternative idle motion");
+                                    }
+                                }
+                            } catch (Exception e3) {
+                                Log.e(TAG, "Failed to load alternative idle motion", e3);
+                                motion = null;
+                            }
+                        } else {
+                            motion = null;
+                        }
                     }
                 }
                 
@@ -654,6 +678,26 @@ public class LAppModel extends CubismUserModel {
                         tmp = loadMotion(buffer, false);
                     } catch (Exception e2) {
                         Log.e(TAG, "Failed to load motion even without consistency check: " + path, e2);
+                        // 对于特别有问题的motion文件，尝试跳过加载但记录警告
+                        Log.w(TAG, "Skipping problematic motion file: " + path + " due to parsing errors");
+                        
+                        // 如果是Idle组的第一个motion（通常是默认motion），尝试使用备用motion
+                        if (group.equals(LAppDefine.MotionGroup.IDLE.getId()) && i == 0) {
+                            Log.i(TAG, "Attempting to use alternative idle motion for model stability");
+                            try {
+                                // 尝试加载同组的下一个motion
+                                if (modelSetting.getMotionCount(group) > 1) {
+                                    String nextPath = modelHomeDirectory + modelSetting.getMotionFileName(group, 1);
+                                    byte[] nextBuffer = createBuffer(nextPath);
+                                    tmp = loadMotion(nextBuffer, false);
+                                    if (tmp != null) {
+                                        Log.i(TAG, "Successfully loaded alternative idle motion");
+                                    }
+                                }
+                            } catch (Exception e3) {
+                                Log.e(TAG, "Failed to load alternative idle motion", e3);
+                            }
+                        }
                     }
                 }
                 
