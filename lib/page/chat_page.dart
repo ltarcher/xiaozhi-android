@@ -60,6 +60,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   // 添加防止重复触发唤醒的保护变量
   DateTime? _lastWakeUpTime;
   static const Duration _wakeUpCooldown = Duration(seconds: 3);
+  
+  // 添加唤醒词状态变量
+  String? _wakeWord;
 
   @override
   void initState() {
@@ -83,6 +86,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 初始化语音唤醒服务
     _voiceWakeUpService = VoiceWakeUpService();
     _initializeVoiceWakeUp();
+    
+    // 获取唤醒词
+    _restoreWakeWord();
     
     super.initState();
   }
@@ -193,6 +199,28 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } catch (e) {
       if (kDebugMode) {
         print('ChatPage: Error restoring model index: $e');
+      }
+    }
+  }
+  
+  // 从持久化存储恢复唤醒词
+  Future<void> _restoreWakeWord() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      String? wakeWord = await prefsUtil.getWakeWord();
+      
+      if (kDebugMode) {
+        print('ChatPage: Restored wake word: $wakeWord');
+      }
+      
+      if (mounted) {
+        setState(() {
+          _wakeWord = wakeWord ?? '你好，小清'; // 默认唤醒词
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error restoring wake word: $e');
       }
     }
   }
@@ -1269,7 +1297,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     // 根据唤醒状态显示不同的文本
                                     Text(_isWakeModeActive
                                         ? '通话中'
-                                        : AppLocalizations.of(context)!.holdToTalk),
+                                        : '请说唤醒词：${_wakeWord ?? '你好，小清'}'),
                                     // 如果处于唤醒模式，显示挂断图标
                                     if (_isWakeModeActive) ...[
                                       SizedBox(width: XConst.spacer),
