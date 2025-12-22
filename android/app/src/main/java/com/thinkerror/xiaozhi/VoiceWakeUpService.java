@@ -455,7 +455,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
      */
     private boolean containsWakeWord(String hypothesis) {
         // 添加调试日志
-        Log.d(TAG, "Checking for wake word in hypothesis: " + hypothesis);
+        //Log.d(TAG, "Checking for wake word in hypothesis: " + hypothesis);
         
         if (hypothesis == null || hypothesis.trim().isEmpty()) {
             Log.d(TAG, "Empty hypothesis, no wake word found");
@@ -465,30 +465,30 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         // 防重复触发
         long currentTime = System.currentTimeMillis() / 1000;
         if (currentTime - lastDetectionTime < detectionCooldown) {
-            Log.d(TAG, "Detection cooldown active, ignoring");
+            //Log.d(TAG, "Detection cooldown active, ignoring");
             return false;
         }
         
         // 解析JSON格式的识别结果
         String recognizedText = extractTextFromJson(hypothesis);
-        Log.d(TAG, "Extracted text from hypothesis: " + recognizedText);
+        //Log.d(TAG, "Extracted text from hypothesis: " + recognizedText);
         
         if (recognizedText == null || recognizedText.trim().isEmpty()) {
-            Log.d(TAG, "No text extracted from hypothesis");
+            //Log.d(TAG, "No text extracted from hypothesis");
             return false;
         }
         
         // 只处理长度>=2的文本，因为退出唤醒词可能较短
         if (recognizedText.length() < 2) {
-            Log.d(TAG, "Text too short, ignoring: " + recognizedText);
+            //Log.d(TAG, "Text too short, ignoring: " + recognizedText);
             return false;
         }
         
         String normalizedHypothesis = recognizedText.toLowerCase().trim();
         String hypothesisPinyin = convertToPinyin(normalizedHypothesis);
         
-        Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
-        Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
+        //Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
+        //Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
         
         // 先检查是否是退出唤醒词
         String bestExitMatch = null;
@@ -745,7 +745,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             
             // 移除换行符和多余空格，确保JSON在一行上，便于解析
             String normalizedJson = jsonResult.replaceAll("\\s+", " ").trim();
-            Log.d(TAG, "Normalized JSON: " + normalizedJson);
+            //Log.d(TAG, "Normalized JSON: " + normalizedJson);
             
             // 尝试使用JSON对象解析
             try {
@@ -755,7 +755,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                 if (jsonObject.has("text")) {
                     String text = jsonObject.getString("text");
                     if (text != null) {
-                        Log.d(TAG, "Successfully extracted JSON text: '" + text + "'");
+                        //Log.d(TAG, "Successfully extracted JSON text: '" + text + "'");
                         return text.trim();
                     }
                 }
@@ -765,7 +765,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                     String partial = jsonObject.getString("partial");
                     // 即使是空字符串也要返回，这是有效的识别结果
                     if (partial != null) {
-                        Log.d(TAG, "Successfully extracted JSON partial: '" + partial + "'");
+                        //Log.d(TAG, "Successfully extracted JSON partial: '" + partial + "'");
                         return partial.trim();
                     }
                 }
@@ -778,7 +778,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
                         if (firstResult.has("word")) {
                             String word = firstResult.getString("word");
                             if (word != null) {
-                                Log.d(TAG, "Successfully extracted JSON word: '" + word + "'");
+                                //Log.d(TAG, "Successfully extracted JSON word: '" + word + "'");
                                 return word.trim();
                             }
                         }
