@@ -604,7 +604,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             return true;
         }
         
-        Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
+        //Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
         return false;
     }
     
@@ -918,7 +918,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     @Override
     public void onPartialResult(String hypothesis) {
         // 添加调试日志，打印部分识别结果
-        Log.d(TAG, "Received partial recognition result: " + hypothesis);
+        //Log.d(TAG, "Received partial recognition result: " + hypothesis);
         
         // 部分结果也用于唤醒词检测，提高响应速度
         if (containsWakeWord(hypothesis)) {
