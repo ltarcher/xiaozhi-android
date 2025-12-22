@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
@@ -8,7 +9,7 @@ class VoiceWakeUpService {
   static VoiceWakeUpService? _instance;
   
   // 事件回调
-  Function(String)? onWakeWordDetected;
+  Function(String, Uint8List)? onWakeWordDetected; // 修改为包含音频数据
   Function(String)? onExitWakeWordDetected;
   Function(String)? onError;
   
@@ -173,9 +174,11 @@ class VoiceWakeUpService {
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onWakeWordDetected':
-        final String hypothesis = call.arguments as String;
-        print('VoiceWakeUpService: Wake word detected: $hypothesis');
-        onWakeWordDetected?.call(hypothesis);
+        final Map<String, dynamic> arguments = call.arguments as Map<String, dynamic>;
+        final String hypothesis = arguments['hypothesis'] as String;
+        final Uint8List audioData = arguments['audioData'] as Uint8List;
+        print('VoiceWakeUpService: Wake word detected: $hypothesis with audio data length: ${audioData.length}');
+        onWakeWordDetected?.call(hypothesis, audioData);
         break;
         
       case 'onExitWakeWordDetected':

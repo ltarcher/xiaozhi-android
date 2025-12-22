@@ -15,6 +15,8 @@ import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
 import 'package:xiaozhi/util/voice_wake_up_service.dart'; // 添加语音唤醒服务导入
+import 'package:xiaozhi/util/common_utils.dart'; // 添加通用工具导入
+import 'package:xiaozhi/model/websocket_message.dart'; // 添加WebSocket消息模型导入
 import 'package:uuid/uuid.dart'; // 添加UUID导入
 
 import 'call_page.dart';
@@ -295,13 +297,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
       
       // 设置唤醒词检测回调
-      _voiceWakeUpService.onWakeWordDetected = (String hypothesis) {
+      _voiceWakeUpService.onWakeWordDetected = (String hypothesis, Uint8List audioData) {
         if (kDebugMode) {
-          print('ChatPage: Wake word detected: $hypothesis');
+          print('ChatPage: Wake word detected: $hypothesis with audio data length: ${audioData.length}');
         }
         
-        // 当检测到唤醒词时，触发开始录音
-        _handleWakeWordDetected(hypothesis);
+        // 当检测到唤醒词时，触发开始录音并发送音频数据
+        _handleWakeWordDetected(hypothesis, audioData);
       };
       
       // 设置退出唤醒词检测回调
@@ -385,7 +387,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
   
   // 处理检测到唤醒词的情况
-  void _handleWakeWordDetected(String? detectedWakeWord) {
+  void _handleWakeWordDetected(String? detectedWakeWord, Uint8List? audioData) {
     if (!mounted) return;
     
     // 检查是否已在唤醒模式中，避免重复触发
@@ -410,10 +412,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 获取唤醒词，优先使用检测到的唤醒词，否则获取当前设置的唤醒词
     if (detectedWakeWord != null && detectedWakeWord.isNotEmpty) {
-      _processWakeWord(detectedWakeWord);
+      _processWakeWord(detectedWakeWord, audioData);
     } else {
       _voiceWakeUpService.getWakeWord().then((wakeWord) {
-        _processWakeWord(wakeWord);
+        _processWakeWord(wakeWord, audioData);
       });
     }
   }
@@ -466,7 +468,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
   
   // 处理唤醒词的逻辑
-  void _processWakeWord(String wakeWord) {
+  void _processWakeWord(String wakeWord, Uint8List? audioData) {
     if (!mounted) return;
     
     if (kDebugMode) {
@@ -506,11 +508,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     
     // 开始连续对话模式（使用call模式的逻辑）
-    _startContinuousConversation(wakeWord);
+    _startContinuousConversation(wakeWord, audioData);
   }
   
   // 开始连续对话模式
-  void _startContinuousConversation(String wakeWord) {
+  void _startContinuousConversation(String wakeWord, Uint8List? audioData) {
     if (kDebugMode) {
       print('ChatPage: Starting continuous conversation mode with wake word: $wakeWord');
     }
@@ -532,6 +534,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       print('ChatPage: Sent wake word to server: $wakeWord');
     }
     
+    // 如果有音频数据，则也将音频数据发送到服务器
+    if (audioData != null && audioData.isNotEmpty) {
+      // 创建一个临时的录音事件来发送唤醒音频数据
+      _sendWakeWordAudioData(audioData);
+    }
+    
     // 触发录音开始事件，但不显示对话框
     holdToTalkKey.currentState!.setSpeaking(true);
     if (!_isPressing) {
@@ -542,6 +550,41 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 开始口型同步
     _lipSyncController.start();
+  }
+  
+  // 发送唤醒词音频数据到服务器
+  void _sendWakeWordAudioData(Uint8List audioData) async {
+    if (kDebugMode) {
+      print('ChatPage: Sending wake word audio data to server, length: ${audioData.length}');
+    }
+    
+    try {
+      // 获取ChatBloc实例
+      final chatBlocState = chatBloc.state;
+      
+      // 将PCM音频数据转换为Opus格式
+      Uint8List? opusData = await CommonUtils.pcmToOpus(
+        pcmData: audioData,
+        sampleRate: AudioParams.sampleRate16000, // 使用默认采样率
+        frameDuration: AudioParams.frameDuration60, // 使用默认帧持续时间
+      );
+      
+      if (opusData != null) {
+        // 通过WebSocket发送Opus音频数据
+        chatBloc.add(ChatSendAudioDataEvent(opusData: opusData));
+        if (kDebugMode) {
+          print('ChatPage: Sent wake word audio data to server successfully');
+        }
+      } else {
+        if (kDebugMode) {
+          print('ChatPage: Failed to encode wake word audio data to Opus');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error sending wake word audio data: $e');
+      }
+    }
   }
   
   // 退出唤醒模式
@@ -1132,9 +1175,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                                                       .colorScheme
                                                                       .onTertiaryContainer,
                                                       ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
                                               ),
                                             )
                                             .toList(),
@@ -1316,7 +1359,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     print('ChatPage: Test wake word detection button pressed');
                                   }
                                   // 测试使用默认唤醒词
-                                  _handleWakeWordDetected(null);
+                                  _handleWakeWordDetected(null, null);
                                 },
                                 icon: Icon(Icons.science, color: Colors.blue),
                                 tooltip: '测试唤醒词检测',

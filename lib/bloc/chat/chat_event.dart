@@ -25,6 +25,13 @@ class ChatStartCallEvent extends ChatEvent {}
 
 class ChatStopCallEvent extends ChatEvent {}
 
+// 添加发送音频数据事件
+class ChatSendAudioDataEvent extends ChatEvent {
+  final Uint8List opusData;
+  
+  ChatSendAudioDataEvent({required this.opusData});
+}
+
 // WebSocket连接状态事件
 class ChatConnectionConnectingEvent extends ChatEvent {}
 
