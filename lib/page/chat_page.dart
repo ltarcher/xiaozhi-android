@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -66,6 +67,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加唤醒词状态变量
   String? _wakeWord;
+  
+  // 添加唤醒服务重试定时器
+  Timer? _wakeUpRetryTimer;
 
   @override
   void initState() {
@@ -240,6 +244,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 停止并释放语音唤醒服务
     _voiceWakeUpService.stopListening();
     _voiceWakeUpService.dispose();
+    
+    // 取消唤醒服务重试定时器
+    _wakeUpRetryTimer?.cancel();
     super.dispose();
   }
 
@@ -265,14 +272,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         // 根据应用状态控制语音唤醒
         if (_isVoiceWakeUpEnabled) {
           _voiceWakeUpService.startListening().then((started) {
-            if (started && mounted) {
+            if (mounted) {
               setState(() {
-                _isVoiceWakeUpReady = true;
+                _isVoiceWakeUpReady = started;
               });
-            } else if (mounted) {
-              setState(() {
-                _isVoiceWakeUpReady = false;
-              });
+              
+              // 如果启动失败，启动定时重试
+              if (!started) {
+                _scheduleWakeUpRetry();
+              }
             }
           });
         }
@@ -339,16 +347,21 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       // 初始化语音唤醒服务
       bool initialized = await _voiceWakeUpService.initialize();
       if (initialized && _isVoiceWakeUpEnabled) {
-        await _voiceWakeUpService.startListening();
+        bool started = await _voiceWakeUpService.startListening();
         if (kDebugMode) {
-          print('ChatPage: Voice wake up service started');
+          print('ChatPage: Voice wake up service started: $started');
         }
         
         // 设置唤醒服务准备就绪标志
         if (mounted) {
           setState(() {
-            _isVoiceWakeUpReady = true;
+            _isVoiceWakeUpReady = started;
           });
+          
+          // 如果启动失败，启动定时重试
+          if (!started) {
+            _scheduleWakeUpRetry();
+          }
         }
         
         // 测试语音识别功能
@@ -584,14 +597,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       // 重新启动唤醒词检测
       if (_isVoiceWakeUpEnabled) {
         _voiceWakeUpService.startListening().then((started) {
-          if (started && mounted) {
+          if (mounted) {
             setState(() {
-              _isVoiceWakeUpReady = true;
+              _isVoiceWakeUpReady = started;
             });
-          } else if (mounted) {
-            setState(() {
-              _isVoiceWakeUpReady = false;
-            });
+            
+            // 如果启动失败，启动定时重试
+            if (!started) {
+              _scheduleWakeUpRetry();
+            }
+          }
+          
+          if (kDebugMode) {
+            print('ChatPage: Voice wake up service restart result: $started');
           }
         });
         if (kDebugMode) {
@@ -600,7 +618,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
     }
   }
-
+  
+  // 定时重试唤醒服务
+  void _scheduleWakeUpRetry() {
+    // 取消现有的定时器
+    _wakeUpRetryTimer?.cancel();
+    
+    // 创建新的定时器，5秒后重试
+    _wakeUpRetryTimer = Timer(Duration(seconds: 5), () async {
+      if (mounted && _isVoiceWakeUpEnabled && !_isVoiceWakeUpReady) {
+        if (kDebugMode) {
+          print('ChatPage: Retrying to start voice wake up service');
+        }
+        
+        bool started = await _voiceWakeUpService.startListening();
+        if (mounted) {
+          setState(() {
+            _isVoiceWakeUpReady = started;
+          });
+          
+          // 如果仍然失败，继续重试
+          if (!started) {
+            _scheduleWakeUpRetry();
+          } else {
+            if (kDebugMode) {
+              print('ChatPage: Voice wake up service started successfully after retry');
+            }
+          }
+        }
+      }
+    });
+  }
+  
   clearUp() async {
     if (kDebugMode) {
       print('ChatPage: clearUp called');
@@ -747,17 +796,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         
         bool started = await _voiceWakeUpService.startListening();
-        if (started) {
-          if (kDebugMode) {
-            print('ChatPage: Voice wake up enabled');
-          }
-          setState(() {
-            _isVoiceWakeUpReady = true;
-          });
-        } else {
-          setState(() {
-            _isVoiceWakeUpReady = false;
-          });
+        setState(() {
+          _isVoiceWakeUpReady = started;
+        });
+        
+        // 如果启动失败，启动定时重试
+        if (!started) {
+          _scheduleWakeUpRetry();
+        }
+        
+        if (kDebugMode) {
+          print('ChatPage: Voice wake up enabled: $started');
         }
       } else {
         await _voiceWakeUpService.stopListening();
@@ -1346,9 +1395,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                     // 根据唤醒状态和服务状态显示不同的文本
                                     Text(_isWakeModeActive
                                         ? '通话中'
-                                        : _isVoiceWakeUpReady
-                                            ? '请说唤醒词：${_wakeWord ?? '你好，小清'}'
-                                            : '唤醒服务准备中'),
+                                        : _isVoiceWakeUpEnabled
+                                            ? _isVoiceWakeUpReady
+                                                ? '请说唤醒词：${_wakeWord ?? '你好，小清'}'
+                                                : '唤醒服务准备中...'
+                                            : '按住说话'),
                                     // 如果处于唤醒模式，显示挂断图标
                                     if (_isWakeModeActive) ...[
                                       SizedBox(width: XConst.spacer),
