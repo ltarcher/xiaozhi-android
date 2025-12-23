@@ -494,6 +494,7 @@ class _SettingPageState extends State<SettingPage> {
           
           // Live2D 按钮控制部分
           SizedBox(height: XConst.spacer * 3),
+          /*
           Text(
             'Live2D 界面设置',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -611,7 +612,7 @@ class _SettingPageState extends State<SettingPage> {
               ),
             ),
           ),
-          
+          */
           // 语音唤醒设置部分
           Text(
             '语音唤醒设置',
