@@ -22,7 +22,7 @@ class _SettingPageState extends State<SettingPage> {
   late TextEditingController _wakeWordController;
   
   // Live2D按钮可见性状态
-  bool _isGearVisible = true;
+  bool _isGearVisible = false;
   bool _isPowerVisible = false;
   
   // 语音唤醒状态
@@ -87,7 +87,7 @@ class _SettingPageState extends State<SettingPage> {
       
       if (mounted) {
         setState(() {
-          _isGearVisible = gearVisible ?? true; // 默认可见
+          _isGearVisible = gearVisible ?? false; // 默认可见
           _isPowerVisible = powerVisible ?? false; // 默认不可见
         });
       }
@@ -95,7 +95,7 @@ class _SettingPageState extends State<SettingPage> {
       if (mounted) {
         // 如果加载失败，使用默认值
         setState(() {
-          _isGearVisible = true;
+          _isGearVisible = false;
           _isPowerVisible = false;
         });
       }
