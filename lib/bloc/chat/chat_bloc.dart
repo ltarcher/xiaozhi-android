@@ -140,26 +140,52 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           }
           
           if (data is String) {
+            // 添加调试输出，打印接收到的 WebSocket 消息
+            if (kDebugMode) {
+              _logger.i('___DEBUG Received WebSocket message: $data');
+            }
+            
             final WebsocketMessage message = WebsocketMessage.fromJson(
               jsonDecode(data),
             );
+            
+            // 添加调试输出，打印解析后的消息内容
+            if (kDebugMode) {
+              _logger.i('___DEBUG Parsed message - Type: ${message.type}, State: ${message.state}, Text: ${message.text}, SessionId: ${message.sessionId}');
+            }
 
             if (null != message.sessionId) {
               _sessionId = message.sessionId;
+              if (kDebugMode) {
+                _logger.i('___DEBUG Updated session ID: $_sessionId');
+              }
             }
             if (null != message.audioParams) {
               _audioSampleRate = message.audioParams!.sampleRate;
               _audioChannels = message.audioParams!.channels;
               _audioFrameDuration = message.audioParams!.frameDuration;
+              if (kDebugMode) {
+                _logger.i('___DEBUG Updated audio params - SampleRate: $_audioSampleRate, Channels: $_audioChannels, FrameDuration: $_audioFrameDuration');
+              }
             }
 
             if (message.type == WebsocketMessage.typeSpeechToText) {
+              if (kDebugMode) {
+                _logger.i('___DEBUG Processing STT message: ${message.text}');
+              }
+              
               if (null != _audioRecorder &&
                   await _audioRecorder!.isRecording()) {
                 await _audioRecorder!.stop();
+                if (kDebugMode) {
+                  _logger.i('___DEBUG Stopped audio recording due to STT message');
+                }
               }
 
               if (null != message.text) {
+                if (kDebugMode) {
+                  _logger.i('___DEBUG Adding user message to chat: ${message.text}');
+                }
                 add(
                   ChatOnMessageEvent(
                     message: StorageMessage(
@@ -174,6 +200,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             } else if (message.type == WebsocketMessage.typeTextToSpeech &&
                 message.state == WebsocketMessage.stateSentenceStart &&
                 null != message.text) {
+              if (kDebugMode) {
+                _logger.i('___DEBUG Processing TTS sentence start: ${message.text}');
+              }
               add(
                 ChatOnMessageEvent(
                   message: StorageMessage(
@@ -187,6 +216,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             } else if (message.type == WebsocketMessage.typeTextToSpeech &&
                 message.state == WebsocketMessage.stateStop &&
                 _isOnCall) {
+              if (kDebugMode) {
+                _logger.i('___DEBUG Processing TTS stop message, restarting listen');
+              }
               add(ChatStartListenEvent());
             }
           } else if (data is Uint8List) {
@@ -324,20 +356,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       _initWebsocketListener();
 
       // 发送hello消息并等待响应，以确认连接真正可用
-      _websocketChannel!.sink.add(
-        jsonEncode(
-          WebsocketMessage(
-            type: WebsocketMessage.typeHello,
-            transport: WebsocketMessage.transportWebSocket,
-            audioParams: AudioParams(
-              sampleRate: _audioSampleRate,
-              channels: _audioChannels,
-              frameDuration: _audioFrameDuration,
-              format: AudioParams.formatOpus,
-            ),
-          ).toJson(),
+      final helloMessage = WebsocketMessage(
+        type: WebsocketMessage.typeHello,
+        transport: WebsocketMessage.transportWebSocket,
+        audioParams: AudioParams(
+          sampleRate: _audioSampleRate,
+          channels: _audioChannels,
+          frameDuration: _audioFrameDuration,
+          format: AudioParams.formatOpus,
         ),
       );
+      
+      final helloMessageJson = jsonEncode(helloMessage.toJson());
+      
+      if (kDebugMode) {
+        _logger.i('___DEBUG Sending hello message: $helloMessageJson');
+      }
+      
+      _websocketChannel!.sink.add(helloMessageJson);
       
       // 等待服务器响应，确认连接真正可用
       // 这里不直接设置为connected状态，而是在收到服务器响应后再设置
@@ -452,16 +488,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           return;
         }
         
-        _websocketChannel!.sink.add(
-          jsonEncode(
-            WebsocketMessage(
-              type: WebsocketMessage.typeListen,
-              sessionId: _sessionId,
-              state: WebsocketMessage.stateStart,
-              mode: WebsocketMessage.modeAuto,
-            ).toJson(),
-          ),
+        final listenMessage = WebsocketMessage(
+          type: WebsocketMessage.typeListen,
+          sessionId: _sessionId,
+          state: WebsocketMessage.stateStart,
+          mode: WebsocketMessage.modeAuto,
         );
+        
+        final listenMessageJson = jsonEncode(listenMessage.toJson());
+        
+        if (kDebugMode) {
+          _logger.i('___DEBUG Sending listen message: $listenMessageJson');
+        }
+        
+        _websocketChannel!.sink.add(listenMessageJson);
 
         // 确保 _audioRecorder 不为 null
         if (_audioRecorder == null) {
@@ -496,6 +536,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             if (null != opusData) {
               // 再次检查 _websocketChannel 不为 null
               if (_websocketChannel != null) {
+                if (kDebugMode) {
+                  _logger.i('___DEBUG Sending audio data: ${opusData.length} bytes');
+                }
                 _websocketChannel!.sink.add(opusData);
               }
             }
