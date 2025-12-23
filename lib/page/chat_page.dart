@@ -635,8 +635,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
       // 重新启动唤醒词检测
       if (_isVoiceWakeUpEnabled) {
-        _voiceWakeUpService.startListening().then((started) {
+        // 添加延迟，确保所有相关资源已正确释放
+        Future.delayed(Duration(milliseconds: 500), () async {
           if (mounted) {
+            bool started = await _voiceWakeUpService.startListening();
             setState(() {
               _isVoiceWakeUpReady = started;
             });
@@ -645,14 +647,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             if (!started) {
               _scheduleWakeUpRetry();
             }
-          }
-          
-          if (kDebugMode) {
-            print('ChatPage: Voice wake up service restart result: $started');
+            
+            if (kDebugMode) {
+              print('ChatPage: Voice wake up service restart result: $started');
+            }
           }
         });
+        
         if (kDebugMode) {
-          print('ChatPage: Voice wake up service restarted after exiting wake mode');
+          print('ChatPage: Voice wake up service scheduled for restart after exiting wake mode');
         }
       }
     }
@@ -670,19 +673,26 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           print('ChatPage: Retrying to start voice wake up service');
         }
         
-        bool started = await _voiceWakeUpService.startListening();
-        if (mounted) {
-          setState(() {
-            _isVoiceWakeUpReady = started;
-          });
-          
-          // 如果仍然失败，继续重试
-          if (!started) {
-            _scheduleWakeUpRetry();
-          } else {
-            if (kDebugMode) {
-              print('ChatPage: Voice wake up service started successfully after retry');
+        // 确保不在唤醒模式中
+        if (!_isWakeModeActive) {
+          bool started = await _voiceWakeUpService.startListening();
+          if (mounted) {
+            setState(() {
+              _isVoiceWakeUpReady = started;
+            });
+            
+            // 如果仍然失败，继续重试
+            if (!started) {
+              _scheduleWakeUpRetry();
+            } else {
+              if (kDebugMode) {
+                print('ChatPage: Voice wake up service started successfully after retry');
+              }
             }
+          }
+        } else {
+          if (kDebugMode) {
+            print('ChatPage: Skipping wake up retry - currently in wake mode');
           }
         }
       }

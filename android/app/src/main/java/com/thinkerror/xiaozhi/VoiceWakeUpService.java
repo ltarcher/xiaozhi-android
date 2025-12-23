@@ -275,10 +275,19 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             // 这样可以识别模型词汇表中的任何词，然后在结果中进行关键词匹配
             Log.i(TAG, "Using free-form recognition without grammar restrictions");
             
-            // 创建不带语法的识别器，这样可以识别模型支持的所有词汇
-            Recognizer recognizer = new Recognizer(model, 16000.0f);
-            speechService = new SpeechService(recognizer, 16000.0f);
-            speechService.startListening(this);
+            // 检查speechService是否已存在
+            if (speechService != null) {
+                Log.i(TAG, "Reusing existing SpeechService");
+                // 重新启动现有的SpeechService
+                speechService.startListening(this);
+            } else {
+                // 创建新的SpeechService
+                Recognizer recognizer = new Recognizer(model, 16000.0f);
+                speechService = new SpeechService(recognizer, 16000.0f);
+                speechService.startListening(this);
+                Log.i(TAG, "Created new SpeechService");
+            }
+            
             isListening = true;
             
             if (result != null) {
@@ -288,8 +297,33 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             Log.i(TAG, "Started listening for wake word: " + currentWakeWord);
         } catch (IOException e) {
             Log.e(TAG, "Failed to start listening", e);
-            if (result != null) {
-                result.error("LISTENING_START_ERROR", "Failed to start listening: " + e.getMessage(), null);
+            
+            // 如果启动失败，尝试重新创建SpeechService
+            Log.i(TAG, "Attempting to recreate SpeechService due to error");
+            try {
+                if (speechService != null) {
+                    try {
+                        speechService.shutdown();
+                    } catch (Exception ex) {
+                        Log.w(TAG, "Error shutting down SpeechService during recreation: " + ex.getMessage());
+                    }
+                }
+                
+                Recognizer recognizer = new Recognizer(model, 16000.0f);
+                speechService = new SpeechService(recognizer, 16000.0f);
+                speechService.startListening(this);
+                isListening = true;
+                
+                if (result != null) {
+                    result.success(true);
+                }
+                
+                Log.i(TAG, "Successfully started listening after recreating SpeechService");
+            } catch (IOException recreateEx) {
+                Log.e(TAG, "Failed to recreate SpeechService", recreateEx);
+                if (result != null) {
+                    result.error("LISTENING_START_ERROR", "Failed to start listening: " + recreateEx.getMessage(), null);
+                }
             }
         }
     }
@@ -304,8 +338,9 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         
         if (speechService != null) {
             speechService.stop();
-            speechService.shutdown();
-            speechService = null;
+            // 不完全关闭SpeechService，只停止监听
+            // 这样可以在startListening时更容易重新启动
+            Log.i(TAG, "SpeechService stopped but not destroyed");
         }
         
         isListening = false;
@@ -363,7 +398,18 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     }
     
     public void dispose() {
-        stopListening(null);
+        isListening = false;
+        
+        // 完全关闭SpeechService
+        if (speechService != null) {
+            try {
+                speechService.stop();
+                speechService.shutdown();
+                speechService = null;
+            } catch (Exception e) {
+                Log.e(TAG, "Error shutting down SpeechService during dispose: " + e.getMessage());
+            }
+        }
         
         // Model对象不需要显式销毁，由垃圾回收器处理
         model = null;
