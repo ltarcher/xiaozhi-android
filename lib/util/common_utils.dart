@@ -91,4 +91,25 @@ class CommonUtils {
       return null;
     }
   }
+  
+  /// 判断是否是终止对话的消息
+  static bool isEndConversationMessage(String text) {
+    // 检查文本是否包含终止对话的关键词
+    List<String> endPhrases = [
+      '再见',
+      '拜拜',
+      '下次再聊',
+      '不聊了',
+      '结束对话',
+      '挂断',
+      '晚安'
+    ];
+    
+    for (String phrase in endPhrases) {
+      if (text.contains(phrase)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

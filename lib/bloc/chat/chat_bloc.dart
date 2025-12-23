@@ -219,7 +219,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
               if (kDebugMode) {
                 _logger.i('___DEBUG Processing TTS stop message, restarting listen');
               }
-              add(ChatStartListenEvent());
+              
+              // 检查是否是终止对话的消息
+              if (message.text != null && CommonUtils.isEndConversationMessage(message.text!)) {
+                if (kDebugMode) {
+                  _logger.i('___DEBUG End conversation message detected, stopping call');
+                }
+                // 如果处于唤醒连续通话状态，应该退出连续通话状态
+                add(ChatStopCallEvent());
+                // 添加退出唤醒模式事件，通知UI层
+                add(ChatExitWakeModeEvent());
+              } else {
+                // 否则只是重新开始监听
+                add(ChatStartListenEvent());
+              }
             }
           } else if (data is Uint8List) {
           // 确保 _audioPlayer 不为 null
@@ -750,6 +763,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         } else if (state is ChatNoMicrophonePermissionState) {
           emit((state as ChatNoMicrophonePermissionState).copyWith(lipSyncValue: event.lipSyncValue));
         }
+      }
+      
+      // 处理退出唤醒模式事件
+      if (event is ChatExitWakeModeEvent) {
+        _logger.i('___INFO ChatExitWakeModeEvent received, stopping call and listening');
+        // 停止通话和监听
+        _isOnCall = false;
+        add(ChatStopListenEvent());
       }
     });
   }

@@ -25,6 +25,9 @@ class ChatStartCallEvent extends ChatEvent {}
 
 class ChatStopCallEvent extends ChatEvent {}
 
+// 添加退出唤醒模式事件
+class ChatExitWakeModeEvent extends ChatEvent {}
+
 // WebSocket连接状态事件
 class ChatConnectionConnectingEvent extends ChatEvent {}
 

@@ -375,7 +375,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     @Override
     public void onResult(String hypothesis) {
         // 添加调试日志，打印所有识别结果
-        //Log.i(TAG, "Received recognition result: " + hypothesis);
+        Log.i(TAG, "Received recognition result: " + hypothesis);
         
         // 使用更灵活的关键词检测
         if (containsWakeWord(hypothesis)) {
@@ -487,8 +487,8 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         String normalizedHypothesis = recognizedText.toLowerCase().trim();
         String hypothesisPinyin = convertToPinyin(normalizedHypothesis);
         
-        //Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
-        //Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
+        Log.d(TAG, "Normalized hypothesis: " + normalizedHypothesis);
+        Log.d(TAG, "Hypothesis pinyin: " + hypothesisPinyin);
         
         // 先检查是否是退出唤醒词
         String bestExitMatch = null;
@@ -604,7 +604,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             return true;
         }
         
-        //Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
+        Log.d(TAG, "No wake word found in hypothesis: " + recognizedText);
         return false;
     }
     
@@ -918,7 +918,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     @Override
     public void onPartialResult(String hypothesis) {
         // 添加调试日志，打印部分识别结果
-        //Log.d(TAG, "Received partial recognition result: " + hypothesis);
+        Log.d(TAG, "Received partial recognition result: " + hypothesis);
         
         // 部分结果也用于唤醒词检测，提高响应速度
         if (containsWakeWord(hypothesis)) {

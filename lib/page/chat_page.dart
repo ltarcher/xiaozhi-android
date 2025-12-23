@@ -12,6 +12,7 @@ import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/model/storage_message.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
+import 'package:xiaozhi/util/common_utils.dart'; // 添加工具类导入
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
@@ -990,6 +991,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               }
             }
           }
+          
+          // 处理退出唤醒模式事件
+          if (chatState is ChatInitialState && _isWakeModeActive) {
+            // 检查是否有终止对话的消息
+            if (chatState.messageList.isNotEmpty && !chatState.messageList.first.sendByMe) {
+              String lastMessage = chatState.messageList.first.text;
+              if (CommonUtils.isEndConversationMessage(lastMessage)) {
+                if (kDebugMode) {
+                  print('ChatPage: End conversation message detected: $lastMessage');
+                }
+                _exitWakeMode();
+              }
+            }
+          }
         },
         builder: (context, ChatState chatState) {
           if (kDebugMode) {
@@ -1527,7 +1542,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                       if (kDebugMode) {
                                         print('ChatPage: Error during activation process: $e');
                                       }
-                                    }
+                                   }
                                   },
                                   child: Text(AppLocalizations.of(context)!.ok),
                                 ),
