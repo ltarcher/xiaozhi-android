@@ -330,8 +330,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         
         // 测试语音识别功能
-        await Future.delayed(Duration(seconds: 2));
-        await _voiceWakeUpService.testRecognition();
+        //await Future.delayed(Duration(seconds: 2));
+        //await _voiceWakeUpService.testRecognition();
       }
     } catch (e) {
       if (kDebugMode) {
