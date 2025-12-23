@@ -146,7 +146,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       
       if (mounted) {
         setState(() {
-          _isGearVisible = gearVisible ?? true; // 默认可见
+          _isGearVisible = gearVisible ?? false; // 默认不可见
           _isPowerVisible = powerVisible ?? false; // 默认不可见
         });
         
