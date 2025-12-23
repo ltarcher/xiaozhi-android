@@ -47,6 +47,9 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
     private Handler mainHandler;
     private SharedPreferences sharedPreferences;
     
+    // 唤醒词检测状态
+    private String lastDetectedWakeWord = null;
+    
     // 添加多唤醒词支持
     private List<String> wakeWords = new ArrayList<>();
     private Map<String, String> wakeWordPinyins = new HashMap<>();
@@ -279,6 +282,7 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             Recognizer recognizer = new Recognizer(model, 16000.0f);
             speechService = new SpeechService(recognizer, 16000.0f);
             speechService.startListening(this);
+            
             isListening = true;
             
             if (result != null) {
@@ -404,7 +408,11 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
+                    // 发送唤醒词检测事件
                     methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
+                    // 自动请求音频数据并发送给Flutter端
+                    requestWakeWordAudioData(null);
+                    Log.i(TAG, "Sent wake word detection event and audio data to Flutter");
                 }
             });
         }
@@ -439,10 +447,23 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             // 创建final变量用于lambda表达式
             final String finalHypothesis = hypothesis;
             
+            // 保存检测到的唤醒词文本
+            lastDetectedWakeWord = finalHypothesis;
+            
+            // 保存检测到的唤醒词文本
+            lastDetectedWakeWord = finalHypothesis;
+            
+            // 保存检测到的唤醒词文本
+            lastDetectedWakeWord = finalHypothesis;
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
+                    // 发送唤醒词检测事件
                     methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
+                    // 自动请求音频数据并发送给Flutter端
+                    requestWakeWordAudioData(null);
+                    Log.i(TAG, "Sent wake word detection event and audio data to Flutter");
                 }
             });
         }
@@ -595,10 +616,17 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             // 创建final变量用于lambda表达式
             final String finalBestMatch = bestMatch;
             
+            // 保存检测到的唤醒词文本
+            lastDetectedWakeWord = finalBestMatch;
+            
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
+                    // 发送唤醒词检测事件
                     methodChannel.invokeMethod("onWakeWordDetected", finalBestMatch);
+                    // 自动请求音频数据并发送给Flutter端
+                    requestWakeWordAudioData(null);
+                    Log.i(TAG, "Sent wake word detection event and audio data to Flutter");
                 }
             });
             return true;
@@ -947,7 +975,11 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             // 通知Flutter端检测到唤醒词
             mainHandler.post(() -> {
                 if (methodChannel != null) {
+                    // 发送唤醒词检测事件
                     methodChannel.invokeMethod("onWakeWordDetected", finalHypothesis);
+                    // 自动请求音频数据并发送给Flutter端
+                    requestWakeWordAudioData(null);
+                    Log.i(TAG, "Sent wake word detection event and audio data to Flutter");
                 }
             });
         }
@@ -999,6 +1031,9 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
             case "testRecognition":
                 testRecognition(result);
                 break;
+            case "requestWakeWordAudioData":
+                requestWakeWordAudioData(result);
+                break;
             default:
                 result.notImplemented();
                 break;
@@ -1028,6 +1063,41 @@ public class VoiceWakeUpService implements MethodCallHandler, RecognitionListene
         Log.i(TAG, "Recognition test: Model initialized and listening");
         if (result != null) {
             result.success(true);
+        }
+    }
+    
+    /// 请求发送唤醒词音频数据
+    private void requestWakeWordAudioData(Result result) {
+        try {
+            Log.i(TAG, "Request for wake word audio data received");
+            
+            // 由于Vosk的SpeechService不提供直接访问音频数据的方法，
+            // 我们使用唤醒词文本作为替代，让服务器能够识别并立即响应
+            if (lastDetectedWakeWord != null && !lastDetectedWakeWord.isEmpty()) {
+                // 将唤醒词文本转换为字节数组，模拟音频数据
+                byte[] wakeWordData = lastDetectedWakeWord.getBytes("UTF-8");
+                
+                // 通过MethodChannel发送唤醒词数据给Flutter端
+                if (methodChannel != null) {
+                    methodChannel.invokeMethod("onWakeWordAudioData", wakeWordData);
+                    Log.i(TAG, "Sent wake word data to Flutter: " + wakeWordData.length + " bytes");
+                }
+            } else {
+                Log.w(TAG, "No wake word detected to send");
+                // 发送空数据作为占位符，确保Flutter端能收到回调
+                if (methodChannel != null) {
+                    methodChannel.invokeMethod("onWakeWordAudioData", new byte[0]);
+                }
+            }
+            
+            if (result != null) {
+                result.success(true);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to request wake word audio data: " + e.getMessage());
+            if (result != null) {
+                result.error("AUDIO_DATA_ERROR", "Failed to request wake word audio data: " + e.getMessage(), null);
+            }
         }
     }
 }

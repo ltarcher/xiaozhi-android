@@ -708,6 +708,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           emit((state as ChatNoMicrophonePermissionState).copyWith(lipSyncValue: event.lipSyncValue));
         }
       }
+      
+      // 处理发送唤醒词音频数据事件
+      if (event is ChatSendWakeWordAudioEvent) {
+        _logger.i('___INFO ChatSendWakeWordAudioEvent received, audio data length: ${event.audioData.length}');
+        
+        // 确保WebSocket连接存在且已连接
+        if (_websocketChannel != null && state.connectionStatus == WebSocketConnectionStatus.connected) {
+          try {
+            // 直接发送音频数据到服务器
+            _websocketChannel!.sink.add(event.audioData);
+            _logger.i('___INFO Wake word audio data sent to server successfully');
+          } catch (e) {
+            _logger.e('___ERROR Failed to send wake word audio data: $e');
+          }
+        } else {
+          _logger.w('___WARNING Cannot send wake word audio data - WebSocket not connected');
+        }
+      }
     });
   }
 

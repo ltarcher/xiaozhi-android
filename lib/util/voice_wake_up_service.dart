@@ -11,6 +11,7 @@ class VoiceWakeUpService {
   Function(String)? onWakeWordDetected;
   Function(String)? onExitWakeWordDetected;
   Function(String)? onError;
+  Function(Uint8List)? onWakeWordAudioData; // 唤醒词音频数据回调
   
   VoiceWakeUpService._internal();
   
@@ -184,6 +185,12 @@ class VoiceWakeUpService {
         onExitWakeWordDetected?.call(hypothesis);
         break;
         
+      case 'onWakeWordAudioData':
+        final Uint8List audioData = call.arguments as Uint8List;
+        print('VoiceWakeUpService: Wake word audio data received: ${audioData.length} bytes');
+        onWakeWordAudioData?.call(audioData);
+        break;
+        
       case 'onError':
         final String error = call.arguments as String;
         print('VoiceWakeUpService: Error: $error');
@@ -206,10 +213,22 @@ class VoiceWakeUpService {
     }
   }
   
+  /// 请求发送唤醒词音频数据
+  Future<void> requestWakeWordAudioData() async {
+    try {
+      await _channel.invokeMethod('requestWakeWordAudioData');
+      print('VoiceWakeUpService: Requested wake word audio data');
+    } catch (e) {
+      print('VoiceWakeUpService: Failed to request wake word audio data: $e');
+    }
+  }
+  
   /// 释放资源
   void dispose() {
     onWakeWordDetected = null;
+    onExitWakeWordDetected = null;
     onError = null;
+    onWakeWordAudioData = null;
     _channel.setMethodCallHandler(null);
   }
 }

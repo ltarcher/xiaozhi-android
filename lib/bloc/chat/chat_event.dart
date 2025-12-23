@@ -63,3 +63,10 @@ class ChatLipSyncUpdateEvent extends ChatEvent {
 
   ChatLipSyncUpdateEvent({required this.lipSyncValue});
 }
+
+// 发送唤醒词音频数据事件
+class ChatSendWakeWordAudioEvent extends ChatEvent {
+  final Uint8List audioData;
+
+  ChatSendWakeWordAudioEvent({required this.audioData});
+}

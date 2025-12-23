@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:math' as math; // 添加数学库导入
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -15,6 +18,7 @@ import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
 import 'package:xiaozhi/util/voice_wake_up_service.dart'; // 添加语音唤醒服务导入
+import 'package:xiaozhi/util/common_utils.dart'; // 添加CommonUtils导入
 import 'package:uuid/uuid.dart'; // 添加UUID导入
 
 import 'call_page.dart';
@@ -304,6 +308,91 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         _handleWakeWordDetected(hypothesis);
       };
       
+      // 生成模拟的唤醒词音频数据
+      Uint8List _generateSimulatedWakeWordAudio(String wakeWordText) {
+        // 创建一个简单的模拟音频数据
+        // 实际应用中，这里可以使用TTS(文本转语音)生成真实的音频数据
+        // 目前我们创建一个包含唤醒词信息的模拟音频格式
+        
+        // 使用Opus编码的模拟音频数据（根据chat_bloc.dart中的处理逻辑）
+        // 创建一个足够大的缓冲区，模拟真实的音频数据
+        final int sampleRate = 16000;
+        final int durationMs = 1000; // 1秒的音频
+        final int samplesCount = (sampleRate * durationMs) ~/ 1000;
+        final int audioDataSize = samplesCount * 2; // 16位音频，每个样本2字节
+        
+        Uint8List audioData = Uint8List(audioDataSize);
+        
+        // 在音频数据中嵌入唤醒词文本（作为简单的标识）
+        List<int> wakeWordBytes = wakeWordText.codeUnits;
+        
+        // 将唤醒词文本的字节分散到音频数据中
+        for (int i = 0; i < audioDataSize && i < wakeWordBytes.length * 10; i++) {
+          int textIndex = (i / 10).floor();
+          if (textIndex < wakeWordBytes.length) {
+            // 使用简单的正弦波模拟语音
+            double frequency = 440.0 + (wakeWordBytes[textIndex] % 200); // 基础频率加上变化
+            double amplitude = 0.5;
+            double phase = (i * 2.0 * math.pi * frequency / sampleRate) % (2.0 * math.pi);
+            int sample = (amplitude * 32767.0 * math.sin(phase)).round();
+            
+            // 将16位样本转换为字节
+            audioData[i * 2] = sample & 0xFF;
+            audioData[i * 2 + 1] = (sample >> 8) & 0xFF;
+          } else {
+            // 填充剩余部分为静音
+            audioData[i * 2] = 0;
+            audioData[i * 2 + 1] = 0;
+          }
+        }
+        
+        return audioData;
+      }
+      
+      // 添加发送唤醒词音频数据给服务器的方法
+      void _sendWakeWordAudioDataToServer(Uint8List audioData) {
+        try {
+          // 确保WebSocket连接存在
+          final currentState = chatBloc.state;
+          if (currentState.connectionStatus.toString().contains('connected')) {
+            if (kDebugMode) {
+              print('ChatPage: Sending wake word audio data to server: ${audioData.length} bytes');
+            }
+            
+            // 将字节数据转换为文本
+            String wakeWordText = String.fromCharCodes(audioData);
+            
+            // 生成模拟的唤醒词音频数据
+            Uint8List simulatedAudioData = _generateSimulatedWakeWordAudio(wakeWordText);
+            
+            // 通过事件发送模拟的音频数据
+            chatBloc.add(ChatSendWakeWordAudioEvent(audioData: simulatedAudioData));
+            
+            if (kDebugMode) {
+              print('ChatPage: Sent simulated wake word audio data: ${simulatedAudioData.length} bytes');
+            }
+          } else {
+            if (kDebugMode) {
+              print('ChatPage: WebSocket not connected, cannot send wake word audio data');
+            }
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('ChatPage: Error sending wake word audio data: $e');
+          }
+        }
+      }
+      
+      // 设置唤醒词音频数据回调
+      _voiceWakeUpService.onWakeWordAudioData = (Uint8List audioData) {
+        if (kDebugMode) {
+          print('ChatPage: Wake word audio data received: ${audioData.length} bytes');
+        }
+        
+        // 发送唤醒词音频数据给服务器
+        _sendWakeWordAudioDataToServer(audioData);
+      };
+      
       // 设置退出唤醒词检测回调
       _voiceWakeUpService.onExitWakeWordDetected = (String hypothesis) {
         if (kDebugMode) {
@@ -490,6 +579,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       print('ChatPage: Voice wake up service stopped');
     }
     
+    // 请求唤醒词音频数据并发送给服务器
+    _voiceWakeUpService.requestWakeWordAudioData();
+    
     // 显示提示信息
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -518,7 +610,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 开始连续对话（类似call_page.dart）
     chatBloc.add(ChatStartCallEvent());
     
-    // 发送唤醒词给服务器端
+    if (kDebugMode) {
+      print('ChatPage: Started call event, recording should begin automatically');
+    }
+    
+    // 发送唤醒词文本消息给服务器端
     chatBloc.add(ChatOnMessageEvent(
       message: StorageMessage(
         id: Uuid().v4(),
@@ -527,10 +623,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         createdAt: DateTime.now(),
       ),
     ));
-    
-    if (kDebugMode) {
-      print('ChatPage: Sent wake word to server: $wakeWord');
-    }
     
     // 触发录音开始事件，但不显示对话框
     holdToTalkKey.currentState!.setSpeaking(true);
@@ -542,7 +634,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 开始口型同步
     _lipSyncController.start();
+    
+    if (kDebugMode) {
+      print('ChatPage: Wake word sent as text message, recording started');
+    }
   }
+  
   
   // 退出唤醒模式
   void _exitWakeMode() {
