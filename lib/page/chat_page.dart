@@ -71,6 +71,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   
   // 添加唤醒服务重试定时器
   Timer? _wakeUpRetryTimer;
+  
+  // 添加连续对话模式超时定时器
+  Timer? _conversationTimeoutTimer;
+  static const Duration _conversationTimeout = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -248,6 +252,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 取消唤醒服务重试定时器
     _wakeUpRetryTimer?.cancel();
+    // 取消连续对话模式超时定时器
+    _conversationTimeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -578,6 +584,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 开始口型同步
     _lipSyncController.start();
+    
+    // 重置连续对话模式超时定时器
+    _resetConversationTimeout();
+    
+    // 启动连续对话模式超时定时器
+    _startConversationTimeout();
   }
   
   // 退出唤醒模式
@@ -585,6 +597,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (kDebugMode) {
       print('ChatPage: Exiting wake mode');
     }
+    
+    // 取消连续对话模式超时定时器
+    _conversationTimeoutTimer?.cancel();
     
     if (mounted) {
       setState(() {
@@ -602,7 +617,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             setState(() {
               _isVoiceWakeUpReady = started;
             });
-            
+           
             // 如果启动失败，启动定时重试
             if (!started) {
               _scheduleWakeUpRetry();
@@ -649,6 +664,53 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
       }
     });
+  }
+  
+  /// 开始连续对话模式超时定时器
+  void _startConversationTimeout() {
+    // 取消现有的定时器
+    _conversationTimeoutTimer?.cancel();
+    
+    if (kDebugMode) {
+      print('ChatPage: Starting conversation timeout timer (${_conversationTimeout.inSeconds} seconds)');
+    }
+    
+    // 创建新的定时器，15秒后自动退出连续对话模式
+    _conversationTimeoutTimer = Timer(_conversationTimeout, () {
+      if (mounted && _isWakeModeActive) {
+        if (kDebugMode) {
+          print('ChatPage: Conversation timeout reached, exiting wake mode');
+        }
+        
+        // 显示提示信息
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.timer_off, color: Colors.white),
+                SizedBox(width: 8),
+                Text('连续对话超时，重新进入唤醒词检测模式...'),
+              ],
+            ),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // 退出唤醒模式
+        _exitWakeMode();
+      }
+    });
+  }
+  
+  /// 重置连续对话模式超时定时器
+  void _resetConversationTimeout() {
+    if (_isWakeModeActive) {
+      _startConversationTimeout();
+      if (kDebugMode) {
+        print('ChatPage: Reset conversation timeout timer');
+      }
+    }
   }
   
   clearUp() async {
@@ -990,6 +1052,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 }
               }
             }
+            
+            // 如果处于唤醒模式，收到新消息时重置超时定时器
+            if (_isWakeModeActive && chatState.messageList.isNotEmpty) {
+              _resetConversationTimeout();
+            }
           }
           
           // 处理退出唤醒模式事件
@@ -1015,6 +1082,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           // 监听口型同步值变化（添加阈值避免频繁更新）
           if (chatState.lipSyncValue > 0.01) {
             _handleServerAudioLipSync(chatState.lipSyncValue);
+            
+            // 如果处于唤醒模式且检测到口型活动，重置超时定时器
+            if (_isWakeModeActive) {
+              _resetConversationTimeout();
+            }
           }
           return Scaffold(
             appBar: AppBar(
