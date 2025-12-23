@@ -16,10 +16,10 @@ import 'package:xiaozhi/util/common_utils.dart'; // 添加工具类导入
 import 'package:xiaozhi/widget/hold_to_talk_widget.dart';
 import 'package:xiaozhi/widget/live2d_widget.dart';
 import 'package:xiaozhi/util/audio_processor.dart'; // 添加音频处理导入
+import 'package:xiaozhi/config/lip_sync_config.dart'; // 添加口型同步配置导入
 import 'package:xiaozhi/util/voice_wake_up_service.dart'; // 添加语音唤醒服务导入
 import 'package:uuid/uuid.dart'; // 添加UUID导入
 
-import 'call_page.dart';
 import 'setting_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -93,6 +93,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     // 初始化口型同步控制器
     _lipSyncController = LipSyncController(
       onLipSyncUpdate: _onLipSyncUpdate,
+      audioProcessor: AudioProcessor(config: LipSyncConfig()),
     );
     
     // 初始化语音唤醒服务
@@ -101,6 +102,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     
     // 获取唤醒词
     _restoreWakeWord();
+    
+    // 加载口型同步配置
+    _restoreLipSyncConfig();
     
     super.initState();
   }
@@ -211,6 +215,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } catch (e) {
       if (kDebugMode) {
         print('ChatPage: Error restoring model index: $e');
+      }
+    }
+  }
+  
+  // 从持久化存储恢复口型同步配置
+  Future<void> _restoreLipSyncConfig() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      double? exaggeration = await prefsUtil.getLipSyncExaggeration();
+      
+      if (exaggeration != null) {
+        LipSyncConfig().exaggerationLevel = exaggeration;
+        if (kDebugMode) {
+          print('ChatPage: Restored lip sync exaggeration: $exaggeration');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('ChatPage: Error restoring lip sync config: $e');
       }
     }
   }
@@ -921,7 +944,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _activationCode = otaState.code;
               _activationUrl = otaState.url;
             });
-            
+           
             if (kDebugMode) {
               print('ChatPage: Updated state to show activation dialog with code: ${otaState.code}');
             }
@@ -940,7 +963,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               _activationCode = null;
               _activationUrl = null;
             });
-            
+           
             if (kDebugMode) {
               print('ChatPage: Updated state to hide activation dialog');
             }
@@ -984,29 +1007,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed: () async {
-                            if (kDebugMode) {
-                              print('ChatPage: User rejected microphone permission');
-                            }
-                            Navigator.pop(context);
-                          },
-                          child: Text(AppLocalizations.of(context)!.reject),
-                        ),
+                            onPressed: () async {
+                              if (kDebugMode) {
+                                print('ChatPage: User rejected microphone permission');
+                              }
+                              Navigator.pop(context);
+                            },
+                            child: Text(AppLocalizations.of(context)!.reject),
+                          ),
                         SizedBox(width: XConst.spacer),
                         FilledButton(
-                          onPressed: () async {
-                            if (kDebugMode) {
-                              print('ChatPage: User granted microphone permission');
-                            }
-                            Navigator.pop(context);
-                            chatBloc.add(
-                              ChatStartListenEvent(
-                                isRequestMicrophonePermission: true,
-                              ),
-                            );
-                          },
-                          child: Text(AppLocalizations.of(context)!.agree),
-                        ),
+                            onPressed: () async {
+                              if (kDebugMode) {
+                                print('ChatPage: User granted microphone permission');
+                              }
+                              Navigator.pop(context);
+                              chatBloc.add(
+                                ChatStartListenEvent(
+                                  isRequestMicrophonePermission: true,
+                                ),
+                              );
+                            },
+                            child: Text(AppLocalizations.of(context)!.agree),
+                          ),
                       ],
                     ),
                   ],
@@ -1035,7 +1058,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               }
               clearUp();
             }
-            
+           
             // 当收到新消息时，触发Live2D模型的随机表情（限制频率避免性能问题）
             // 只在非唤醒模式下触发表情，避免表情触发导致的循环问题
             if (chatState.messageList.isNotEmpty && !_isWakeModeActive) {
@@ -1052,7 +1075,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 }
               }
             }
-            
+           
             // 如果处于唤醒模式，收到新消息时重置超时定时器
             if (_isWakeModeActive && chatState.messageList.isNotEmpty) {
               _resetConversationTimeout();
@@ -1082,7 +1105,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           // 监听口型同步值变化（添加阈值避免频繁更新）
           if (chatState.lipSyncValue > 0.01) {
             _handleServerAudioLipSync(chatState.lipSyncValue);
-            
+           
             // 如果处于唤醒模式且检测到口型活动，重置超时定时器
             if (_isWakeModeActive) {
               _resetConversationTimeout();
@@ -1254,9 +1277,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                           text,
                                           style: TextStyle(
                                             color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimaryContainer
-                                                  .withValues(alpha: 0.5),
+                                                    .colorScheme
+                                                    .onPrimaryContainer
+                                                    .withValues(alpha: 0.5),
                                           ),
                                         ),
                                       );
@@ -1283,7 +1306,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                                   Container(
                                                     constraints: BoxConstraints(
                                                       maxWidth:
-                                                          mediaQuery.size.width * 0.75,
+                                                            mediaQuery.size.width * 0.75,
                                                     ),
                                                     margin: EdgeInsets.only(
                                                       top: XConst.spacer,
@@ -1309,19 +1332,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                                       e.text,
                                                       style: TextStyle(
                                                         color:
-                                                              e.sendByMe
-                                                                  ? Theme.of(context)
-                                                                      .colorScheme
-                                                                      .onPrimaryContainer
-                                                                  : Theme.of(context)
-                                                                      .colorScheme
-                                                                      .onTertiaryContainer,
+                                                                e.sendByMe
+                                                                    ? Theme.of(context)
+                                                                        .colorScheme
+                                                                        .onPrimaryContainer
+                                                                    : Theme.of(context)
+                                                                        .colorScheme
+                                                                        .onTertiaryContainer,
                                                       ),
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                            )
+                                              )
                                             .toList(),
                                   ),
                                 ),
@@ -1341,17 +1364,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           if (kDebugMode) {
                             print('ChatPage: Tap down on hold-to-talk button');
                           }
-                          
+                           
                           // 获取当前状态，检查WebSocket连接状态
                           final currentState = chatBloc.state;
                           final connectionStatus = currentState.connectionStatus.toString();
-                          
+                           
                           // 如果连接状态不是已连接，显示提示信息
                           if (!connectionStatus.contains('connected')) {
                             if (kDebugMode) {
                               print('ChatPage: WebSocket not connected, status: $connectionStatus');
                             }
-                            
+                           
                             // 显示连接状态提示
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -1368,14 +1391,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               ),
                             );
                           }
-                          
+                           
                           holdToTalkKey.currentState!.setCancelTapUp(false);
                           if (!_isPressing) {
                             setState(() {
                               _isPressing = true;
                             });
                           }
-                          
+                           
                           // 开始口型同步
                           _lipSyncController.start();
                         },
@@ -1397,17 +1420,17 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           if (kDebugMode) {
                             print('ChatPage: Long press started on hold-to-talk button');
                           }
-                          
+                           
                           // 获取当前状态，检查WebSocket连接状态
                           final currentState = chatBloc.state;
                           final connectionStatus = currentState.connectionStatus.toString();
-                          
+                           
                           // 如果连接状态不是已连接，显示提示信息
                           if (!connectionStatus.contains('connected')) {
                             if (kDebugMode) {
                               print('ChatPage: WebSocket not connected, status: $connectionStatus');
                             }
-                            
+                           
                             // 显示连接状态提示
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -1424,7 +1447,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               ),
                             );
                           }
-                          
+                           
                           holdToTalkKey.currentState!.setSpeaking(true);
                           if (!_isPressing) {
                             setState(() {
@@ -1432,7 +1455,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                             });
                           }
                           chatBloc.add(ChatStartListenEvent());
-                          
+                           
                           // 开始口型同步
                           _lipSyncController.start();
                         },
@@ -1496,7 +1519,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
-                            
+                             
                             // 添加测试按钮（仅调试模式显示）
                             /*
                             if (kDebugMode) ...[
@@ -1520,11 +1543,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-                
+                 
                 // HoldToTalkWidget覆盖在页面上层，确保它始终可见
                 // 在唤醒模式下隐藏"说点什么"的对话框
                 HoldToTalkWidget(key: holdToTalkKey, hideDialog: _isWakeModeActive),
-                
+                 
                 // 授权对话框作为页面的一部分，而不是弹窗
                 if (_showActivationDialog && _activationCode != null)
                   Positioned.fill(

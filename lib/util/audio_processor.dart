@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:xiaozhi/config/lip_sync_config.dart';
 
 /// 音频处理工具类，用于分析音频并提取口型同步参数
 class AudioProcessor {
@@ -16,13 +17,18 @@ class AudioProcessor {
 
   /// 音频采样率
   final int _sampleRate;
+  
+  /// 口型同步配置
+  final LipSyncConfig _config;
 
   AudioProcessor({
-    double energyThreshold = 0.005, // 降低静音阈值，更敏感
-    double smoothingFactor = 0.1, // 降低平滑因子，使变化更明显
+    double? energyThreshold,
+    double? smoothingFactor,
     int sampleRate = 16000,
-  })  : _energyThreshold = energyThreshold,
-        _smoothingFactor = smoothingFactor,
+    LipSyncConfig? config,
+  })  : _config = config ?? LipSyncConfig(),
+        _energyThreshold = energyThreshold ?? LipSyncConfig().energyThreshold,
+        _smoothingFactor = smoothingFactor ?? LipSyncConfig().smoothingFactor,
         _sampleRate = sampleRate;
 
   /// 处理音频数据并计算口型同步值
@@ -56,19 +62,19 @@ class AudioProcessor {
   /// 将音频能量转换为口型同步值
   double _energyToLipSyncValue(double energy) {
     // 如果能量低于阈值，认为是静音
-    if (energy < _energyThreshold) {
+    if (energy < _config.energyThreshold) {
       return 0.0;
     }
 
-    // 使用更激进的能量映射算法，增强口型变化幅度
-    double normalizedEnergy = (energy - _energyThreshold) / (0.3 - _energyThreshold);
+    // 使用配置中的参数进行能量映射算法，增强口型变化幅度
+    double normalizedEnergy = (energy - _config.energyThreshold) / (0.15 / _config.exaggerationLevel - _config.energyThreshold);
     normalizedEnergy = max(0.0, min(1.0, normalizedEnergy));
     
-    // 使用平方根函数增强中等音量的敏感性，并添加放大系数
-    double enhancedValue = sqrt(normalizedEnergy) * 1.3; // 放大1.3倍
+    // 使用配置中的参数增强中等音量的敏感性，并添加放大系数
+    double enhancedValue = pow(normalizedEnergy, _config.lowVolumeSensitivity) * _config.exaggerationLevel;
     
-    // 应用轻微的S型曲线，使高音量部分更敏感
-    double sigmoidValue = enhancedValue / (1.0 + exp(-4 * (enhancedValue - 0.5)));
+    // 应用配置中的S型曲线，使高音量部分更敏感
+    double sigmoidValue = enhancedValue / (1.0 + exp(-_config.highVolumeSensitivity * (enhancedValue - 0.3)));
     
     return min(1.0, max(0.0, sigmoidValue));
   }
@@ -76,7 +82,7 @@ class AudioProcessor {
   /// 平滑口型同步值，避免剧烈变化
   double _smoothValue(double currentValue) {
     double smoothedValue = _lastLipSyncValue +
-        _smoothingFactor * (currentValue - _lastLipSyncValue);
+        _config.smoothingFactor * (currentValue - _lastLipSyncValue);
     _lastLipSyncValue = smoothedValue;
     return smoothedValue;
   }

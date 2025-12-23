@@ -26,6 +26,8 @@ class SharedPreferencesUtil {
 
   final String _keyLive2DModelIndex = 'LIVE2D_MODEL_INDEX';
 
+  final String _keyLipSyncExaggeration = 'LIP_SYNC_EXAGGERATION';
+
   Future<void> init() async {
     String? otaUrl = await getOtaUrl();
     if (null == otaUrl) {
@@ -120,5 +122,13 @@ class SharedPreferencesUtil {
 
   Future<bool> setLive2DModelIndex(int value) async {
     return (await SharedPreferences.getInstance()).setInt(_keyLive2DModelIndex, value);
+  }
+
+  Future<double?> getLipSyncExaggeration() async {
+    return (await SharedPreferences.getInstance()).getDouble(_keyLipSyncExaggeration);
+  }
+
+  Future<bool> setLipSyncExaggeration(double value) async {
+    return (await SharedPreferences.getInstance()).setDouble(_keyLipSyncExaggeration, value);
   }
 }

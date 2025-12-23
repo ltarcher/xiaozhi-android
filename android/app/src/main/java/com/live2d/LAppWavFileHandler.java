@@ -97,10 +97,11 @@ public class LAppWavFileHandler extends Thread {
                  .get(samples);
         
         // 计算RMS值用于口型同步
-        int framesPerSecond = 60; // 每秒更新60次口型
+        int framesPerSecond = 90; // 提高到每秒更新90次口型，使变化更流畅
         int samplesPerFrame = sampleRate / framesPerSecond;
+        int overlap = samplesPerFrame / 4; // 添加重叠窗口，提高平滑度
         
-        for (int i = 0; i < samples.length; i += samplesPerFrame) {
+        for (int i = 0; i < samples.length; i += samplesPerFrame - overlap) {
             int endIndex = Math.min(i + samplesPerFrame, samples.length);
             double rms = calculateRMS(samples, i, endIndex);
             
@@ -142,21 +143,21 @@ public class LAppWavFileHandler extends Thread {
      * @return 口型同步值(0.0-1.0)
      */
     private double rmsToLipSyncValue(double rms) {
-        // 降低静音阈值，使更多音频信号能够触发口型变化
-        double threshold = 0.005; // 从0.01降低到0.005
+        // 进一步降低静音阈值，使更多音频信号能够触发口型变化
+        double threshold = 0.003; // 从0.005降低到0.003，更敏感
         if (rms < threshold) {
             return 0.0;
         }
         
         // 使用更激进的缩放算法，增强口型变化幅度
-        double normalizedRms = (rms - threshold) / (0.2 - threshold); // 归一化到0-1范围
+        double normalizedRms = (rms - threshold) / (0.15 - threshold); // 降低分母，增强敏感度
         normalizedRms = Math.max(0.0, Math.min(1.0, normalizedRms));
         
-        // 使用平方根函数增强中等音量的敏感性，并添加放大系数
-        double enhancedValue = Math.sqrt(normalizedRms) * 1.5; // 放大1.5倍
+        // 使用更激进的函数增强中等音量的敏感性，并添加更大放大系数
+        double enhancedValue = Math.pow(normalizedRms, 0.3) * 2.0; // 放大2.0倍，使用0.3次幂增强低音量部分
         
-        // 应用轻微的S型曲线，使高音量部分更敏感
-        double sigmoidValue = enhancedValue / (1.0 + Math.exp(-5 * (enhancedValue - 0.5)));
+        // 应用更陡峭的S型曲线，使高音量部分更敏感
+        double sigmoidValue = enhancedValue / (1.0 + Math.exp(-8 * (enhancedValue - 0.3))); // 更陡峭的曲线
         
         // 限制在0.0-1.0范围内
         return Math.min(1.0, Math.max(0.0, sigmoidValue));

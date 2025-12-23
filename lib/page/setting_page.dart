@@ -6,6 +6,7 @@ import 'package:xiaozhi/bloc/chat/chat_bloc.dart';
 import 'package:xiaozhi/common/x_const.dart';
 import 'package:xiaozhi/l10n/generated/app_localizations.dart';
 import 'package:xiaozhi/util/shared_preferences_util.dart';
+import 'package:xiaozhi/config/lip_sync_config.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -31,6 +32,9 @@ class _SettingPageState extends State<SettingPage> {
   List<String> _modelList = [];
   int _currentModelIndex = 0;
   bool _modelListLoaded = false;
+  
+  // 口型同步配置
+  double _lipSyncExaggeration = 2.0;
   
   // Live2D控制通道
   static const MethodChannel _live2dChannel = MethodChannel('live2d_channel');
@@ -67,6 +71,9 @@ class _SettingPageState extends State<SettingPage> {
     
     // 加载Live2D模型列表和当前选择的模型
     _loadLive2DModelSettings();
+    
+    // 加载口型同步配置
+    _loadLipSyncSettings();
     
     super.initState();
   }
@@ -134,6 +141,24 @@ class _SettingPageState extends State<SettingPage> {
     } catch (e) {
       if (kDebugMode) {
         print("SettingPage: Error loading Live2D model settings: $e");
+      }
+    }
+  }
+  
+  // 加载口型同步设置
+  Future<void> _loadLipSyncSettings() async {
+    try {
+      SharedPreferencesUtil prefsUtil = SharedPreferencesUtil();
+      double? exaggeration = await prefsUtil.getLipSyncExaggeration();
+      
+      if (mounted) {
+        setState(() {
+          _lipSyncExaggeration = exaggeration ?? 2.0; // 默认值
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("SettingPage: Error loading lip sync settings: $e");
       }
     }
   }
@@ -348,6 +373,12 @@ class _SettingPageState extends State<SettingPage> {
                 await prefsUtil.setWakeWord(_wakeWordController.text.trim());
                 // 保存Live2D模型索引
                 await prefsUtil.setLive2DModelIndex(_currentModelIndex);
+                
+                // 保存口型同步配置
+                await prefsUtil.setLipSyncExaggeration(_lipSyncExaggeration);
+                
+                // 更新口型同步配置
+                LipSyncConfig().exaggerationLevel = _lipSyncExaggeration;
                  
                 if (!mounted) return;
                 scaffoldMessenger.showSnackBar(
@@ -487,6 +518,106 @@ class _SettingPageState extends State<SettingPage> {
                             Text('加载模型列表中...'),
                           ],
                         ),
+                ],
+              ),
+            ),
+          ),
+          
+          // 口型同步设置部分
+          SizedBox(height: XConst.spacer * 3),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: EdgeInsets.all(XConst.spacer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.record_voice_over,
+                        color: primaryColor,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        '口型夸张程度',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  Text(
+                    '调整Live2D模型的口型夸张程度，数值越大口型变化越明显',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  Slider(
+                    value: _lipSyncExaggeration,
+                    min: 1.0,
+                    max: 3.0,
+                    divisions: 20,
+                    label: _lipSyncExaggeration.toStringAsFixed(1),
+                    onChanged: (double value) {
+                      setState(() {
+                        _lipSyncExaggeration = value;
+                      });
+                    },
+                    activeColor: primaryColor,
+                  ),
+                  SizedBox(height: XConst.spacer),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '自然',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _lipSyncExaggeration = 1.0;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor.withOpacity(0.1),
+                          foregroundColor: primaryColor,
+                        ),
+                        child: Text('自然'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _lipSyncExaggeration = 2.0;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor.withOpacity(0.2),
+                          foregroundColor: primaryColor,
+                        ),
+                        child: Text('默认'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _lipSyncExaggeration = 3.0;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor.withOpacity(0.3),
+                          foregroundColor: primaryColor,
+                        ),
+                        child: Text('夸张'),
+                      ),
+                      Text(
+                        '夸张',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
